@@ -1,0 +1,19 @@
+#!/bin/zsh
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2023-2024 Vypercore. All Rights Reserved
+
+# Check for RHEON_ROOT already being set in the shell
+if [[ "$RHEON_ROOT" != "" ]]; then
+    echo "[\033[0;31mERROR\033[0m] Rheon shell is already activated!"
+    exit 1
+fi
+
+# Work out where the repository is located
+RHEON_ROOT=$(readlink -f ${0:a:h}/..)
+
+USER_HISTFILE=${HISTFILE:-$HOME/.zsh_history}
+
+RHEON_ROOT=$RHEON_ROOT \
+    USER_HISTFILE=$USER_HISTFILE \
+    ZDOTDIR=$RHEON_ROOT/bin/zsh \
+    /bin/zsh -i $@
