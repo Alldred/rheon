@@ -29,6 +29,10 @@ done
 [[ -n "$TEST" ]] || usage
 [[ -f "$TEST" ]] || { echo "ELF not found: $TEST" >&2; exit 1; }
 
+# Run dir = directory containing the ELF; put results.xml there
+RUN_DIR="$(cd "$(dirname "$TEST")" && pwd)"
+export COCOTB_RESULTS_FILE="${RUN_DIR}/results.xml"
+
 if [[ -n "$SEED" ]]; then
   echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST --seed $SEED" >&2
   cd "$RHEON_ROOT" && make run ELF="$TEST" RANDOM_SEED="$SEED"
