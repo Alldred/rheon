@@ -11,11 +11,16 @@ authors = [
 ]
 license = {text = "MIT"}
 readme = "README.md"
-requires-python = ">=3.11"
+requires-python = ">=3.13"
 dependencies = [
+    "cocotb>=2.0",
+    "forastero @ git+ssh://git@github.com/Intuity/forastero.git",
     "gitpython==3.1.41",
     "packtype",
     "pydantic>=2.8.2",
+    "pyelftools>=0.31",
+    "lome @ git+ssh://git@github.com/Alldred/lome.git",
+    "tibbar @ git+ssh://git@github.com/Alldred/tibbar.git",
 ]
 
 [project.optional-dependencies]
@@ -30,3 +35,6 @@ rheon = "rheon.__main__:cli"
 
 [tool.hatch.build.targets.wheel]
 packages = ["rheon"]
+
+[tool.hatch.metadata]
+allow-direct-references = true

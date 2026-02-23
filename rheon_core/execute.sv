@@ -48,15 +48,17 @@ module execute #(
   output logic        result_is_branch,
   output logic        result_is_jal,
   output logic        result_is_jalr,
-  // D-memory request
+  // D-memory request (DUT initiator; TB drives req_ready)
   output logic        dmem_req_valid,
   output logic [ADDR_W-1:0] dmem_req_addr,
   output logic [XLEN-1:0] dmem_req_wdata,
   output logic [7:0]  dmem_req_wstrb,
   output logic        dmem_req_is_store,
-  // D-memory response (pipeline stalls until ready)
-  input  logic        dmem_rsp_ready,
-  input  logic [XLEN-1:0] dmem_rsp_rdata
+  input  logic        dmem_req_ready,
+  // D-memory response (TB initiator: valid/data; DUT drives ready)
+  input  logic        dmem_rsp_valid,
+  input  logic [XLEN-1:0] dmem_rsp_rdata,
+  output logic        dmem_rsp_ready
 );
 
   logic [XLEN-1:0] alu_a, alu_b;
@@ -123,7 +125,7 @@ module execute #(
       req_wdata_r    <= '0;
       req_wstrb_r    <= '0;
       req_is_store_r <= 1'b0;
-    end else if (dmem_rsp_ready && pending_ldst) begin
+    end else if (dmem_rsp_valid && dmem_rsp_ready && pending_ldst) begin
       pending_ldst <= 1'b0;
     end else if ((is_load || is_store) && !pending_ldst) begin
       pending_ldst   <= 1'b1;
@@ -139,5 +141,6 @@ module execute #(
   assign dmem_req_wdata   = pending_ldst ? req_wdata_r : store_data;
   assign dmem_req_wstrb   = pending_ldst ? req_wstrb_r : wstrb_comb;
   assign dmem_req_is_store = pending_ldst ? req_is_store_r : is_store;
+  assign dmem_rsp_ready   = pending_ldst;  // DUT ready to accept response when request in flight
 
 endmodule

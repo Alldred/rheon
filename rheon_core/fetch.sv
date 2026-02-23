@@ -17,12 +17,14 @@ module fetch #(
   output logic [INSTR_WIDTH-1:0] instr,
   output logic [ADDR_W-1:0]      instr_pc,
   output logic                   valid,
-  // I-memory request
+  // I-memory request (DUT initiator: valid/addr; TB drives ready)
   output logic                   imem_req_valid,
   output logic [ADDR_W-1:0]      imem_req_addr,
-  // I-memory response (line of FETCH_LINE_WORDS instructions)
-  input  logic                   imem_rsp_ready,
-  input  logic [INSTR_WIDTH*FETCH_LINE_WORDS-1:0] imem_rsp_data
+  input  logic                   imem_req_ready,
+  // I-memory response (TB initiator: valid/data; DUT drives ready)
+  input  logic                   imem_rsp_valid,
+  input  logic [INSTR_WIDTH*FETCH_LINE_WORDS-1:0] imem_rsp_data,
+  output logic                   imem_rsp_ready
 );
 
   localparam int LINE_BYTES = FETCH_LINE_WORDS * (INSTR_WIDTH/8);
@@ -49,6 +51,7 @@ module fetch #(
   wire need_line = (count <= 1) && !pending_req && !flush;
   assign imem_req_valid = need_line;
   assign imem_req_addr  = line_align(pc);
+  assign imem_rsp_ready = pending_req;  // DUT ready to accept response when request in flight
 
   always_ff @(posedge clk) begin
     if (!rst_n) begin
@@ -65,14 +68,14 @@ module fetch #(
       rd_ptr         <= '0;
       pending_req     <= 1'b0;
     end else begin
-      if (imem_rsp_ready && pending_req) begin
+      if (imem_rsp_valid && imem_rsp_ready && pending_req) begin
         for (int i = 0; i < FETCH_LINE_WORDS; i++)
           buffer[i] <= imem_rsp_data[i*INSTR_WIDTH +: INSTR_WIDTH];
         line_base_pc <= req_addr;
         rd_ptr       <= req_start_ptr;
         count        <= FETCH_LINE_WORDS - req_start_ptr;
         pending_req  <= 1'b0;
-      end else if (need_line) begin
+      end else if (need_line && imem_req_ready) begin
         pending_req    <= 1'b1;
         req_addr       <= line_align(pc);
         req_start_ptr  <= pc[LINE_ADDR_LSB-1:2];

@@ -10,19 +10,23 @@ module rheon_core #(
 ) (
   input  logic        clk,
   input  logic        rst_n,
-  // I-memory
+  // I-memory (req: DUT initiator; rsp: TB initiator)
   output logic        imem_req_valid,
   output logic [ADDR_W-1:0] imem_req_addr,
-  input  logic        imem_rsp_ready,
+  input  logic        imem_req_ready,
+  input  logic        imem_rsp_valid,
   input  logic [INSTR_WIDTH*FETCH_LINE_WORDS-1:0] imem_rsp_data,
-  // D-memory
+  output logic        imem_rsp_ready,
+  // D-memory (req: DUT initiator; rsp: TB initiator)
   output logic        dmem_req_valid,
   output logic [ADDR_W-1:0] dmem_req_addr,
   output logic [XLEN-1:0] dmem_req_wdata,
   output logic [7:0]  dmem_req_wstrb,
   output logic        dmem_req_is_store,
-  input  logic        dmem_rsp_ready,
-  input  logic [XLEN-1:0] dmem_rsp_rdata
+  input  logic        dmem_req_ready,
+  input  logic        dmem_rsp_valid,
+  input  logic [XLEN-1:0] dmem_rsp_rdata,
+  output logic        dmem_rsp_ready
 );
 
   // ----- FETCH -----
@@ -44,8 +48,10 @@ module rheon_core #(
     .valid          (f_valid),
     .imem_req_valid (imem_req_valid),
     .imem_req_addr  (imem_req_addr),
-    .imem_rsp_ready (imem_rsp_ready),
-    .imem_rsp_data  (imem_rsp_data)
+    .imem_req_ready (imem_req_ready),
+    .imem_rsp_valid (imem_rsp_valid),
+    .imem_rsp_data  (imem_rsp_data),
+    .imem_rsp_ready (imem_rsp_ready)
   );
 
   // ----- F->D pipeline reg -----
@@ -182,6 +188,7 @@ module rheon_core #(
   logic [ADDR_W-1:0] e_branch_target;
   logic        e_branch_taken;
   logic [2:0]  e_store_size_r;
+  logic [ADDR_W-1:0] ldst_addr;
 
   execute #(.ADDR_W(ADDR_W)) execute_i (
     .clk               (clk),
@@ -211,7 +218,7 @@ module rheon_core #(
     .alu_result         (e_alu_result),
     .branch_target      (e_branch_target),
     .branch_taken       (e_branch_taken),
-    .ldst_addr          (),
+    .ldst_addr          (ldst_addr),
     .store_data         (),
     .store_size         (e_store_size_r),
     .ldst_is_store      (),
@@ -227,20 +234,23 @@ module rheon_core #(
     .dmem_req_wdata     (dmem_req_wdata),
     .dmem_req_wstrb     (dmem_req_wstrb),
     .dmem_req_is_store  (dmem_req_is_store),
-    .dmem_rsp_ready     (dmem_rsp_ready),
-    .dmem_rsp_rdata     (dmem_rsp_rdata)
+    .dmem_req_ready     (dmem_req_ready),
+    .dmem_rsp_valid     (dmem_rsp_valid),
+    .dmem_rsp_rdata     (dmem_rsp_rdata),
+    .dmem_rsp_ready     (dmem_rsp_ready)
   );
 
-  // Stall pipeline until load/store completes (D-mem response)
-  assign stall = dmem_req_valid && !dmem_rsp_ready;
+  // Stall pipeline until load/store completes (D-mem response accepted)
+  wire dmem_rsp_accepted = dmem_rsp_valid && dmem_rsp_ready;
+  assign stall = dmem_req_valid && !dmem_rsp_accepted;
 
   // ----- E->C pipeline reg -----
-  logic [XLEN-1:0] c_alu_result, c_load_data;
-  logic [ADDR_W-1:0] c_pc_plus4, c_branch_target;
+  logic [XLEN-1:0] c_alu_result, c_load_data, c_rdata1, c_rdata2;
+  logic [ADDR_W-1:0] c_pc_plus4, c_branch_target, c_load_addr;
   logic        c_branch_taken;
-  logic [4:0]  c_rd;
+  logic [4:0]  c_rd, c_rs1, c_rs2;
   logic        c_wb_src_alu, c_wb_src_pc4, c_wb_src_load;
-  logic        c_is_branch, c_is_jal, c_is_jalr;
+  logic        c_is_branch, c_is_jal, c_is_jalr, c_is_load;
   logic        c_valid;
 
   always_ff @(posedge clk) begin
@@ -248,20 +258,30 @@ module rheon_core #(
       c_valid <= 1'b0;
     end else if (flush) begin
       c_valid <= 1'b0;
-    end else if (!stall) begin
-      c_alu_result   <= e_alu_result;
-      c_load_data    <= dmem_rsp_rdata;
-      c_pc_plus4     <= e_pc_r + 64'd4;
-      c_branch_target <= e_branch_target;
-      c_branch_taken <= e_branch_taken;
-      c_rd           <= e_rd;
-      c_wb_src_alu   <= e_wb_src_alu;
-      c_wb_src_pc4   <= e_wb_src_pc4;
-      c_wb_src_load  <= e_wb_src_load;
-      c_is_branch    <= e_is_branch_r;
-      c_is_jal       <= e_is_jal_r;
-      c_is_jalr      <= e_is_jalr_r;
-      c_valid        <= e_valid;
+    end else begin
+      // Capture load data as soon as response handshakes, independent of stall
+      if (dmem_rsp_accepted)
+        c_load_data <= dmem_rsp_rdata;
+      if (!stall) begin
+        c_alu_result   <= e_alu_result;
+        c_pc_plus4     <= e_pc_r + 64'd4;
+        c_branch_target <= e_branch_target;
+        c_branch_taken <= e_branch_taken;
+        c_rd           <= e_rd;
+        c_rs1          <= e_rs1_r;
+        c_rs2          <= e_rs2_r;
+        c_rdata1       <= e_rdata1;
+        c_rdata2       <= e_rdata2;
+        c_is_load      <= e_is_load_r;
+        c_load_addr    <= ldst_addr;
+        c_wb_src_alu   <= e_wb_src_alu;
+        c_wb_src_pc4   <= e_wb_src_pc4;
+        c_wb_src_load  <= e_wb_src_load;
+        c_is_branch    <= e_is_branch_r;
+        c_is_jal       <= e_is_jal_r;
+        c_is_jalr      <= e_is_jalr_r;
+        c_valid        <= e_valid;
+      end
     end
   end
 
