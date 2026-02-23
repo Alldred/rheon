@@ -1,0 +1,47 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Generate a Tibbar test only (no simulation). Creates run dir with test.S and test.elf.
+#
+# Usage:
+#   ./scripts/rheon_gen --test <testname> --seed <seed>
+#
+# Creates runs/<testname>_seed<N>_<YYYYMMDD>_<HHMMSS>/ with test.S, test.elf.
+# Prints ELF path on the last line (for use by rheon_run).
+# TIBBAR_CMD default: uv run tibbar. RISC-V toolchain required for asm2elf.
+
+set -euo pipefail
+RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNS_BASE="${RHEON_ROOT}/runs"
+TIBBAR_CMD="${TIBBAR_CMD:-uv run tibbar}"
+
+usage() {
+  echo "Usage: $0 --test <testname> --seed <seed>" >&2
+  echo "  --test  passed to Tibbar as --generator (e.g. simple)" >&2
+  echo "  --seed  used for Tibbar" >&2
+  echo "  Run dir: runs/<testname>_seed<seed>_<YYYYMMDD>_<HHMMSS>/" >&2
+  exit 1
+}
+
+TEST=""
+SEED=""
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --test) TEST="$2"; shift 2 ;;
+    --seed) SEED="$2"; shift 2 ;;
+    *) usage ;;
+  esac
+done
+[[ -n "$TEST" ]] || usage
+[[ -n "$SEED" ]] || usage
+
+TS=$(date +%Y%m%d_%H%M%S)
+RUN_DIR="${RUNS_BASE}/${TEST}_seed${SEED}_${TS}"
+mkdir -p "$RUN_DIR"
+ASM="${RUN_DIR}/test.S"
+ELF="${RUN_DIR}/test.elf"
+
+echo "Run directory: $RUN_DIR" >&2
+$TIBBAR_CMD --generator "$TEST" --output "$ASM" --seed "$SEED"
+"${RHEON_ROOT}/scripts/asm2elf.sh" "$ASM" --link -o "$ELF"
+echo "ELF: $ELF" >&2
+echo "$ELF"
