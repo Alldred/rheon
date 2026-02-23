@@ -32,13 +32,13 @@ module alu (
   logic [31:0]      op_a_lo, op_b_lo, addw_subw_lo, shiftw_lo;
   logic             sub = (op == ALU_SUB || op == ALU_SUBW);
   logic [XLEN-1:0]  add_b = sub ? ~op_b : op_b;
-  logic [XLEN-1:0]  add_cin = sub ? 1'b1 : 1'b0;
+  logic [XLEN-1:0]  add_cin = sub ? 64'd1 : 64'd0;
 
   assign add_sub_result = op_a + add_b + add_cin;
 
   assign op_a_lo = op_a[31:0];
   assign op_b_lo = op_b[31:0];
-  assign addw_subw_lo = op_a_lo + (sub ? ~op_b_lo : op_b_lo) + add_cin;
+  assign addw_subw_lo = op_a_lo + (sub ? ~op_b_lo : op_b_lo) + (sub ? 32'd1 : 32'd0);
   assign shiftw_lo = op == ALU_SRAW
     ? ($signed(op_a_lo) >>> op_b_lo[4:0])
     : op == ALU_SRLW
@@ -53,7 +53,7 @@ module alu (
 
   // Shifter for 64-bit
   logic [XLEN-1:0] shamt_mask;
-  assign shamt_mask = op_b[5:0];  // RV64I: shift amount is 6-bit for 64-bit, lower 5 for 32-bit W
+  assign shamt_mask = {{(XLEN-6){1'b0}}, op_b[5:0]};  // RV64I: shift amount is 6-bit for 64-bit, lower 5 for 32-bit W
   always_comb begin
     shift_result = '0;
     case (op)
