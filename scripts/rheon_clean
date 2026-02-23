@@ -1,0 +1,22 @@
+#!/usr/bin/env bash
+# SPDX-License-Identifier: MIT
+# Remove all runs and build directory.
+#
+# Usage:
+#   ./scripts/rheon_clean
+#
+# Deletes runs/ (all generated run dirs) and sim_build/ (Verilator/cocotb build).
+
+set -euo pipefail
+RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+RUNS_BASE="${RHEON_ROOT}/runs"
+SIM_BUILD="${RHEON_ROOT}/sim_build"
+
+if [[ -d "$RUNS_BASE" ]]; then
+  rm -rf "$RUNS_BASE"
+  echo "Removed $RUNS_BASE"
+fi
+if [[ -d "$SIM_BUILD" ]]; then
+  rm -rf "$SIM_BUILD"
+  echo "Removed $SIM_BUILD"
+fi
