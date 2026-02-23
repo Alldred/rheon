@@ -11,6 +11,16 @@ fi
 # Work out where the repository is located
 RHEON_ROOT=$(readlink -f ${0:a:h}/..)
 
+# Check and update tibbar/lome before entering the shell
+(
+    cd "$RHEON_ROOT" || exit 1
+    uv lock --upgrade-package tibbar --upgrade-package lome
+    uv sync
+) || {
+    echo "[\033[0;31mERROR\033[0m] Failed to update tibbar/lome via uv" >&2
+    exit 1
+}
+
 USER_HISTFILE=${HISTFILE:-$HOME/.zsh_history}
 
 RHEON_ROOT=$RHEON_ROOT \

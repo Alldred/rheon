@@ -4,6 +4,9 @@
 # Jump to RHEON_ROOT
 cd $RHEON_ROOT
 
+# Add project scripts to PATH (rheon_gen, rheon_sim, rheon_run)
+export PATH="$RHEON_ROOT/scripts:$PATH"
+
 # Custom prompt to make it clear this is the rheon environment
 PROMPT="[RHEON]:$PROMPT"
 
