@@ -44,4 +44,5 @@ echo "Run directory: $RUN_DIR" >&2
 $TIBBAR_CMD --generator "$TEST" --output "$ASM" --seed "$SEED"
 "${RHEON_ROOT}/scripts/asm2elf.sh" "$ASM" --link -o "$ELF"
 echo "ELF: $ELF" >&2
+echo "Rerun: ${RHEON_ROOT}/scripts/rheon_gen --test $TEST --seed $SEED" >&2
 echo "$ELF"

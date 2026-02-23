@@ -30,7 +30,9 @@ done
 [[ -f "$TEST" ]] || { echo "ELF not found: $TEST" >&2; exit 1; }
 
 if [[ -n "$SEED" ]]; then
+  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST --seed $SEED" >&2
   cd "$RHEON_ROOT" && make run ELF="$TEST" RANDOM_SEED="$SEED"
 else
+  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST" >&2
   cd "$RHEON_ROOT" && make run ELF="$TEST"
 fi
