@@ -83,13 +83,13 @@ module fetch #(
       if (count > 0 && !stall) begin
         rd_ptr  <= rd_ptr + 1;
         count   <= count - 1;
-        pc      <= line_base_pc + (rd_ptr + 1) * INSTR_BYTES;
+        pc      <= line_base_pc + (64'(rd_ptr) + 1) * INSTR_BYTES;
       end
     end
   end
 
   assign instr    = buffer[rd_ptr];
-  assign instr_pc = line_base_pc + rd_ptr * INSTR_BYTES;
+  assign instr_pc = line_base_pc + 64'(rd_ptr) * INSTR_BYTES;
   assign valid    = (count > 0) && !flush;
 
 endmodule

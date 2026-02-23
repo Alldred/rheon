@@ -92,7 +92,7 @@ module execute #(
   end
 
   // Store size / strobe from funct3 (intermediate to avoid combinational loop in mux below)
-  assign store_size = load_store_funct3[1:0];  // 0=B, 1=H, 2=W, 3=D
+  assign store_size = {1'b0, load_store_funct3[1:0]};  // 0=B, 1=H, 2=W, 3=D
   logic [7:0] wstrb_comb;
   always_comb begin
     wstrb_comb = 8'b0;

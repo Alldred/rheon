@@ -37,4 +37,5 @@ output="$("${SCRIPT_DIR}/rheon_gen" --test "$TEST" --seed "$SEED" 2>&1)"
 echo "$output"
 ELF="$(echo "$output" | tail -1)"
 [[ -f "$ELF" ]] || { echo "rheon_gen did not produce ELF: $ELF" >&2; exit 1; }
+echo "Rerun: ${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED" >&2
 exec "${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED"

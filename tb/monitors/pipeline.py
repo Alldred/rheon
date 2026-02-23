@@ -7,16 +7,26 @@ from __future__ import annotations
 from typing import Any, Optional
 
 from cocotb.triggers import RisingEdge
+from forastero import BaseIO, IORole
 from forastero.monitor import BaseMonitor
 
 from ..transactions import CommitTx
 
 
-class RheonCoreIO:
-    """Minimal IO that reads hierarchical DUT signals by dotted path (e.g. 'commit_i.instr_valid')."""
+class RheonCoreIO(BaseIO):
+    """
+    Minimal IO for pipeline monitor: satisfies forastero BaseIO, reads hierarchical
+    DUT signals by dotted path (e.g. 'commit_i.instr_valid') via get().
+    """
 
     def __init__(self, dut: Any) -> None:
-        self._dut = dut
+        super().__init__(
+            dut=dut,
+            name="rheon_core",
+            role=IORole.INITIATOR,
+            init_sigs=[],
+            resp_sigs=[],
+        )
 
     def get(self, key: str, default: int = 0) -> int:
         obj: Any = self._dut
