@@ -33,7 +33,7 @@ async def test_elf_loaded(tb: Testbench, log):
         tb.set_entry_point(0)
         await tb.reset()
         for _ in range(100):
-            await Timer(10, units="ns")
+            await Timer(10, unit="ns")
         return
 
     log.info("Loading ELF %s", elf_path)
@@ -43,4 +43,4 @@ async def test_elf_loaded(tb: Testbench, log):
     await tb.reset()
     run_ns = 50_000  # 50 us
     log.info("Running core for %d ns (%.2f us).", run_ns, run_ns / 1_000.0)
-    await Timer(run_ns, units="ns")
+    await Timer(run_ns, unit="ns")

@@ -56,20 +56,20 @@ class PipelineCommitMonitor(BaseMonitor):
                 continue
 
             # Commit stage: emit transaction when instruction commits
-            instr_valid = int(dut.commit_i.instr_valid) == 1
+            instr_valid = int(dut.commit_i.instr_valid.value) == 1
             if instr_valid:
-                c_pc_plus4 = int(dut.c_pc_plus4)
+                c_pc_plus4 = int(dut.c_pc_plus4.value)
                 commit_pc = (c_pc_plus4 - 4) & ((1 << 64) - 1)
-                next_pc = int(dut.next_pc)
-                rd = int(dut.gpr_rd)
-                wdata = int(dut.gpr_wdata)
-                gpr_we = int(dut.gpr_we) == 1
+                next_pc = int(dut.next_pc.value)
+                rd = int(dut.gpr_rd.value)
+                wdata = int(dut.gpr_wdata.value)
+                gpr_we = int(dut.gpr_we.value) == 1
 
                 # Source registers (C-stage)
-                rs1 = int(dut.c_rs1)
-                rs1_val = int(dut.c_rdata1)
-                rs2 = int(dut.c_rs2)
-                rs2_val = int(dut.c_rdata2)
+                rs1 = int(dut.c_rs1.value)
+                rs1_val = int(dut.c_rdata1.value)
+                rs2 = int(dut.c_rs2.value)
+                rs2_val = int(dut.c_rdata2.value)
 
                 is_store = False
                 store_addr_val: Optional[int] = None
@@ -83,13 +83,13 @@ class PipelineCommitMonitor(BaseMonitor):
                     pending_store = None
 
                 # Load (C-stage)
-                is_load = int(dut.c_is_load) == 1
+                is_load = int(dut.c_is_load.value) == 1
                 load_addr_val: Optional[int] = None
                 load_data_val: Optional[int] = None
                 load_strb_val: Optional[int] = None
                 if is_load:
-                    load_addr_val = int(dut.c_load_addr)
-                    load_data_val = int(dut.c_load_data)
+                    load_addr_val = int(dut.c_load_addr.value)
+                    load_data_val = int(dut.c_load_data.value)
                     load_strb_val = 0xFF  # full doubleword
 
                 tx = CommitTx(
@@ -114,11 +114,14 @@ class PipelineCommitMonitor(BaseMonitor):
                 capture(tx)
 
             # Store request from E stage: record by PC for correlation at commit
-            if int(dut.dmem_req_valid) == 1 and int(dut.dmem_req_is_store) == 1:
-                e_pc = int(dut.e_pc_r)
+            if (
+                int(dut.dmem_req_valid.value) == 1
+                and int(dut.dmem_req_is_store.value) == 1
+            ):
+                e_pc = int(dut.e_pc_r.value)
                 pending_store = (
                     e_pc,
-                    int(dut.dmem_req_addr),
-                    int(dut.dmem_req_wdata),
-                    int(dut.dmem_req_wstrb),
+                    int(dut.dmem_req_addr.value),
+                    int(dut.dmem_req_wdata.value),
+                    int(dut.dmem_req_wstrb.value),
                 )

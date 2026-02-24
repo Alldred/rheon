@@ -22,8 +22,9 @@ ELF ?=
 export TEST_ELF := $(ELF)
 
 # Seed for cocotb (reproducible runs); e.g. make run RANDOM_SEED=42
+# Cocotb 2.x prefers COCOTB_RANDOM_SEED over RANDOM_SEED.
 ifneq ($(RANDOM_SEED),)
-export RANDOM_SEED := $(RANDOM_SEED)
+export COCOTB_RANDOM_SEED := $(RANDOM_SEED)
 endif
 
 # Forastero scoreboard: enable fail-fast by default so any mismatch stops the test.
