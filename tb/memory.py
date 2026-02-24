@@ -67,7 +67,6 @@ def load_elf(path: str | Path, memory: DictMemory) -> int:
     """
     try:
         from elftools.elf.elffile import ELFFile
-        from elftools.elf.segments import Segment
     except ImportError:
         raise ImportError(
             "pyelftools is required for load_elf(); add it to dependencies"
@@ -83,11 +82,11 @@ def load_elf(path: str | Path, memory: DictMemory) -> int:
         entry = elf.header.e_entry
 
         for segment in elf.iter_segments():
-            if not isinstance(segment, Segment):
+            # pyelftools exposes program header fields via mapping-style access.
+            # 'p_type' is usually an enum string like 'PT_LOAD'.
+            if segment["p_type"] != "PT_LOAD":
                 continue
-            if segment.p_type != "PT_LOAD":
-                continue
-            vaddr = segment.p_vaddr
+            vaddr = segment["p_vaddr"]
             data = segment.data()
             for i, b in enumerate(data):
                 memory.write_byte(vaddr + i, b)
