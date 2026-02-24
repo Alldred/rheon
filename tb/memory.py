@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List, Tuple
 
 # Match rheon_core constants (same as rheon_pkg_spec)
 INSTR_WIDTH = 32
@@ -58,6 +59,27 @@ class DictMemory:
     def line_align(self, addr: int) -> int:
         """Return address aligned down to fetch line boundary."""
         return addr & ~(LINE_BYTES - 1)
+
+
+class LomeReadOnlyMemory:
+    """
+    Lome memory adapter backed by DictMemory.
+
+    Loads read through to the shared TB memory. Stores are intentionally
+    non-mutating so the model can predict write intents without perturbing
+    the memory image used by RTL-side traffic.
+    """
+
+    def __init__(self, backing: DictMemory) -> None:
+        self._backing = backing
+        self.store_log: List[Tuple[int, int, int]] = []  # (addr, value, size)
+
+    def load(self, addr: int, size: int) -> int:
+        return self._backing.read(addr, size)
+
+    def store(self, addr: int, value: int, size: int) -> None:
+        # Record intent only; never mutate backing memory.
+        self.store_log.append((addr, value, size))
 
 
 def load_elf(path: str | Path, memory: DictMemory) -> int:

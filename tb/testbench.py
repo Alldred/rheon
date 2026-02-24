@@ -18,23 +18,24 @@ from .drivers import (
     imem_req_ready_driver,
 )
 from .io import DmemIO, ImemIO
-from .memory import DictMemory, load_elf
+from .memory import DictMemory, LomeReadOnlyMemory, load_elf
 from .monitors.memory import DmemRequestMonitor, ImemRequestMonitor
 from .monitors.pipeline import PipelineCommitMonitor, RheonCoreIO
 from .scoreboard import lome_push_reference
 from .transactions import DmemRequest, ImemRequest, MemoryResponse
 
 
-def _make_lome_model():
+def _make_lome_model(*, memory: LomeReadOnlyMemory):
+    """Construct the Lome model with explicit read-only memory integration."""
     try:
         from eumos import Eumos
         from lome import Lome
+
+        return Lome(Eumos(), memory=memory)
     except ImportError as e:
         raise ImportError(
-            "Lome and Eumos are required; add lome to dependencies"
+            "Lome and Eumos are required; add them to rheon dependencies."
         ) from e
-    isa = Eumos()
-    return Lome(isa)
 
 
 class Testbench(BaseBench):
@@ -54,10 +55,11 @@ class Testbench(BaseBench):
             rst_active_high=False,
         )
         self.memory = DictMemory()
+        self._lome_memory = LomeReadOnlyMemory(self.memory)
         self._entry_point: Optional[int] = 0
 
         # Lome model (same initial PC as RTL after reset)
-        self._model = _make_lome_model()
+        self._model = _make_lome_model(memory=self._lome_memory)
 
         # I-memory: req_ready driver, request monitor -> memory_response -> response driver
         imem_io = ImemIO(dut, name="imem", role=IORole.INITIATOR)
@@ -139,10 +141,11 @@ class Testbench(BaseBench):
         """Load ELF into memory; set model PC to entry point; return entry point."""
         entry = load_elf(path, self.memory)
         self._entry_point = entry
-        self._model.set_pc(entry)
+        # One-time boot for Lome: initialise PC; subsequent steps use tick()
+        self._model.poke_pc(entry)
         return entry
 
     def set_entry_point(self, addr: int) -> None:
         """Set initial PC for RTL and model (e.g. after reset)."""
         self._entry_point = addr
-        self._model.set_pc(addr)
+        self._model.poke_pc(addr)

@@ -261,12 +261,9 @@ wheels = [
 [[package]]
 name = "lome"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/Alldred/lome.git#1ce8a7dd80ea7c418a0efe30f761802b717067de" }
+source = { git = "ssh://git@github.com/Alldred/lome.git#60dc4dcf23eafee1d736821e76f64d0e58d48a9f" }
 dependencies = [
     { name = "eumos" },
-    { name = "pre-commit" },
-    { name = "pykwalify" },
-    { name = "pyyaml" },
 ]
 
 [[package]]
