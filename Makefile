@@ -26,6 +26,10 @@ ifneq ($(RANDOM_SEED),)
 export RANDOM_SEED := $(RANDOM_SEED)
 endif
 
+# Forastero scoreboard: enable fail-fast by default so any mismatch stops the test.
+# Override with FAIL_FAST=no if you want to allow mismatches without immediate failure.
+export FAIL_FAST ?= yes
+
 # Default simulator: verilator. Use SIM=icarus for Icarus.
 SIM ?= verilator
 
