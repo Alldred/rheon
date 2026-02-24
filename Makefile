@@ -14,7 +14,7 @@ RHEON_RTL = rheon_core/rheon_pkg.sv \
 
 VERILOG_SOURCES = $(RHEON_RTL)
 
-MODULE = tests.cocotb.test_elf
+MODULE = testcases.test_elf
 TESTCASE =
 
 # ELF to load: pass via command line, e.g. make run ELF=build/out.elf

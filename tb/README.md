@@ -28,7 +28,7 @@ Cocotb testbench for **rheon_core**: shared Python memory, I/D memory drivers, p
 
 ## Usage
 
-Tests live under `tests/cocotb/` and import the testbench:
+Tests live under `testcases/` and import the testbench:
 
 ```python
 from tb import Testbench
@@ -40,6 +40,6 @@ async def test_elf_loaded(tb: Testbench):
     ...
 ```
 
-Run with: `make` (or `MODULE=tests.cocotb.test_elf make`). Top-level is `rheon_core`; no wrapper.
+Run with: `make` (or `MODULE=testcases.test_elf make`). Top-level is `rheon_core`; no wrapper.
 
 **ELF from command line:** `make run ELF=path/to.elf`. **Scripts** (all use `--test` and `--seed`): `./scripts/rheon_gen` (generate only); `./scripts/rheon_sim` (run only, `--test` is elf path); `./scripts/rheon_run` (generate then run). Or `./scripts/run_test.sh` for legacy generate+run with default generator.
