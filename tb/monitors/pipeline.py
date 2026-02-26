@@ -58,6 +58,11 @@ class PipelineCommitMonitor(BaseMonitor):
             # Commit stage: emit transaction when instruction commits
             instr_valid = int(dut.commit_i.instr_valid.value) == 1
             if instr_valid:
+                c_instr = (
+                    int(dut.c_instr.value) & 0xFFFFFFFF
+                    if hasattr(dut, "c_instr")
+                    else 0
+                )
                 c_pc_plus4 = int(dut.c_pc_plus4.value)
                 commit_pc = (c_pc_plus4 - 4) & ((1 << 64) - 1)
                 next_pc = int(dut.next_pc.value)
@@ -95,6 +100,7 @@ class PipelineCommitMonitor(BaseMonitor):
                 tx = CommitTx(
                     pc=commit_pc,
                     next_pc=next_pc,
+                    instr=c_instr & 0xFFFFFFFF,
                     rd=rd,
                     wdata=wdata,
                     we=gpr_we,

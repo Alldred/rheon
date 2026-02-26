@@ -10,12 +10,14 @@ module rheon_core #(
 ) (
   input  logic        clk,
   input  logic        rst_n,
+  // Boot address (e.g. ELF entry); use 0 if not connected
+  input  logic [ADDR_W-1:0] start_pc,
   // I-memory (req: DUT initiator; rsp: TB initiator)
   output logic        imem_req_valid,
   output logic [ADDR_W-1:0] imem_req_addr,
   input  logic        imem_req_ready,
   input  logic        imem_rsp_valid,
-  input  logic [INSTR_WIDTH*FETCH_LINE_WORDS-1:0] imem_rsp_data,
+  input  logic [63:0] imem_rsp_data,
   output logic        imem_rsp_ready,
   // D-memory (req: DUT initiator; rsp: TB initiator)
   output logic        dmem_req_valid,
@@ -40,6 +42,7 @@ module rheon_core #(
   fetch #(.ADDR_W(ADDR_W)) fetch_i (
     .clk            (clk),
     .rst_n          (rst_n),
+    .start_pc       (start_pc),
     .next_pc        (next_pc),
     .flush          (flush),
     .stall          (stall),
@@ -139,6 +142,7 @@ module rheon_core #(
 
   // ----- D->E pipeline reg -----
   logic [4:0]  e_rd_r, e_rs1_r, e_rs2_r;
+  logic [INSTR_WIDTH-1:0] e_instr_r;
   logic [XLEN-1:0] e_rdata1, e_rdata2, e_imm_r;
   logic [ADDR_W-1:0] e_pc_r;
   logic [3:0]  e_alu_op_r;
@@ -155,6 +159,7 @@ module rheon_core #(
       e_valid <= 1'b0;
     end else if (!stall) begin
       e_rd_r    <= dec_rd;
+      e_instr_r <= d_instr;
       e_rs1_r   <= dec_rs1;
       e_rs2_r   <= dec_rs2;
       e_rdata1  <= d_rdata1_fwd;
@@ -245,6 +250,7 @@ module rheon_core #(
   assign stall = dmem_req_valid && !dmem_rsp_accepted;
 
   // ----- E->C pipeline reg -----
+  logic [INSTR_WIDTH-1:0] c_instr;
   logic [XLEN-1:0] c_alu_result, c_load_data, c_rdata1, c_rdata2;
   logic [ADDR_W-1:0] c_pc_plus4, c_branch_target, c_load_addr;
   logic        c_branch_taken;
@@ -263,6 +269,7 @@ module rheon_core #(
       if (dmem_rsp_accepted)
         c_load_data <= dmem_rsp_rdata;
       if (!stall) begin
+        c_instr        <= e_instr_r;
         c_alu_result   <= e_alu_result;
         c_pc_plus4     <= e_pc_r + 64'd4;
         c_branch_target <= e_branch_target;

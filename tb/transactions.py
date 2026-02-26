@@ -19,6 +19,7 @@ class CommitTx(BaseTransaction if BaseTransaction is not object else object):
 
     pc: int = 0
     next_pc: int = 0
+    instr: int = 0  # 32-bit instruction word (opcode = instr & 0x7F)
     # Destination (writeback)
     rd: int = 0
     wdata: int = 0

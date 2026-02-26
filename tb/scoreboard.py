@@ -62,6 +62,8 @@ def lome_push_reference(
     if changes is None:
         raise RuntimeError(f"Lome returned no ChangeRecord at PC 0x{ref_pc_before:x}")
 
+    exp_instr = memory.read_instr(ref_pc_before) & 0xFFFFFFFF
+
     # Expected GPR writeback from canonical Lome ChangeRecord.
     reg_writes = changes.gpr_writes
     exp_rd = 0
@@ -118,6 +120,7 @@ def lome_push_reference(
     expected = CommitTx(
         pc=ref_pc_before,
         next_pc=expected_pc,
+        instr=exp_instr,
         rd=exp_rd,
         wdata=exp_wdata,
         we=exp_we,

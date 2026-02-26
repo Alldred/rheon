@@ -117,8 +117,8 @@ class Testbench(BaseBench):
     def _memory_response(self, component, event, transaction) -> None:
         """On request capture: access memory and enqueue response to the appropriate driver."""
         if component is self.imem_req_mon and isinstance(transaction, ImemRequest):
-            line_addr = self.memory.line_align(transaction.req_addr)
-            data = self.memory.read_line(line_addr)
+            qaddr = self.memory.qword_align(transaction.req_addr)
+            data = self.memory.read_qword(qaddr)
             self.imem_rsp_drv.enqueue(MemoryResponse(data=data))
         elif component is self.dmem_req_mon and isinstance(transaction, DmemRequest):
             if transaction.req_is_store:
@@ -138,14 +138,22 @@ class Testbench(BaseBench):
         return self._model
 
     def load_elf(self, path: str | Path) -> int:
-        """Load ELF into memory; set model PC to entry point; return entry point."""
+        """Load ELF into memory; set model and RTL PC to entry point; return entry point."""
         entry = load_elf(path, self.memory)
         self._entry_point = entry
-        # One-time boot for Lome: initialise PC; subsequent steps use tick()
+        # One-time boot for Lome and RTL (entry can be 2-byte aligned for future RVC)
         self._model.poke_pc(entry)
+        self._drive_start_pc(entry)
         return entry
 
     def set_entry_point(self, addr: int) -> None:
         """Set initial PC for RTL and model (e.g. after reset)."""
         self._entry_point = addr
         self._model.poke_pc(addr)
+        self._drive_start_pc(addr)
+
+    def _drive_start_pc(self, addr: int) -> None:
+        """Drive RTL boot address so fetch starts at ELF entry (must be set before reset)."""
+        start_pc = getattr(self.dut, "start_pc", None)
+        if start_pc is not None:
+            start_pc.value = addr

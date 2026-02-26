@@ -9,9 +9,9 @@ from typing import List, Tuple
 
 # Match rheon_core constants (same as rheon_pkg_spec)
 INSTR_WIDTH = 32
-FETCH_LINE_WORDS = 4
-LINE_BYTES = FETCH_LINE_WORDS * (INSTR_WIDTH // 8)
 XLEN = 64
+# I-memory: 64-bit (8-byte) reads; fetch extracts 32-bit instructions internally
+IMEM_QWORD_BYTES = 8
 
 
 class DictMemory:
@@ -52,13 +52,13 @@ class DictMemory:
         """Read one 32-bit instruction at `addr` (must be 4-byte aligned for semantics)."""
         return self.read(addr, 4) & 0xFFFFFFFF
 
-    def read_line(self, addr: int) -> int:
-        """Read one fetch line (LINE_BYTES bytes) at line-aligned `addr` as single integer."""
-        return self.read(addr, LINE_BYTES)
+    def read_qword(self, addr: int) -> int:
+        """Read one 64-bit qword at 8-byte-aligned `addr` (for I-memory)."""
+        return self.read(addr, IMEM_QWORD_BYTES) & ((1 << (IMEM_QWORD_BYTES * 8)) - 1)
 
-    def line_align(self, addr: int) -> int:
-        """Return address aligned down to fetch line boundary."""
-        return addr & ~(LINE_BYTES - 1)
+    def qword_align(self, addr: int) -> int:
+        """Return address aligned down to 8-byte (I-mem qword) boundary."""
+        return addr & ~(IMEM_QWORD_BYTES - 1)
 
 
 class LomeReadOnlyMemory:

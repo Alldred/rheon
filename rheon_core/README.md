@@ -30,5 +30,5 @@ make pkg
 
 ## Memory interfaces
 
-- **I-memory**: request `valid` + `addr` (line-aligned); response `ready` + `data` (one line of `FETCH_LINE_WORDS` instructions).
+- **I-memory**: request `valid` + `addr` (8-byte aligned); response `ready` + `data` (64 bits). Fetch buffers qwords and extracts 32-bit instructions at any 2-byte alignment (including across qword boundaries).
 - **D-memory**: request `valid`, `addr`, `wdata`, `wstrb`, `is_store`; response `ready` + `rdata` (loads). Pipeline stalls until the transaction completes.
