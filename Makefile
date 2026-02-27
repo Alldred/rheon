@@ -27,6 +27,11 @@ ifneq ($(RANDOM_SEED),)
 export COCOTB_RANDOM_SEED := $(RANDOM_SEED)
 endif
 
+# Verbosity for testbench: logging level (debug, info, warning, error, critical). Case insensitive. debug = committed instruction ASM trace.
+ifneq ($(RHEON_VERBOSITY),)
+export RHEON_VERBOSITY := $(RHEON_VERBOSITY)
+endif
+
 # Forastero scoreboard: enable fail-fast by default so any mismatch stops the test.
 # Override with FAIL_FAST=no if you want to allow mismatches without immediate failure.
 export FAIL_FAST ?= yes

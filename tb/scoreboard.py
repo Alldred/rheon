@@ -4,12 +4,17 @@
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from forastero.monitor import MonitorEvent
 
+from .disasm import disasm_insn
 from .memory import DictMemory
 from .transactions import CommitTx
+from .verbosity import get_verbosity
+
+_log = logging.getLogger(__name__)
 
 # Channel name for pipeline commit monitor (must match register name in testbench)
 PIPE_MON_CHANNEL = "pipe_mon"
@@ -39,6 +44,11 @@ def lome_push_reference(
     """
     if event != MonitorEvent.CAPTURE or not isinstance(obj, CommitTx):
         return
+
+    if get_verbosity() == "debug":
+        asm = disasm_insn(obj.instr, obj.pc, decoder=tb.model.decoder)
+        # Log at INFO so it appears despite cocotb's default handler level
+        _log.info("  %#x: %s", obj.pc, asm)
 
     # Lome model is run in lockstep with the DUT using tick():
     # - Model PC is initialised once at boot (poke_pc).

@@ -9,12 +9,14 @@ from pathlib import Path
 from cocotb.triggers import Timer
 
 from tb import Testbench
+from tb.verbosity import configure_logging_from_env
 
 
 @Testbench.testcase()
 async def test_elf_loaded(tb: Testbench, log):
     """Load ELF from TEST_ELF env or default path, run for a bounded time; scoreboard checks each commit.
     ELF can be set via command line: make run ELF=path/to.elf"""
+    configure_logging_from_env()
     elf_path = os.environ.get("TEST_ELF")
     if not elf_path:
         log.info("TEST_ELF not set; probing default ELF locations.")
