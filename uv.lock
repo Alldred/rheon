@@ -182,7 +182,7 @@ wheels = [
 [[package]]
 name = "forastero"
 version = "1.2.1"
-source = { git = "ssh://git@github.com/Intuity/forastero.git#a545b13a1430883687a181660abbb58436ebcdc5" }
+source = { git = "https://github.com/Intuity/forastero.git#14aae28229233473971d5c39b7136d027ee612e5" }
 dependencies = [
     { name = "cocotb" },
     { name = "tabulate" },
@@ -651,7 +651,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "cocotb", specifier = ">=2.0" },
-    { name = "forastero", git = "ssh://git@github.com/Intuity/forastero.git" },
+    { name = "forastero", git = "https://github.com/Intuity/forastero.git" },
     { name = "gitpython", specifier = "==3.1.41" },
     { name = "lome", git = "ssh://git@github.com/Alldred/lome.git" },
     { name = "packtype" },
@@ -660,7 +660,7 @@ requires-dist = [
     { name = "pyelftools", specifier = ">=0.31" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
-    { name = "tibbar", git = "ssh://git@github.com/Alldred/tibbar.git" },
+    { name = "tibbar", git = "https://github.com/Alldred/tibbar.git" },
 ]
 provides-extras = ["dev"]
 
@@ -791,7 +791,7 @@ wheels = [
 [[package]]
 name = "tibbar"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/Alldred/tibbar.git#3b8e1ce328fb7ac4a01e6caf3df2c6f9d2bc8b56" }
+source = { git = "https://github.com/Alldred/tibbar.git#3b8e1ce328fb7ac4a01e6caf3df2c6f9d2bc8b56" }
 dependencies = [
     { name = "eumos" },
     { name = "jsonschema" },
