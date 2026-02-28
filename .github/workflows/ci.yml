@@ -28,13 +28,21 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y verilator
 
-      - name: Configure git for private GitHub deps
+      - name: Configure git URL rewrites for GitHub deps
+        env:
+          GH_TOKEN: ${{ secrets.GH_TOKEN }}
+          GITHUB_TOKEN: ${{ github.token }}
         run: |
-          # Use GH_TOKEN (PAT with repo access) or fall back to GITHUB_TOKEN.
-          # For cross-org deps (e.g. Intuity/forastero) add repo secret GH_TOKEN.
-          TOKEN="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
-          git config --global url."https://${TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
-          git config --global url."https://${TOKEN}@github.com/".insteadOf "git@github.com:"
+          # Use GH_TOKEN (PAT with repo access) when provided; otherwise use
+          # the workflow-scoped GITHUB_TOKEN.
+          TOKEN="${GH_TOKEN:-$GITHUB_TOKEN}"
+          AUTH_URL="https://x-access-token:${TOKEN}@github.com/"
+
+          # Force all common GitHub SSH forms to HTTPS so pip/uv can resolve
+          # git dependencies without SSH keys.
+          git config --global --add url."${AUTH_URL}".insteadOf "ssh://git@github.com/"
+          git config --global --add url."${AUTH_URL}".insteadOf "git@github.com:"
+          git config --global --add url."${AUTH_URL}".insteadOf "ssh://github.com/"
 
       - name: Install Python dependencies
         run: |
