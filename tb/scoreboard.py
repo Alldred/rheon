@@ -28,6 +28,14 @@ def _size_to_strobe(size: int) -> int:
     return (1 << size) - 1
 
 
+def _rd_operand(instr: int) -> Optional[int]:
+    """Return decoded destination register index when the instruction has rd, else None."""
+    opcode = instr & 0x7F
+    if opcode in (0x03, 0x07, 0x13, 0x17, 0x1B, 0x33, 0x37, 0x3B, 0x67, 0x6F, 0x73):
+        return (instr >> 7) & 0x1F
+    return None
+
+
 def lome_push_reference(
     monitor: Any,
     event: MonitorEvent,
@@ -80,15 +88,16 @@ def lome_push_reference(
 
     exp_instr = memory.read_instr(ref_pc_before) & 0xFFFFFFFF
 
-    # Expected GPR writeback: rd is always the destination index (0..31); rd_val = None when no write (e.g. x0).
+    # Expected architectural destination: suppress x0 writes as no writeback.
     reg_writes = changes.gpr_writes
-    exp_rd: Optional[int] = None
+    exp_rd = _rd_operand(exp_instr)
     exp_rd_val: Optional[int] = None
-    if reg_writes:
+    if exp_rd == 0:
+        exp_rd = None
+    if exp_rd is not None and reg_writes:
         rw = reg_writes[0]
-        reg_idx = int(rw.register)
-        exp_rd = reg_idx
-        exp_rd_val = int(rw.value) if reg_idx != 0 else None
+        if int(rw.register) == exp_rd:
+            exp_rd_val = int(rw.value)
 
     # Expected GPR reads: None when this instruction has no such operand.
     reg_reads = changes.gpr_reads

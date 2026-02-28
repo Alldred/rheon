@@ -31,6 +31,15 @@ def _rs2_operand(
     return (rs2_raw, rdata2)
 
 
+def _rd_operand(instr: int, rd_raw: int) -> Optional[int]:
+    """Return decoded destination register index when the instruction has rd, else None."""
+    opcode = instr & 0x7F
+    # RV64 integer dest-bearing opcodes (incl CSR/system instructions).
+    if opcode in (0x03, 0x07, 0x13, 0x17, 0x1B, 0x33, 0x37, 0x3B, 0x67, 0x6F, 0x73):
+        return rd_raw
+    return None
+
+
 class RheonCoreIO(BaseIO):
     """
     Minimal IO for pipeline monitor: satisfies forastero BaseIO, reads hierarchical
@@ -86,15 +95,16 @@ class PipelineCommitMonitor(BaseMonitor):
                 next_pc = int(dut.next_pc.value)
                 gpr_rd_raw = int(dut.gpr_rd.value)
                 gpr_we = int(dut.gpr_we.value) == 1
-                has_wb = (
-                    int(dut.c_wb_src_alu.value) == 1
-                    or int(dut.c_wb_src_pc4.value) == 1
-                    or int(dut.c_wb_src_load.value) == 1
-                )
-                rd = (
-                    gpr_rd_raw if has_wb else None
-                )  # 0 for JAL x0; None when no writeback
-                rd_val = int(dut.gpr_wdata.value) if gpr_we else None
+                rd = _rd_operand(c_instr, gpr_rd_raw)
+                if rd is None or rd == 0:
+                    rd_val = None
+                elif gpr_we:
+                    rd_val = int(dut.gpr_wdata.value)
+                else:
+                    rd_val = None
+                if rd == 0:
+                    # Suppress x0 destination as no architectural writeback.
+                    rd = None
 
                 # Source registers (C-stage)
                 rs1_raw = int(dut.c_rs1.value)
