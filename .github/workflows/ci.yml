@@ -28,12 +28,18 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y verilator
 
+      - name: Configure git for private GitHub deps
+        run: |
+          # Use GH_TOKEN (PAT with repo access) or fall back to GITHUB_TOKEN.
+          # For cross-org deps (e.g. Intuity/forastero) add repo secret GH_TOKEN.
+          TOKEN="${{ secrets.GH_TOKEN || secrets.GITHUB_TOKEN }}"
+          git config --global url."https://${TOKEN}@github.com/".insteadOf "ssh://git@github.com/"
+          git config --global url."https://${TOKEN}@github.com/".insteadOf "git@github.com:"
+
       - name: Install Python dependencies
         run: |
           python -m pip install --upgrade pip
           pip install -e .
-        # Private git deps (forastero, lome, tibbar): use a deploy key or
-        # token (e.g. git config url."https://${TOKEN}@github.com/".insteadOf ssh://git@github.com/).
 
       - name: Run simulation (smoke, no ELF)
         run: make run
