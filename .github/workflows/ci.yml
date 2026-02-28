@@ -23,10 +23,19 @@ jobs:
         with:
           python-version: "3.13"
 
-      - name: Install Verilator
+      - name: Install Verilator (5.036+ for cocotb)
         run: |
           sudo apt-get update
-          sudo apt-get install -y verilator
+          sudo apt-get install -y git help2man perl python3 make autoconf g++ flex bison ccache
+          sudo apt-get install -y libfl2 libfl-dev zlib1g zlib1g-dev
+          git clone --depth 1 --branch v5.036 https://github.com/verilator/verilator
+          cd verilator
+          autoconf
+          ./configure
+          make -j$(nproc)
+          sudo make install
+          cd ..
+          verilator --version
 
       - name: Configure git URL rewrites for GitHub deps
         env:

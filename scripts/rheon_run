@@ -57,6 +57,17 @@ ELF="$(tail -1 "$GEN_OUT")"
 RERUN="${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED"
 [[ ${#VERBOSE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${VERBOSE_ARGS[*]}"
 [[ ${#WAVE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${WAVE_ARGS[*]}"
-echo "Running simulation: rheon_sim --test $ELF --seed $SEED${VERBOSE_ARGS[*]:+ ${VERBOSE_ARGS[*]}}${WAVE_ARGS[*]:+ ${WAVE_ARGS[*]}}" >&2
+
+SIM_CMD=("${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED")
+SIM_DESC="rheon_sim --test $ELF --seed $SEED"
+if [[ ${#VERBOSE_ARGS[@]} -gt 0 ]]; then
+  SIM_CMD+=("${VERBOSE_ARGS[@]}")
+  SIM_DESC="$SIM_DESC ${VERBOSE_ARGS[*]}"
+fi
+if [[ ${#WAVE_ARGS[@]} -gt 0 ]]; then
+  SIM_CMD+=("${WAVE_ARGS[@]}")
+  SIM_DESC="$SIM_DESC ${WAVE_ARGS[*]}"
+fi
+echo "Running simulation: $SIM_DESC" >&2
 echo "Rerun: $RERUN" >&2
-exec "${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED" "${VERBOSE_ARGS[@]}" "${WAVE_ARGS[@]}"
+exec "${SIM_CMD[@]}"
