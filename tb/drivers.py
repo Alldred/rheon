@@ -7,7 +7,7 @@ from __future__ import annotations
 from cocotb.triggers import RisingEdge
 from forastero import BaseDriver
 
-from .memory import LINE_BYTES, XLEN
+from .memory import IMEM_QWORD_BYTES, XLEN
 from .transactions import MemoryResponse
 
 
@@ -27,8 +27,8 @@ class ImemResponseDriver(BaseDriver):
     """Drive I-memory response: assert rsp_valid and rsp_data; complete when DUT asserts rsp_ready."""
 
     async def drive(self, obj: MemoryResponse) -> None:
-        line_bits = LINE_BYTES * 8
-        await _drive_rsp_valid_ready(self, "rsp_data", obj.data, (1 << line_bits) - 1)
+        qword_bits = IMEM_QWORD_BYTES * 8
+        await _drive_rsp_valid_ready(self, "rsp_data", obj.data, (1 << qword_bits) - 1)
 
 
 class DmemResponseDriver(BaseDriver):

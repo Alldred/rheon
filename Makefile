@@ -14,7 +14,7 @@ RHEON_RTL = rheon_core/rheon_pkg.sv \
 
 VERILOG_SOURCES = $(RHEON_RTL)
 
-MODULE = tests.cocotb.test_elf
+MODULE = testcases.test_elf
 TESTCASE =
 
 # ELF to load: pass via command line, e.g. make run ELF=build/out.elf
@@ -22,9 +22,19 @@ ELF ?=
 export TEST_ELF := $(ELF)
 
 # Seed for cocotb (reproducible runs); e.g. make run RANDOM_SEED=42
+# Cocotb 2.x prefers COCOTB_RANDOM_SEED over RANDOM_SEED.
 ifneq ($(RANDOM_SEED),)
-export RANDOM_SEED := $(RANDOM_SEED)
+export COCOTB_RANDOM_SEED := $(RANDOM_SEED)
 endif
+
+# Verbosity for testbench: logging level (debug, info, warning, error, critical). Case insensitive. debug = committed instruction ASM trace.
+ifneq ($(RHEON_VERBOSITY),)
+export RHEON_VERBOSITY := $(RHEON_VERBOSITY)
+endif
+
+# Forastero scoreboard: enable fail-fast by default so any mismatch stops the test.
+# Override with FAIL_FAST=no if you want to allow mismatches without immediate failure.
+export FAIL_FAST ?= yes
 
 # Default simulator: verilator. Use SIM=icarus for Icarus.
 SIM ?= verilator

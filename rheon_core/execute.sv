@@ -25,6 +25,7 @@ module execute #(
   input  logic        is_load,
   input  logic        is_store,
   input  logic [2:0]  load_store_funct3,
+  input  logic        instr_valid,
   input  logic        wb_src_alu,
   input  logic        wb_src_pc4,
   input  logic        wb_src_load,
@@ -74,7 +75,7 @@ module execute #(
 
   assign branch_target = pc + imm;
   assign ldst_addr     = alu_result[ADDR_W-1:0];
-  assign store_data    = rdata2;
+  assign store_data    = op_b;
 
   // Branch condition
   always_comb begin
@@ -94,13 +95,22 @@ module execute #(
   // Store size / strobe from funct3 (intermediate to avoid combinational loop in mux below)
   assign store_size = {1'b0, load_store_funct3[1:0]};  // 0=B, 1=H, 2=W, 3=D
   logic [7:0] wstrb_comb;
+  logic [ADDR_W-1:0] ldst_addr_aligned;
+  logic [2:0] ldst_offset;
+  logic [XLEN-1:0] store_data_aligned;
+  logic mem_op_valid;
+  logic req_fire, rsp_fire;
+  assign ldst_addr_aligned = {ldst_addr[ADDR_W-1:3], 3'b0};
+  assign ldst_offset = ldst_addr[2:0];
+  assign mem_op_valid = instr_valid && (is_load || is_store);
   always_comb begin
     wstrb_comb = 8'b0;
-    if (store_size == 0) wstrb_comb = 8'b0000_0001 << ldst_addr[2:0];
-    else if (store_size == 1) wstrb_comb = (8'b11 << {ldst_addr[2:1], 1'b0});
-    else if (store_size == 2) wstrb_comb = (8'b1111 << {ldst_addr[2], 2'b0});
+    if (store_size == 0) wstrb_comb = 8'b0000_0001 << ldst_offset;
+    else if (store_size == 1) wstrb_comb = (8'b11 << {ldst_offset[2:1], 1'b0});
+    else if (store_size == 2) wstrb_comb = (8'b1111 << {ldst_offset[2], 2'b0});
     else wstrb_comb = 8'b1111_1111;
   end
+  assign store_data_aligned = store_data << {ldst_offset, 3'b0};
 
   assign ldst_is_store = is_store;
   assign result_rd = rd;
@@ -125,22 +135,24 @@ module execute #(
       req_wdata_r    <= '0;
       req_wstrb_r    <= '0;
       req_is_store_r <= 1'b0;
-    end else if (dmem_rsp_valid && dmem_rsp_ready && pending_ldst) begin
+    end else if (rsp_fire && pending_ldst) begin
       pending_ldst <= 1'b0;
-    end else if ((is_load || is_store) && !pending_ldst) begin
+    end else if (req_fire && !pending_ldst) begin
       pending_ldst   <= 1'b1;
-      req_addr_r    <= ldst_addr;
-      req_wdata_r   <= store_data;
+      req_addr_r    <= ldst_addr_aligned;
+      req_wdata_r   <= store_data_aligned;
       req_wstrb_r   <= wstrb_comb;
       req_is_store_r <= is_store;
     end
   end
 
-  assign dmem_req_valid   = pending_ldst || (is_load || is_store);
-  assign dmem_req_addr    = pending_ldst ? req_addr_r : ldst_addr;
-  assign dmem_req_wdata   = pending_ldst ? req_wdata_r : store_data;
+  assign dmem_req_valid   = mem_op_valid && !pending_ldst;
+  assign dmem_req_addr    = pending_ldst ? req_addr_r : ldst_addr_aligned;
+  assign dmem_req_wdata   = pending_ldst ? req_wdata_r : store_data_aligned;
   assign dmem_req_wstrb   = pending_ldst ? req_wstrb_r : wstrb_comb;
   assign dmem_req_is_store = pending_ldst ? req_is_store_r : is_store;
   assign dmem_rsp_ready   = pending_ldst;  // DUT ready to accept response when request in flight
+  assign req_fire = dmem_req_valid && dmem_req_ready;
+  assign rsp_fire = dmem_rsp_valid && dmem_rsp_ready;
 
 endmodule

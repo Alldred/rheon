@@ -3,26 +3,51 @@
 # Run the testbench with an ELF (no generation).
 #
 # Usage:
-#   ./scripts/rheon_sim --test <elf_path> [--seed <seed>]
+#   ./scripts/rheon_sim --test <elf_path> [--seed <seed>] [-v|--verbosity <level>]
 #
 # Runs the cocotb testbench with the given ELF. If --seed is given, uses RANDOM_SEED for reproducibility.
+# Verbosity: -v or --verbosity sets logging level (debug, info, warning, error, critical). Case insensitive.
+#   debug = include committed instruction ASM trace.
 
 set -euo pipefail
 RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+# Valid logging levels (case insensitive)
+VALID_LEVELS="debug info warning error critical"
+
 usage() {
-  echo "Usage: $0 --test <elf_path> [--seed <seed>]" >&2
-  echo "  --test  path to .elf file to load" >&2
-  echo "  --seed  optional; if set, passed as RANDOM_SEED to cocotb" >&2
+  echo "Usage: $0 --test <elf_path> [--seed <seed>] [-v|--verbosity <level>]" >&2
+  echo "  --test       path to .elf file to load" >&2
+  echo "  --seed       optional; if set, passed as RANDOM_SEED to cocotb" >&2
+  echo "  -v, --verbosity  optional; logging level: debug, info, warning, error, critical (case insensitive)." >&2
   exit 1
+}
+
+_test_level() {
+  local want
+  want=$(echo "$1" | tr '[:upper:]' '[:lower:]')
+  for l in $VALID_LEVELS; do
+    [[ "$l" == "$want" ]] && return 0
+  done
+  return 1
 }
 
 TEST=""
 SEED=""
+VERBOSITY=""
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --test) TEST="$2"; shift 2 ;;
     --seed) SEED="$2"; shift 2 ;;
+    -v|--verbosity)
+      if [[ -n "${2:-}" ]] && _test_level "$2"; then
+        VERBOSITY="$(echo "$2" | tr '[:upper:]' '[:lower:]')"
+        shift 2
+      else
+        echo "Invalid or missing verbosity. Use one of: $VALID_LEVELS" >&2
+        usage
+      fi
+      ;;
     *) usage ;;
   esac
 done
@@ -32,11 +57,16 @@ done
 # Run dir = directory containing the ELF; put results.xml there
 RUN_DIR="$(cd "$(dirname "$TEST")" && pwd)"
 export COCOTB_RESULTS_FILE="${RUN_DIR}/results.xml"
+[[ -n "$VERBOSITY" ]] && export RHEON_VERBOSITY="$VERBOSITY"
+
+MAKE_ARGS=(ELF="$TEST")
+[[ -n "$SEED" ]] && MAKE_ARGS+=(RANDOM_SEED="$SEED")
+[[ -n "$VERBOSITY" ]] && MAKE_ARGS+=(RHEON_VERBOSITY="$VERBOSITY")
 
 if [[ -n "$SEED" ]]; then
   echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST --seed $SEED" >&2
-  cd "$RHEON_ROOT" && make run ELF="$TEST" RANDOM_SEED="$SEED"
 else
   echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST" >&2
-  cd "$RHEON_ROOT" && make run ELF="$TEST"
 fi
+[[ -n "$VERBOSITY" ]] && echo "Verbosity: $VERBOSITY" >&2
+cd "$RHEON_ROOT" && make run "${MAKE_ARGS[@]}"

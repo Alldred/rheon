@@ -10,12 +10,14 @@ module rheon_core #(
 ) (
   input  logic        clk,
   input  logic        rst_n,
+  // Boot address (e.g. ELF entry); use 0 if not connected
+  input  logic [ADDR_W-1:0] start_pc,
   // I-memory (req: DUT initiator; rsp: TB initiator)
   output logic        imem_req_valid,
   output logic [ADDR_W-1:0] imem_req_addr,
   input  logic        imem_req_ready,
   input  logic        imem_rsp_valid,
-  input  logic [INSTR_WIDTH*FETCH_LINE_WORDS-1:0] imem_rsp_data,
+  input  logic [63:0] imem_rsp_data,
   output logic        imem_rsp_ready,
   // D-memory (req: DUT initiator; rsp: TB initiator)
   output logic        dmem_req_valid,
@@ -40,6 +42,7 @@ module rheon_core #(
   fetch #(.ADDR_W(ADDR_W)) fetch_i (
     .clk            (clk),
     .rst_n          (rst_n),
+    .start_pc       (start_pc),
     .next_pc        (next_pc),
     .flush          (flush),
     .stall          (stall),
@@ -129,16 +132,20 @@ module rheon_core #(
   logic [4:0]  e_rd;
   logic        e_wb_src_alu, e_wb_src_pc4, e_wb_src_load;
   logic        e_writes_rd;
-  assign e_writes_rd = e_wb_src_alu | e_wb_src_pc4;
+  assign e_writes_rd = e_valid && (e_wb_src_alu | e_wb_src_pc4);
 
+  // x0 always reads 0: do not forward from commit or E when consumer is x0.
   logic [XLEN-1:0] d_rdata1_fwd, d_rdata2_fwd;
-  assign d_rdata1_fwd = (gpr_we && gpr_rd == dec_rs1) ? gpr_wdata :
+  assign d_rdata1_fwd = (dec_rs1 == 5'b0) ? 64'b0 :
+                        (gpr_we && gpr_rd == dec_rs1) ? gpr_wdata :
                         (e_writes_rd && e_rd == dec_rs1) ? e_alu_result : gpr_rdata1;
-  assign d_rdata2_fwd = (gpr_we && gpr_rd == dec_rs2) ? gpr_wdata :
+  assign d_rdata2_fwd = (dec_rs2 == 5'b0) ? 64'b0 :
+                        (gpr_we && gpr_rd == dec_rs2) ? gpr_wdata :
                         (e_writes_rd && e_rd == dec_rs2) ? e_alu_result : gpr_rdata2;
 
   // ----- D->E pipeline reg -----
   logic [4:0]  e_rd_r, e_rs1_r, e_rs2_r;
+  logic [INSTR_WIDTH-1:0] e_instr_r;
   logic [XLEN-1:0] e_rdata1, e_rdata2, e_imm_r;
   logic [ADDR_W-1:0] e_pc_r;
   logic [3:0]  e_alu_op_r;
@@ -155,6 +162,7 @@ module rheon_core #(
       e_valid <= 1'b0;
     end else if (!stall) begin
       e_rd_r    <= dec_rd;
+      e_instr_r <= d_instr;
       e_rs1_r   <= dec_rs1;
       e_rs2_r   <= dec_rs2;
       e_rdata1  <= d_rdata1_fwd;
@@ -179,16 +187,18 @@ module rheon_core #(
     end
   end
 
-  // ----- Forwarding for E stage (C result to E operands); LUI uses 0 for op_a -----
+  // ----- Forwarding for E stage (C result to E operands); LUI uses 0 for op_a; x0 reads 0 -----
   logic [XLEN-1:0] e_op_a, e_op_b;
-  assign e_op_a = e_op_a_is_zero_r ? 64'b0 : ((gpr_we && gpr_rd == e_rs1_r) ? gpr_wdata : e_rdata1);
-  assign e_op_b = (gpr_we && gpr_rd == e_rs2_r) ? gpr_wdata : e_rdata2;
+  assign e_op_a = e_op_a_is_zero_r ? 64'b0 : (e_rs1_r == 5'b0 ? 64'b0 : (gpr_we && gpr_rd == e_rs1_r) ? gpr_wdata : e_rdata1);
+  assign e_op_b = (e_rs2_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs2_r) ? gpr_wdata : e_rdata2;
 
   // ----- EXECUTE -----
   logic [ADDR_W-1:0] e_branch_target;
   logic        e_branch_taken;
   logic [2:0]  e_store_size_r;
   logic [ADDR_W-1:0] ldst_addr;
+  logic [2:0]  c_load_store_funct3;
+  logic [XLEN-1:0] c_load_data_wb;
 
   execute #(.ADDR_W(ADDR_W)) execute_i (
     .clk               (clk),
@@ -208,6 +218,7 @@ module rheon_core #(
     .is_load            (e_is_load_r),
     .is_store           (e_is_store_r),
     .load_store_funct3  (e_load_store_funct3_r),
+    .instr_valid        (e_valid),
     .wb_src_alu         (e_wb_src_alu_r),
     .wb_src_pc4         (e_wb_src_pc4_r),
     .wb_src_load        (e_wb_src_load_r),
@@ -242,9 +253,10 @@ module rheon_core #(
 
   // Stall pipeline until load/store completes (D-mem response accepted)
   wire dmem_rsp_accepted = dmem_rsp_valid && dmem_rsp_ready;
-  assign stall = dmem_req_valid && !dmem_rsp_accepted;
+  assign stall = (dmem_req_valid && !dmem_req_ready) || (dmem_rsp_ready && !dmem_rsp_accepted);
 
   // ----- E->C pipeline reg -----
+  logic [INSTR_WIDTH-1:0] c_instr;
   logic [XLEN-1:0] c_alu_result, c_load_data, c_rdata1, c_rdata2;
   logic [ADDR_W-1:0] c_pc_plus4, c_branch_target, c_load_addr;
   logic        c_branch_taken;
@@ -263,6 +275,7 @@ module rheon_core #(
       if (dmem_rsp_accepted)
         c_load_data <= dmem_rsp_rdata;
       if (!stall) begin
+        c_instr        <= e_instr_r;
         c_alu_result   <= e_alu_result;
         c_pc_plus4     <= e_pc_r + 64'd4;
         c_branch_target <= e_branch_target;
@@ -274,6 +287,7 @@ module rheon_core #(
         c_rdata2       <= e_rdata2;
         c_is_load      <= e_is_load_r;
         c_load_addr    <= ldst_addr;
+        c_load_store_funct3 <= e_load_store_funct3_r;
         c_wb_src_alu   <= e_wb_src_alu;
         c_wb_src_pc4   <= e_wb_src_pc4;
         c_wb_src_load  <= e_wb_src_load;
@@ -285,12 +299,34 @@ module rheon_core #(
     end
   end
 
+  // Load data extraction from 64-bit aligned D-mem response.
+  always_comb begin
+    logic [63:0] shifted;
+    logic [7:0] b;
+    logic [15:0] h;
+    logic [31:0] w;
+    shifted = c_load_data >> {c_load_addr[2:0], 3'b0};
+    b = shifted[7:0];
+    h = shifted[15:0];
+    w = shifted[31:0];
+    case (c_load_store_funct3)
+      3'b000: c_load_data_wb = {{56{b[7]}}, b};   // LB
+      3'b001: c_load_data_wb = {{48{h[15]}}, h};  // LH
+      3'b010: c_load_data_wb = {{32{w[31]}}, w};  // LW
+      3'b011: c_load_data_wb = shifted;           // LD
+      3'b100: c_load_data_wb = {56'b0, b};        // LBU
+      3'b101: c_load_data_wb = {48'b0, h};        // LHU
+      3'b110: c_load_data_wb = {32'b0, w};        // LWU
+      default: c_load_data_wb = shifted;
+    endcase
+  end
+
   // ----- COMMIT -----
   commit #(.ADDR_W(ADDR_W)) commit_i (
     .clk          (clk),
     .rst_n        (rst_n),
     .alu_result   (c_alu_result),
-    .load_data    (c_load_data),
+    .load_data    (c_load_data_wb),
     .pc_plus4     (c_pc_plus4),
     .branch_target(c_branch_target),
     .branch_taken (c_branch_taken),

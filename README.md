@@ -9,7 +9,7 @@ Vibe-coded RISC-V core and cocotb testbench.
 
 ## Testbench
 
-The testbench lives in `tb/` (Forastero + dict memory, I/D drivers, pipeline monitor, Lome scoreboard). Test cases are in `tests/cocotb/`. See **tb/README.md** for layout and data flow.
+The testbench lives in `tb/` (Forastero + dict memory, I/D drivers, pipeline monitor, Lome scoreboard). Test cases are in `testcases/`. See **tb/README.md** for layout and data flow.
 
 **Run simulation** (requires cocotb deps: `uv sync`):
 

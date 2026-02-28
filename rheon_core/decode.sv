@@ -38,7 +38,10 @@ module decode (
   assign funct7 = instr[31:25];
   assign rd     = instr[11:7];
   assign rs1    = instr[19:15];
-  assign rs2    = instr[24:20];
+  // rs2 only valid for R-type, S-type, B-type; I-type/U-type/J-type use those bits for immediate
+  assign rs2    = (opcode == 7'b0110011 || opcode == 7'b0111011 ||  // R-type, R-type W
+                   opcode == 7'b0100011 || opcode == 7'b1100011)     // S-type, B-type
+                  ? instr[24:20] : 5'b0;
 
   // Immediate decoding (all formats)
   logic [XLEN-1:0] imm_i, imm_s, imm_b, imm_u, imm_j;

@@ -5,12 +5,13 @@
 from __future__ import annotations
 
 from pathlib import Path
+from typing import List, Tuple
 
 # Match rheon_core constants (same as rheon_pkg_spec)
 INSTR_WIDTH = 32
-FETCH_LINE_WORDS = 4
-LINE_BYTES = FETCH_LINE_WORDS * (INSTR_WIDTH // 8)
 XLEN = 64
+# I-memory: 64-bit (8-byte) reads; fetch extracts 32-bit instructions internally
+IMEM_QWORD_BYTES = 8
 
 
 class DictMemory:
@@ -51,13 +52,34 @@ class DictMemory:
         """Read one 32-bit instruction at `addr` (must be 4-byte aligned for semantics)."""
         return self.read(addr, 4) & 0xFFFFFFFF
 
-    def read_line(self, addr: int) -> int:
-        """Read one fetch line (LINE_BYTES bytes) at line-aligned `addr` as single integer."""
-        return self.read(addr, LINE_BYTES)
+    def read_qword(self, addr: int) -> int:
+        """Read one 64-bit qword at 8-byte-aligned `addr` (for I-memory)."""
+        return self.read(addr, IMEM_QWORD_BYTES) & ((1 << (IMEM_QWORD_BYTES * 8)) - 1)
 
-    def line_align(self, addr: int) -> int:
-        """Return address aligned down to fetch line boundary."""
-        return addr & ~(LINE_BYTES - 1)
+    def qword_align(self, addr: int) -> int:
+        """Return address aligned down to 8-byte (I-mem qword) boundary."""
+        return addr & ~(IMEM_QWORD_BYTES - 1)
+
+
+class LomeReadOnlyMemory:
+    """
+    Lome memory adapter backed by DictMemory.
+
+    Loads read through to the shared TB memory. Stores are intentionally
+    non-mutating so the model can predict write intents without perturbing
+    the memory image used by RTL-side traffic.
+    """
+
+    def __init__(self, backing: DictMemory) -> None:
+        self._backing = backing
+        self.store_log: List[Tuple[int, int, int]] = []  # (addr, value, size)
+
+    def load(self, addr: int, size: int) -> int:
+        return self._backing.read(addr, size)
+
+    def store(self, addr: int, value: int, size: int) -> None:
+        # Record intent only; never mutate backing memory.
+        self.store_log.append((addr, value, size))
 
 
 def load_elf(path: str | Path, memory: DictMemory) -> int:
@@ -67,7 +89,6 @@ def load_elf(path: str | Path, memory: DictMemory) -> int:
     """
     try:
         from elftools.elf.elffile import ELFFile
-        from elftools.elf.segments import Segment
     except ImportError:
         raise ImportError(
             "pyelftools is required for load_elf(); add it to dependencies"
@@ -83,11 +104,11 @@ def load_elf(path: str | Path, memory: DictMemory) -> int:
         entry = elf.header.e_entry
 
         for segment in elf.iter_segments():
-            if not isinstance(segment, Segment):
+            # pyelftools exposes program header fields via mapping-style access.
+            # 'p_type' is usually an enum string like 'PT_LOAD'.
+            if segment["p_type"] != "PT_LOAD":
                 continue
-            if segment.p_type != "PT_LOAD":
-                continue
-            vaddr = segment.p_vaddr
+            vaddr = segment["p_vaddr"]
             data = segment.data()
             for i, b in enumerate(data):
                 memory.write_byte(vaddr + i, b)
