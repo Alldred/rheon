@@ -47,7 +47,3 @@ make run ELF=path/to/program.elf
 If `uv lock` fails due to tibbar’s internal dependencies, install tibbar separately and set `TIBBAR_CMD=tibbar` when using the run script.
 
 Without an ELF, the test runs with empty memory for a short time.
-
-## CI
-
-GitHub Actions (`.github/workflows/ci.yml`) runs on push/PR to `main`/`master`: installs Verilator and Python deps, then `make run` (smoke test, no ELF). Private git deps (forastero, lome, tibbar) are cloned via HTTPS: the workflow uses `GITHUB_TOKEN` for same-org repos; for cross-org (e.g. Intuity/forastero) add a repo secret **`GH_TOKEN`** (a PAT with `repo` scope and read access to those repos).
