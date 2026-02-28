@@ -1,0 +1,42 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Stuart Alldred.
+
+# CI: build and run rheon cocotb testbench. Default: Verilator, smoke test (no ELF).
+# To run with an ELF, add a job that installs a RISC-V toolchain and runs
+# scripts/rheon_gen then scripts/rheon_sim (or check in a minimal tests/data/*.elf).
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Install Verilator
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y verilator
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e .
+        # Private git deps (forastero, lome, tibbar): use a deploy key or
+        # token (e.g. git config url."https://${TOKEN}@github.com/".insteadOf ssh://git@github.com/).
+
+      - name: Run simulation (smoke, no ELF)
+        run: make run
+        env:
+          SIM: verilator
+          FAIL_FAST: yes
