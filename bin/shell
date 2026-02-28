@@ -11,13 +11,24 @@ fi
 # Work out where the repository is located
 RHEON_ROOT=$(readlink -f ${0:a:h}/..)
 
-# Check and update tibbar/lome/eumos before entering the shell
+# Parse --dev option (strip from args so it isn't passed to zsh)
+SHELL_ARGS=()
+UV_EXTRAS=()
+for arg in "$@"; do
+    if [[ "$arg" == "--dev" ]]; then
+        UV_EXTRAS=(--extra dev)
+    else
+        SHELL_ARGS+=("$arg")
+    fi
+done
+
+# Check and update all dependencies before entering the shell
 (
     cd "$RHEON_ROOT" || exit 1
-    uv lock --upgrade-package tibbar --upgrade-package lome --upgrade-package eumos
-    uv sync
+    uv lock --upgrade
+    uv sync $UV_EXTRAS
 ) || {
-    echo "[\033[0;31mERROR\033[0m] Failed to update tibbar/lome/eumos via uv" >&2
+    echo "[\033[0;31mERROR\033[0m] Failed to update dependencies via uv" >&2
     exit 1
 }
 
@@ -26,4 +37,4 @@ USER_HISTFILE=${HISTFILE:-$HOME/.zsh_history}
 RHEON_ROOT=$RHEON_ROOT \
     USER_HISTFILE=$USER_HISTFILE \
     ZDOTDIR=$RHEON_ROOT/bin/zsh \
-    /bin/zsh -i $@
+    /bin/zsh -i $SHELL_ARGS
