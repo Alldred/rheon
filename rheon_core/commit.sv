@@ -42,13 +42,16 @@ module commit #(
     gpr_we    = do_commit && (wb_src_alu || wb_src_pc4 || wb_src_load) && (rd != 5'b0);
   end
 
-  // Next PC: default sequential; on branch taken or jump use target
+  // Next PC: default sequential; on branch taken or jump use target.
+  // JAL uses branch_target (pc+imm) directly; JALR uses alu_result (rs1+imm).
   always_comb begin
     next_pc = pc_plus4;
     flush  = 1'b0;
     if (instr_valid) begin
-      if (is_jalr || is_jal)
-        { next_pc, flush } = { alu_result[ADDR_W-1:0], 1'b1 };
+      if (is_jal)
+        { next_pc, flush } = { branch_target, 1'b1 };
+      else if (is_jalr)
+        { next_pc, flush } = {{alu_result[ADDR_W-1:1], 1'b0}, 1'b1};
       else if (is_branch && branch_taken)
         { next_pc, flush } = { branch_target, 1'b1 };
     end

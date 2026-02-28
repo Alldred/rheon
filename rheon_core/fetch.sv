@@ -37,6 +37,7 @@ module fetch #(
   logic                  have_one;     // we have q0 (and base_addr)
   logic                  have_two;     // we have q0 and q1; can form any instr in [base_addr, base_addr+8)
   logic                  pending_req;
+  logic                  drop_rsp_pending; // flush occurred with in-flight req; drop one stale response
   logic [ADDR_W-1:0]     req_addr;
 
   function automatic logic [ADDR_W-1:0] qword_align(logic [ADDR_W-1:0] a);
@@ -52,10 +53,10 @@ module fetch #(
   wire [INSTR_WIDTH-1:0] instr_at_4 = q0[63:32];
   wire [INSTR_WIDTH-1:0] instr_at_6 = {q1[15:0], q0[63:48]};
 
-  wire need_qword = !have_two && !pending_req && !flush;
+  wire need_qword = !have_two && !pending_req && !drop_rsp_pending && !flush;
   assign imem_req_valid = need_qword;
   assign imem_req_addr  = have_one ? (base_addr + 64'(QWORD_BYTES)) : qword_align(pc);
-  assign imem_rsp_ready = pending_req;
+  assign imem_rsp_ready = pending_req || drop_rsp_pending;
 
   always_ff @(posedge clk) begin
     if (!rst_n) begin
@@ -66,22 +67,31 @@ module fetch #(
       have_one    <= 1'b0;
       have_two    <= 1'b0;
       pending_req <= 1'b0;
+      drop_rsp_pending <= 1'b0;
       req_addr    <= '0;
     end else if (flush) begin
       pc          <= next_pc;
       have_one    <= 1'b0;
       have_two    <= 1'b0;
+      drop_rsp_pending <= pending_req || drop_rsp_pending;
       pending_req <= 1'b0;
     end else begin
-      if (imem_rsp_valid && imem_rsp_ready && pending_req) begin
-        pending_req <= 1'b0;
-        if (!have_one) begin
-          q0        <= imem_rsp_data;
-          base_addr <= req_addr;
-          have_one  <= 1'b1;
+      if (imem_rsp_valid && imem_rsp_ready) begin
+        if (drop_rsp_pending) begin
+          // Consume one stale response that belonged to pre-flush PC.
+          drop_rsp_pending <= 1'b0;
+        end else if (pending_req) begin
+          pending_req <= 1'b0;
+          if (!have_one) begin
+            q0        <= imem_rsp_data;
+            base_addr <= req_addr;
+            have_one  <= 1'b1;
+          end else begin
+            q1       <= imem_rsp_data;
+            have_two <= 1'b1;
+          end
         end else begin
-          q1       <= imem_rsp_data;
-          have_two <= 1'b1;
+          // Defensive: ignore unexpected response when no request is tracked.
         end
       end else if (need_qword && imem_req_ready) begin
         pending_req <= 1'b1;

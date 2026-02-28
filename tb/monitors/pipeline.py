@@ -13,6 +13,24 @@ from forastero.monitor import BaseMonitor
 from ..transactions import CommitTx
 
 
+def _rs1_operand(
+    instr: int, rs1_raw: int, rdata1: int
+) -> tuple[Optional[int], Optional[int]]:
+    opcode = instr & 0x7F
+    if opcode in (0x37, 0x17, 0x6F):  # LUI, AUIPC, JAL have no rs1
+        return (None, None)
+    return (rs1_raw, rdata1)
+
+
+def _rs2_operand(
+    instr: int, rs2_raw: int, rdata2: int
+) -> tuple[Optional[int], Optional[int]]:
+    opcode = instr & 0x7F
+    if opcode not in (0x33, 0x3B, 0x23, 0x63):
+        return (None, None)
+    return (rs2_raw, rdata2)
+
+
 class RheonCoreIO(BaseIO):
     """
     Minimal IO for pipeline monitor: satisfies forastero BaseIO, reads hierarchical
@@ -66,15 +84,25 @@ class PipelineCommitMonitor(BaseMonitor):
                 c_pc_plus4 = int(dut.c_pc_plus4.value)
                 commit_pc = (c_pc_plus4 - 4) & ((1 << 64) - 1)
                 next_pc = int(dut.next_pc.value)
-                rd = int(dut.gpr_rd.value)
-                wdata = int(dut.gpr_wdata.value)
+                gpr_rd_raw = int(dut.gpr_rd.value)
                 gpr_we = int(dut.gpr_we.value) == 1
+                has_wb = (
+                    int(dut.c_wb_src_alu.value) == 1
+                    or int(dut.c_wb_src_pc4.value) == 1
+                    or int(dut.c_wb_src_load.value) == 1
+                )
+                rd = (
+                    gpr_rd_raw if has_wb else None
+                )  # 0 for JAL x0; None when no writeback
+                rd_val = int(dut.gpr_wdata.value) if gpr_we else None
 
                 # Source registers (C-stage)
-                rs1 = int(dut.c_rs1.value)
-                rs1_val = int(dut.c_rdata1.value)
-                rs2 = int(dut.c_rs2.value)
-                rs2_val = int(dut.c_rdata2.value)
+                rs1_raw = int(dut.c_rs1.value)
+                rs2_raw = int(dut.c_rs2.value)
+                c_rdata1 = int(dut.c_rdata1.value)
+                c_rdata2 = int(dut.c_rdata2.value)
+                rs1, rs1_val = _rs1_operand(c_instr, rs1_raw, c_rdata1)
+                rs2, rs2_val = _rs2_operand(c_instr, rs2_raw, c_rdata2)
 
                 is_store = False
                 store_addr_val: Optional[int] = None
@@ -102,8 +130,7 @@ class PipelineCommitMonitor(BaseMonitor):
                     next_pc=next_pc,
                     instr=c_instr & 0xFFFFFFFF,
                     rd=rd,
-                    wdata=wdata,
-                    we=gpr_we,
+                    rd_val=rd_val,
                     rs1=rs1,
                     rs1_val=rs1_val,
                     rs2=rs2,

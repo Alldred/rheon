@@ -20,15 +20,14 @@ class CommitTx(BaseTransaction if BaseTransaction is not object else object):
     pc: int = 0
     next_pc: int = 0
     instr: int = 0  # 32-bit instruction word (opcode = instr & 0x7F)
-    # Destination (writeback)
-    rd: int = 0
-    wdata: int = 0
-    we: bool = False
-    # Source registers (index + value)
-    rs1: int = 0
-    rs1_val: int = 0
-    rs2: int = 0
-    rs2_val: int = 0
+    # Destination: rd = register index (None if no writeback); rd_val = value stored there (None if no writeback).
+    rd: Optional[int] = None
+    rd_val: Optional[int] = None
+    # Source registers (index + value); None when no such operand for this instruction.
+    rs1: Optional[int] = None
+    rs1_val: Optional[int] = None
+    rs2: Optional[int] = None
+    rs2_val: Optional[int] = None
     # Store
     is_store: bool = False
     store_addr: Optional[int] = None

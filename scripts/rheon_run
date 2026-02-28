@@ -42,10 +42,15 @@ done
 [[ -n "$TEST" ]] || usage
 [[ -n "$SEED" ]] || usage
 
-# Delegate to rheon_gen then rheon_sim
-output="$("${SCRIPT_DIR}/rheon_gen" --test "$TEST" --seed "$SEED" 2>&1)"
-echo "$output"
-ELF="$(echo "$output" | tail -1)"
+# Delegate to rheon_gen then rheon_sim (stream rheon_gen output; capture last line for ELF path)
+echo "Generating test: rheon_gen --test $TEST --seed $SEED" >&2
+GEN_OUT="$(mktemp -t rheon_gen.XXXXXXXXXX)"
+trap 'rm -f "$GEN_OUT"' EXIT
+"${SCRIPT_DIR}/rheon_gen" --test "$TEST" --seed "$SEED" 2>&1 | tee "$GEN_OUT"
+ELF="$(tail -1 "$GEN_OUT")"
 [[ -f "$ELF" ]] || { echo "rheon_gen did not produce ELF: $ELF" >&2; exit 1; }
-echo "Rerun: ${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED" >&2
+RERUN="${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED"
+[[ ${#VERBOSE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${VERBOSE_ARGS[*]}"
+echo "Running simulation: rheon_sim --test $ELF --seed $SEED${VERBOSE_ARGS[*]:+ ${VERBOSE_ARGS[*]}}" >&2
+echo "Rerun: $RERUN" >&2
 exec "${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED" "${VERBOSE_ARGS[@]}"

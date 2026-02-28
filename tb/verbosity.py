@@ -34,7 +34,13 @@ def configure_logging_from_env(logger_name: str | None = None) -> None:
     """Set logging level from RHEON_VERBOSITY. Call early (e.g. from test_elf).
     Third-party loggers (e.g. pykwalify, eumos) are set to WARNING so only our debug shows."""
     level = logging_level_from_verbosity()
-    target = logging.getLogger(logger_name) if logger_name else logging.getLogger()
-    target.setLevel(level)
+    # Forastero uses "tb" as the log hierarchy root (tb, tb.scoreboard, ...).
+    # Its default parameter file sets tb to INFO, so override that here.
+    tb_root = logging.getLogger("tb")
+    tb_root.setLevel(level)
+    for handler in tb_root.handlers:
+        handler.setLevel(level)
+    if logger_name:
+        logging.getLogger(logger_name).setLevel(level)
     for name in _SUPPRESSED_LOGGERS:
         logging.getLogger(name).setLevel(logging.WARNING)

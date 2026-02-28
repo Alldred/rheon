@@ -5,7 +5,7 @@
 from __future__ import annotations
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from forastero.monitor import MonitorEvent
 
@@ -46,9 +46,15 @@ def lome_push_reference(
         return
 
     if get_verbosity() == "debug":
+        # Ensure DEBUG records are not dropped by logger/handler thresholds.
+        for lg in (logging.getLogger("tb"), logging.getLogger()):
+            if lg.level > logging.DEBUG:
+                lg.setLevel(logging.DEBUG)
+            for handler in lg.handlers:
+                if handler.level > logging.DEBUG:
+                    handler.setLevel(logging.DEBUG)
         asm = disasm_insn(obj.instr, obj.pc, decoder=tb.model.decoder)
-        # Log at INFO so it appears despite cocotb's default handler level
-        _log.info("  %#x: %s", obj.pc, asm)
+        _log.debug("  %#x: %s", obj.pc, asm)
 
     # Lome model is run in lockstep with the DUT using tick():
     # - Model PC is initialised once at boot (poke_pc).
@@ -74,23 +80,22 @@ def lome_push_reference(
 
     exp_instr = memory.read_instr(ref_pc_before) & 0xFFFFFFFF
 
-    # Expected GPR writeback from canonical Lome ChangeRecord.
+    # Expected GPR writeback: rd is always the destination index (0..31); rd_val = None when no write (e.g. x0).
     reg_writes = changes.gpr_writes
-    exp_rd = 0
-    exp_wdata = 0
-    exp_we = False
+    exp_rd: Optional[int] = None
+    exp_rd_val: Optional[int] = None
     if reg_writes:
         rw = reg_writes[0]
-        exp_rd = int(rw.register)
-        exp_wdata = int(rw.value)
-        exp_we = True
+        reg_idx = int(rw.register)
+        exp_rd = reg_idx
+        exp_rd_val = int(rw.value) if reg_idx != 0 else None
 
-    # Expected GPR reads from canonical Lome ChangeRecord. First two reads map to rs1/rs2.
+    # Expected GPR reads: None when this instruction has no such operand.
     reg_reads = changes.gpr_reads
-    exp_rs1 = 0
-    exp_rs1_val = 0
-    exp_rs2 = 0
-    exp_rs2_val = 0
+    exp_rs1: Optional[int] = None
+    exp_rs1_val: Optional[int] = None
+    exp_rs2: Optional[int] = None
+    exp_rs2_val: Optional[int] = None
     if len(reg_reads) >= 1:
         r0 = reg_reads[0]
         exp_rs1 = int(r0.register)
@@ -132,8 +137,7 @@ def lome_push_reference(
         next_pc=expected_pc,
         instr=exp_instr,
         rd=exp_rd,
-        wdata=exp_wdata,
-        we=exp_we,
+        rd_val=exp_rd_val,
         rs1=exp_rs1,
         rs1_val=exp_rs1_val,
         rs2=exp_rs2,
