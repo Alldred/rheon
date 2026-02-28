@@ -16,7 +16,6 @@ module commit #(
   input  logic [ADDR_W-1:0] branch_target,
   input  logic        branch_taken,
   input  logic [4:0]  rd,
-  input  logic [31:0] instr,      // C-stage instruction (opcode = instr[6:0])
   input  logic        wb_src_alu,
   input  logic        wb_src_pc4,
   input  logic        wb_src_load,
@@ -37,12 +36,10 @@ module commit #(
   logic do_commit;
   assign do_commit = instr_valid;
 
-  // LUI (opcode 0x37) must write alu_result; force path when control is wrong.
-  wire is_lui = (instr[6:0] == 7'b0110111);
   always_comb begin
     gpr_rd    = rd;
-    gpr_wdata = is_lui ? alu_result : (wb_src_alu ? alu_result : (wb_src_pc4 ? pc_plus4 : load_data));
-    gpr_we    = do_commit && (wb_src_alu || wb_src_pc4 || wb_src_load || is_lui) && (rd != 5'b0);
+    gpr_wdata = wb_src_alu ? alu_result : (wb_src_pc4 ? pc_plus4 : load_data);
+    gpr_we    = do_commit && (wb_src_alu || wb_src_pc4 || wb_src_load) && (rd != 5'b0);
   end
 
   // Next PC: default sequential; on branch taken or jump use target.

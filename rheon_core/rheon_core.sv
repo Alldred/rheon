@@ -190,11 +190,10 @@ module rheon_core #(
   // ----- Forwarding for E stage (C result to E operands); x0 reads 0 -----
   logic [XLEN-1:0] e_op_a, e_op_b;
   logic [XLEN-1:0] e_rs1_val, e_rs2_val;
-  wire e_is_lui = (e_instr_r[6:0] == 7'b0110111);
   assign e_rs1_val = (e_rs1_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs1_r) ? gpr_wdata : e_rdata1;
   assign e_rs2_val = (e_rs2_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs2_r) ? gpr_wdata : e_rdata2;
-  assign e_op_a = (e_op_a_is_zero_r || e_is_lui) ? 64'b0 : e_rs1_val;
-  assign e_op_b = (e_op_b_is_imm_r || e_is_lui) ? e_imm_r : e_rs2_val;
+  assign e_op_a = e_op_a_is_zero_r ? 64'b0 : e_rs1_val;
+  assign e_op_b = e_op_b_is_imm_r ? e_imm_r : e_rs2_val;
 
   // ----- EXECUTE -----
   logic [ADDR_W-1:0] e_branch_target;
@@ -335,7 +334,6 @@ module rheon_core #(
     .branch_target(c_branch_target),
     .branch_taken (c_branch_taken),
     .rd           (c_rd),
-    .instr        (c_instr),
     .wb_src_alu   (c_wb_src_alu),
     .wb_src_pc4   (c_wb_src_pc4),
     .wb_src_load  (c_wb_src_load),

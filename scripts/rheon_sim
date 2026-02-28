@@ -71,11 +71,11 @@ MAKE_ARGS=(ELF="$TEST")
 [[ -n "$VERBOSITY" ]] && MAKE_ARGS+=(RHEON_VERBOSITY="$VERBOSITY")
 [[ "$WAVES" -eq 1 ]] && MAKE_ARGS+=(WAVES=1 WAVES_FILE="$WAVES_FILE")
 
-if [[ -n "$SEED" ]]; then
-  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST --seed $SEED" >&2
-else
-  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST" >&2
-fi
+RERUN="${RHEON_ROOT}/scripts/rheon_sim --test $TEST"
+[[ -n "$SEED" ]] && RERUN="$RERUN --seed $SEED"
+[[ -n "$VERBOSITY" ]] && RERUN="$RERUN --verbosity $VERBOSITY"
+[[ "$WAVES" -eq 1 ]] && RERUN="$RERUN --waves"
+echo "Rerun: $RERUN" >&2
 [[ -n "$VERBOSITY" ]] && echo "Verbosity: $VERBOSITY" >&2
 [[ "$WAVES" -eq 1 ]] && echo "Waves: enabled (WAVES=1), target: $WAVES_FILE" >&2
 set +e
