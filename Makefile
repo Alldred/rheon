@@ -39,6 +39,17 @@ export FAIL_FAST ?= yes
 # Default simulator: verilator. Use SIM=icarus for Icarus.
 SIM ?= verilator
 
+# Waveform dumping (Verilator): set WAVES=1 to build with tracing and dump VCD.
+# Output defaults next to COCOTB_RESULTS_FILE (set by scripts/rheon_sim).
+WAVES ?= 0
+WAVES_FILE ?= $(dir $(COCOTB_RESULTS_FILE))dump.vcd
+ifeq ($(SIM),verilator)
+ifeq ($(WAVES),1)
+VERILATOR_TRACE = 1
+SIM_ARGS += --trace --trace-file $(WAVES_FILE)
+endif
+endif
+
 # Cocotb's Verilator backend only advertises Verilog support; it skips
 # when TOPLEVEL_LANG is set to SystemVerilog. Our RTL is in .sv files,
 # which Verilator accepts even when TOPLEVEL_LANG=verilog, so select a

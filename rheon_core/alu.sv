@@ -30,9 +30,12 @@ module alu (
 
   logic [XLEN-1:0] add_sub_result, shift_result, w_result;
   logic [31:0]      op_a_lo, op_b_lo, addw_subw_lo, shiftw_lo;
-  logic             sub = (op == ALU_SUB || op == ALU_SUBW);
-  logic [XLEN-1:0]  add_b = sub ? ~op_b : op_b;
-  logic [XLEN-1:0]  add_cin = sub ? 64'd1 : 64'd0;
+  logic             sub;
+  logic [XLEN-1:0]  add_b, add_cin;
+
+  assign sub = (op == ALU_SUB || op == ALU_SUBW);
+  assign add_b = sub ? ~op_b : op_b;
+  assign add_cin = sub ? 64'd1 : 64'd0;
 
   assign add_sub_result = op_a + add_b + add_cin;
 

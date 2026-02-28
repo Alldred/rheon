@@ -3,7 +3,7 @@
 # Run the testbench with an ELF (no generation).
 #
 # Usage:
-#   ./scripts/rheon_sim --test <elf_path> [--seed <seed>] [-v|--verbosity <level>]
+#   ./scripts/rheon_sim --test <elf_path> [--seed <seed>] [-v|--verbosity <level>] [--waves]
 #
 # Runs the cocotb testbench with the given ELF. If --seed is given, uses RANDOM_SEED for reproducibility.
 # Verbosity: -v or --verbosity sets logging level (debug, info, warning, error, critical). Case insensitive.
@@ -16,10 +16,11 @@ RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VALID_LEVELS="debug info warning error critical"
 
 usage() {
-  echo "Usage: $0 --test <elf_path> [--seed <seed>] [-v|--verbosity <level>]" >&2
+  echo "Usage: $0 --test <elf_path> [--seed <seed>] [-v|--verbosity <level>] [--waves]" >&2
   echo "  --test       path to .elf file to load" >&2
   echo "  --seed       optional; if set, passed as RANDOM_SEED to cocotb" >&2
   echo "  -v, --verbosity  optional; logging level: debug, info, warning, error, critical (case insensitive)." >&2
+  echo "  --waves      optional; enable simulator waveform dumping (passes WAVES=1 to make)." >&2
   exit 1
 }
 
@@ -35,6 +36,7 @@ _test_level() {
 TEST=""
 SEED=""
 VERBOSITY=""
+WAVES=0
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --test) TEST="$2"; shift 2 ;;
@@ -48,6 +50,10 @@ while [[ $# -gt 0 ]]; do
         usage
       fi
       ;;
+    --waves)
+      WAVES=1
+      shift
+      ;;
     *) usage ;;
   esac
 done
@@ -58,15 +64,29 @@ done
 RUN_DIR="$(cd "$(dirname "$TEST")" && pwd)"
 export COCOTB_RESULTS_FILE="${RUN_DIR}/results.xml"
 [[ -n "$VERBOSITY" ]] && export RHEON_VERBOSITY="$VERBOSITY"
+WAVES_FILE="${RUN_DIR}/dump.vcd"
 
 MAKE_ARGS=(ELF="$TEST")
 [[ -n "$SEED" ]] && MAKE_ARGS+=(RANDOM_SEED="$SEED")
 [[ -n "$VERBOSITY" ]] && MAKE_ARGS+=(RHEON_VERBOSITY="$VERBOSITY")
+[[ "$WAVES" -eq 1 ]] && MAKE_ARGS+=(WAVES=1 WAVES_FILE="$WAVES_FILE")
 
-if [[ -n "$SEED" ]]; then
-  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST --seed $SEED" >&2
-else
-  echo "Rerun: ${RHEON_ROOT}/scripts/rheon_sim --test $TEST" >&2
-fi
+RERUN="${RHEON_ROOT}/scripts/rheon_sim --test $TEST"
+[[ -n "$SEED" ]] && RERUN="$RERUN --seed $SEED"
+[[ -n "$VERBOSITY" ]] && RERUN="$RERUN --verbosity $VERBOSITY"
+[[ "$WAVES" -eq 1 ]] && RERUN="$RERUN --waves"
+echo "Rerun: $RERUN" >&2
 [[ -n "$VERBOSITY" ]] && echo "Verbosity: $VERBOSITY" >&2
+[[ "$WAVES" -eq 1 ]] && echo "Waves: enabled (WAVES=1), target: $WAVES_FILE" >&2
+set +e
 cd "$RHEON_ROOT" && make run "${MAKE_ARGS[@]}"
+RC=$?
+set -e
+if [[ "$WAVES" -eq 1 ]]; then
+  if [[ -f "$WAVES_FILE" ]]; then
+    echo "Waves: $WAVES_FILE" >&2
+  else
+    echo "Waves requested but file not found yet: $WAVES_FILE" >&2
+  fi
+fi
+exit $RC

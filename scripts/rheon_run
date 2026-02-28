@@ -3,7 +3,7 @@
 # Generate a Tibbar test then run the testbench with the same seed.
 #
 # Usage:
-#   ./scripts/rheon_run --test <testname> --seed <seed> [-v|--verbosity <level>]
+#   ./scripts/rheon_run --test <testname> --seed <seed> [-v|--verbosity <level>] [--waves]
 #
 # Creates runs/<testname>_seed<N>_<YYYYMMDD>_<HHMMSS>/ with test.S, test.elf; runs simulation
 # with that ELF and RANDOM_SEED=<seed> for reproducibility.
@@ -13,10 +13,11 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 usage() {
-  echo "Usage: $0 --test <testname> --seed <seed> [-v|--verbosity <level>]" >&2
+  echo "Usage: $0 --test <testname> --seed <seed> [-v|--verbosity <level>] [--waves]" >&2
   echo "  --test       passed to Tibbar as --generator (e.g. simple)" >&2
   echo "  --seed       used for Tibbar and for testbench (RANDOM_SEED)" >&2
   echo "  -v, --verbosity  optional; logging level: debug, info, warning, error, critical (passed to rheon_sim)" >&2
+  echo "  --waves      optional; enable simulator waveform dumping (passed to rheon_sim)" >&2
   echo "  Run dir: runs/<testname>_seed<seed>_<YYYYMMDD>_<HHMMSS>/" >&2
   exit 1
 }
@@ -24,6 +25,7 @@ usage() {
 TEST=""
 SEED=""
 VERBOSE_ARGS=()
+WAVE_ARGS=()
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --test) TEST="$2"; shift 2 ;;
@@ -35,6 +37,9 @@ while [[ $# -gt 0 ]]; do
         echo "Missing value for --verbosity" >&2
         usage
       fi
+      ;;
+    --waves)
+      WAVE_ARGS+=("$1"); shift
       ;;
     *) usage ;;
   esac
@@ -51,6 +56,18 @@ ELF="$(tail -1 "$GEN_OUT")"
 [[ -f "$ELF" ]] || { echo "rheon_gen did not produce ELF: $ELF" >&2; exit 1; }
 RERUN="${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED"
 [[ ${#VERBOSE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${VERBOSE_ARGS[*]}"
-echo "Running simulation: rheon_sim --test $ELF --seed $SEED${VERBOSE_ARGS[*]:+ ${VERBOSE_ARGS[*]}}" >&2
+[[ ${#WAVE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${WAVE_ARGS[*]}"
+
+SIM_CMD=("${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED")
+SIM_DESC="rheon_sim --test $ELF --seed $SEED"
+if [[ ${#VERBOSE_ARGS[@]} -gt 0 ]]; then
+  SIM_CMD+=("${VERBOSE_ARGS[@]}")
+  SIM_DESC="$SIM_DESC ${VERBOSE_ARGS[*]}"
+fi
+if [[ ${#WAVE_ARGS[@]} -gt 0 ]]; then
+  SIM_CMD+=("${WAVE_ARGS[@]}")
+  SIM_DESC="$SIM_DESC ${WAVE_ARGS[*]}"
+fi
+echo "Running simulation: $SIM_DESC" >&2
 echo "Rerun: $RERUN" >&2
-exec "${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED" "${VERBOSE_ARGS[@]}"
+exec "${SIM_CMD[@]}"

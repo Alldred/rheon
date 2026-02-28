@@ -187,10 +187,13 @@ module rheon_core #(
     end
   end
 
-  // ----- Forwarding for E stage (C result to E operands); LUI uses 0 for op_a; x0 reads 0 -----
+  // ----- Forwarding for E stage (C result to E operands); x0 reads 0 -----
   logic [XLEN-1:0] e_op_a, e_op_b;
-  assign e_op_a = e_op_a_is_zero_r ? 64'b0 : (e_rs1_r == 5'b0 ? 64'b0 : (gpr_we && gpr_rd == e_rs1_r) ? gpr_wdata : e_rdata1);
-  assign e_op_b = (e_rs2_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs2_r) ? gpr_wdata : e_rdata2;
+  logic [XLEN-1:0] e_rs1_val, e_rs2_val;
+  assign e_rs1_val = (e_rs1_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs1_r) ? gpr_wdata : e_rdata1;
+  assign e_rs2_val = (e_rs2_r == 5'b0) ? 64'b0 : (gpr_we && gpr_rd == e_rs2_r) ? gpr_wdata : e_rdata2;
+  assign e_op_a = e_op_a_is_zero_r ? 64'b0 : e_rs1_val;
+  assign e_op_b = e_op_b_is_imm_r ? e_imm_r : e_rs2_val;
 
   // ----- EXECUTE -----
   logic [ADDR_W-1:0] e_branch_target;

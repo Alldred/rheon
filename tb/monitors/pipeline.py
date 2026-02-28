@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import ReadOnly, RisingEdge
 from forastero import BaseIO, IORole
 from forastero.monitor import BaseMonitor
 
@@ -77,7 +77,10 @@ class PipelineCommitMonitor(BaseMonitor):
         )
 
         while True:
+            # Sample on clock edge, then wait for read-only phase so settled
+            # values are observed for this timestep.
             await RisingEdge(self.clk)
+            await ReadOnly()
             if self.rst.value == self.tb.rst_active_value:
                 pending_store = None
                 continue

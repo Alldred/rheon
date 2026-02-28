@@ -14,13 +14,13 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "cocotb>=2.0",
-    "forastero @ git+ssh://git@github.com/Intuity/forastero.git",
+    "forastero @ git+https://github.com/Intuity/forastero.git",
     "gitpython==3.1.41",
     "packtype",
     "pydantic>=2.8.2",
     "pyelftools>=0.31",
     "lome @ git+ssh://git@github.com/Alldred/lome.git",
-    "tibbar @ git+ssh://git@github.com/Alldred/tibbar.git",
+    "tibbar @ git+https://github.com/Alldred/tibbar.git",
 ]
 
 [project.optional-dependencies]

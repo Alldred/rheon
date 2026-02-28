@@ -18,6 +18,29 @@ _log = logging.getLogger(__name__)
 
 # Channel name for pipeline commit monitor (must match register name in testbench)
 PIPE_MON_CHANNEL = "pipe_mon"
+_MASK_32 = 0xFFFF_FFFF
+_MASK_64 = 0xFFFF_FFFF_FFFF_FFFF
+
+
+def _sext32_to_u64(value: int) -> int:
+    value_32 = value & _MASK_32
+    if value_32 & 0x8000_0000:
+        return value_32 | (~_MASK_32 & _MASK_64)
+    return value_32
+
+
+def _normalize_rd_val(instr: int, value: int) -> int:
+    """
+    Normalize model writeback value to RV64 architectural representation.
+
+    Lome currently reports U-type write values as raw 32-bit patterns; RV64
+    architectural register writes are 64-bit values, with LUI/AUIPC sign-
+    extending bit 31 of the 32-bit result.
+    """
+    opcode = instr & 0x7F
+    if opcode in (0x37, 0x17):  # LUI / AUIPC
+        return _sext32_to_u64(value)
+    return value & _MASK_64
 
 
 def _size_to_strobe(size: int) -> int:
@@ -97,7 +120,7 @@ def lome_push_reference(
     if exp_rd is not None and reg_writes:
         rw = reg_writes[0]
         if int(rw.register) == exp_rd:
-            exp_rd_val = int(rw.value)
+            exp_rd_val = _normalize_rd_val(exp_instr, int(rw.value))
 
     # Expected GPR reads: None when this instruction has no such operand.
     reg_reads = changes.gpr_reads

@@ -32,14 +32,14 @@ make run ELF=path/to/program.elf
    ./scripts/rheon_gen --test <testname> --seed <seed>   # e.g. ./scripts/rheon_gen --test simple --seed 42
    ```
 
-2. **Run simulation only** — run the testbench with an existing ELF (optional `--seed` for reproducibility):
+2. **Run simulation only** — run the testbench with an existing ELF (optional `--seed` for reproducibility, `--waves` for waveform dump):
    ```bash
-   ./scripts/rheon_sim --test <elf_path> [--seed <seed>]  # e.g. ./scripts/rheon_sim --test runs/simple_seed42_*/test.elf --seed 42
+   ./scripts/rheon_sim --test <elf_path> [--seed <seed>] [--waves]  # e.g. ./scripts/rheon_sim --test runs/simple_seed42_*/test.elf --seed 42 --waves
    ```
 
-3. **Generate then run** — generate with Tibbar and run the testbench with the same seed:
+3. **Generate then run** — generate with Tibbar and run the testbench with the same seed (optional `--waves`):
    ```bash
-   ./scripts/rheon_run --test <testname> --seed <seed>   # e.g. ./scripts/rheon_run --test simple --seed 42
+   ./scripts/rheon_run --test <testname> --seed <seed> [--waves]   # e.g. ./scripts/rheon_run --test simple --seed 42 --waves
    ```
 
 **Legacy:** `./scripts/run_test.sh` (no args or `--seed N`) generates with default generator and runs; `./scripts/run_test.sh path/to/program.elf` runs with that ELF only.
