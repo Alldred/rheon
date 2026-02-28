@@ -9,6 +9,8 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RHEON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RISCV_PREFIX="${RISCV_PREFIX:-riscv64-unknown-elf-}"
 LD_SCRIPT="${RISCV_LD_SCRIPT:-$SCRIPT_DIR/riscv_bare.ld}"
+RISCV_MARCH="${RISCV_MARCH:-rv64i_zicsr}"
+RISCV_MABI="${RISCV_MABI:-lp64}"
 
 LINK=false
 INPUT=""
@@ -36,9 +38,9 @@ if ! command -v "$CC" &>/dev/null; then
 fi
 
 if [[ "$LINK" == true ]]; then
-  "$CC" -x assembler-with-cpp -c "$INPUT" -o "${OUTPUT%.elf}.o"
-  "$CC" -nostdlib -T "$LD_SCRIPT" "${OUTPUT%.elf}.o" -o "$OUTPUT"
+  "$CC" -march="$RISCV_MARCH" -mabi="$RISCV_MABI" -x assembler-with-cpp -c "$INPUT" -o "${OUTPUT%.elf}.o"
+  "$CC" -march="$RISCV_MARCH" -mabi="$RISCV_MABI" -nostdlib -T "$LD_SCRIPT" "${OUTPUT%.elf}.o" -o "$OUTPUT"
   rm -f "${OUTPUT%.elf}.o"
 else
-  "$AS" "$INPUT" -o "$OUTPUT"
+  "$AS" -march="$RISCV_MARCH" -mabi="$RISCV_MABI" "$INPUT" -o "$OUTPUT"
 fi

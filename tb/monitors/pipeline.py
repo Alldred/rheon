@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from typing import Any, Optional
 
-from cocotb.triggers import RisingEdge
+from cocotb.triggers import FallingEdge, ReadOnly
 from forastero import BaseIO, IORole
 from forastero.monitor import BaseMonitor
 
@@ -77,7 +77,10 @@ class PipelineCommitMonitor(BaseMonitor):
         )
 
         while True:
-            await RisingEdge(self.clk)
+            # Sample on falling edge so C-stage and gpr_wdata are read after posedge
+            # register updates (avoids capturing stale values in some simulators).
+            await FallingEdge(self.clk)
+            await ReadOnly()
             if self.rst.value == self.tb.rst_active_value:
                 pending_store = None
                 continue
