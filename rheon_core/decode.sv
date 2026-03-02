@@ -128,7 +128,8 @@ module decode (
       end
       7'b1100011: begin // branch
         is_branch = 1'b1;
-        op_b_is_imm = 1'b1;
+        // Branch compare uses rs1 vs rs2; branch target remains pc + imm.
+        op_b_is_imm = 1'b0;
         alu_op = ALU_SUB;  // compare
       end
       7'b0000011: begin // load
