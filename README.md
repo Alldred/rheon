@@ -27,7 +27,7 @@ make run ELF=path/to/program.elf
 
 **Tibbar tests** (tibbar is a project dependency; RISC-V toolchain must be on PATH for building ELF from assembly). All scripts use `--test` and `--seed`. If you use the project shell (`./bin/shell`), `scripts/` is on PATH so you can run `rheon_gen`, `rheon_sim`, `rheon_run` directly:
 
-1. **Generate a Tibbar test only** — produces `runs/<testname>_seed<N>_<timestamp>/` with test.S and test.elf:
+1. **Generate a Tibbar test only** — produces `runs/<testname>_seed<N>_<timestamp>/` with `test.S`, `test.elf`, and `instructions_modelled.yaml`:
    ```bash
    ./scripts/rheon_gen --test <testname> --seed <seed>   # e.g. ./scripts/rheon_gen --test simple --seed 42
    ```

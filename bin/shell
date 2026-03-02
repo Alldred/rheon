@@ -26,15 +26,16 @@ done
 (
     cd "$RHEON_ROOT" || exit 1
     uv lock --upgrade
-    uv sync $UV_EXTRAS
+    uv sync "${UV_EXTRAS[@]}"
 ) || {
     echo "[\033[0;31mERROR\033[0m] Failed to update dependencies via uv" >&2
     exit 1
 }
+echo "[\033[0;32mINFO\033[0m] Rheon dependencies are up to date."
 
 USER_HISTFILE=${HISTFILE:-$HOME/.zsh_history}
 
 RHEON_ROOT=$RHEON_ROOT \
     USER_HISTFILE=$USER_HISTFILE \
     ZDOTDIR=$RHEON_ROOT/bin/zsh \
-    /bin/zsh -i $SHELL_ARGS
+    /bin/zsh -i "${SHELL_ARGS[@]}"

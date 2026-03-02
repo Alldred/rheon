@@ -1,11 +1,13 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Generate a Tibbar test only (no simulation). Creates run dir with test.S and test.elf.
+# Generate a Tibbar test only (no simulation). Creates run dir with test.S, test.elf,
+# and a Tibbar model log (instructions_modelled.yaml).
 #
 # Usage:
 #   ./scripts/rheon_gen --test <testname> --seed <seed>
 #
-# Creates runs/<testname>_seed<N>_<YYYYMMDD>_<HHMMSS>/ with test.S, test.elf.
+# Creates runs/<testname>_seed<N>_<YYYYMMDD>_<HHMMSS>/ with test.S, test.elf,
+# and instructions_modelled.yaml.
 # Prints ELF path on the last line (for use by rheon_run).
 # TIBBAR_CMD default: uv run tibbar. RISC-V toolchain required for asm2elf.
 
@@ -39,10 +41,12 @@ RUN_DIR="${RUNS_BASE}/${TEST}_seed${SEED}_${TS}"
 mkdir -p "$RUN_DIR"
 ASM="${RUN_DIR}/test.S"
 ELF="${RUN_DIR}/test.elf"
+MODEL_LOG="${RUN_DIR}/instructions_modelled.yaml"
 
 echo "Run directory: $RUN_DIR" >&2
-$TIBBAR_CMD --generator "$TEST" --output "$ASM" --seed "$SEED"
+$TIBBAR_CMD --generator "$TEST" --output "$ASM" --seed "$SEED" --debug-yaml "$MODEL_LOG"
 "${RHEON_ROOT}/scripts/asm2elf.sh" "$ASM" --link -o "$ELF"
+echo "Instructions modelled: $MODEL_LOG" >&2
 echo "ELF: $ELF" >&2
 echo "Rerun: ${RHEON_ROOT}/scripts/rheon_gen --test $TEST --seed $SEED" >&2
 echo "$ELF"
