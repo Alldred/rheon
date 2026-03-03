@@ -7,12 +7,14 @@ import os
 from pathlib import Path
 
 from cocotb.triggers import Timer
+from forastero.monitor import MonitorEvent
 
 from tb import Testbench
+from tb.memory import read_exit_address
 from tb.verbosity import configure_logging_from_env
 
 
-@Testbench.testcase()
+@Testbench.testcase(timeout=100_000, shutdown_loops=1, shutdown_delay=1)
 async def test_elf_loaded(tb: Testbench, log):
     """Load ELF from TEST_ELF env or default path, run for a bounded time; scoreboard checks each commit.
     ELF can be set via command line: make run ELF=path/to.elf"""
@@ -41,8 +43,28 @@ async def test_elf_loaded(tb: Testbench, log):
     log.info("Loading ELF %s", elf_path)
     entry = tb.load_elf(elf_path)
     log.info("ELF entry point set to 0x%x", entry)
+    exit_addr = read_exit_address(elf_path)
+    if exit_addr is None:
+        raise AssertionError(
+            "Unable to resolve exit address from test artifacts/ELF; cannot detect end-of-test loop."
+        )
+    log.info("Exit address resolved to 0x%x", exit_addr)
     tb.set_entry_point(entry)
     await tb.reset()
-    run_ns = 50_000  # 50 us
-    log.info("Running core for %d ns (%.2f us).", run_ns, run_ns / 1_000.0)
-    await Timer(run_ns, unit="ns")
+    commit_count = 0
+    log.info("Running until commit reaches exit self-loop at 0x%x.", exit_addr)
+    while True:
+        obj = await tb.pipe_mon.wait_for(MonitorEvent.CAPTURE)
+        pc = getattr(obj, "pc", None)
+        next_pc = getattr(obj, "next_pc", None)
+        if pc is None or next_pc is None:
+            continue
+        commit_count += 1
+        if pc == exit_addr and next_pc == pc:
+            log.info(
+                "Detected test completion at self-loop PC 0x%x after %d commits.",
+                pc,
+                commit_count,
+            )
+            tb.request_stop()
+            return

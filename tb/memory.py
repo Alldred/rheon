@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import List, Tuple
 
@@ -12,6 +13,8 @@ INSTR_WIDTH = 32
 XLEN = 64
 # I-memory: 64-bit (8-byte) reads; fetch extracts 32-bit instructions internally
 IMEM_QWORD_BYTES = 8
+_EXIT_S_RE = re.compile(r"^\s*#\s*Exit:\s*(0x[0-9a-fA-F]+)\s*$")
+_EXIT_YAML_RE = re.compile(r"^\s*exit_address\s*:\s*['\"]?(0x[0-9a-fA-F]+)['\"]?\s*$")
 
 
 class DictMemory:
@@ -114,3 +117,65 @@ def load_elf(path: str | Path, memory: DictMemory) -> int:
                 memory.write_byte(vaddr + i, b)
 
     return entry
+
+
+def read_exit_address(path: str | Path) -> int | None:
+    """
+    Try to resolve test exit address for an ELF.
+
+    Lookup order:
+    1. ELF symbol table (_exit/exit/__exit).
+    2. Sidecar metadata next to ELF (instructions_modelled.yaml/.yml).
+    3. Sidecar assembly header next to ELF (test.S with '# Exit: 0x...').
+    """
+    elf_path = Path(path)
+    if not elf_path.exists():
+        return None
+
+    # Prefer ELF-defined exit symbol when present.
+    try:
+        from elftools.elf.elffile import ELFFile
+    except ImportError:
+        ELFFile = None  # type: ignore[assignment]
+    if ELFFile is not None:
+        try:
+            with elf_path.open("rb") as f:
+                elf = ELFFile(f)
+                for sec_name in (".symtab", ".dynsym"):
+                    sec = elf.get_section_by_name(sec_name)
+                    if sec is None:
+                        continue
+                    for sym in sec.iter_symbols():
+                        if sym.name in {"_exit", "exit", "__exit"}:
+                            return int(sym["st_value"])
+        except Exception:
+            pass
+
+    # Prefer explicit generator metadata when present.
+    for meta_name in ("instructions_modelled.yaml", "instructions_modelled.yml"):
+        meta_path = elf_path.parent / meta_name
+        if not meta_path.exists():
+            continue
+        for line in meta_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            m = _EXIT_YAML_RE.match(line)
+            if m:
+                try:
+                    return int(m.group(1), 16)
+                except ValueError:
+                    break
+
+    # Fallback to assembly header comment.
+    asm_path = elf_path.with_suffix(".S")
+    if not asm_path.exists():
+        alt_asm_path = elf_path.parent / "test.S"
+        asm_path = alt_asm_path if alt_asm_path.exists() else asm_path
+    if asm_path.exists():
+        for line in asm_path.read_text(encoding="utf-8", errors="ignore").splitlines():
+            m = _EXIT_S_RE.match(line)
+            if m:
+                try:
+                    return int(m.group(1), 16)
+                except ValueError:
+                    break
+
+    return None

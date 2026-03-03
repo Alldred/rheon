@@ -57,6 +57,7 @@ class Testbench(BaseBench):
         self.memory = DictMemory()
         self._lome_memory = LomeReadOnlyMemory(self.memory)
         self._entry_point: Optional[int] = 0
+        self._stop_requested = False
 
         # Lome model (same initial PC as RTL after reset)
         self._model = _make_lome_model(memory=self._lome_memory)
@@ -157,3 +158,11 @@ class Testbench(BaseBench):
         start_pc = getattr(self.dut, "start_pc", None)
         if start_pc is not None:
             start_pc.value = addr
+
+    @property
+    def stop_requested(self) -> bool:
+        return self._stop_requested
+
+    def request_stop(self) -> None:
+        """Request background coroutines to exit so Forastero shutdown can complete."""
+        self._stop_requested = True

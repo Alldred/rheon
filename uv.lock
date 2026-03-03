@@ -261,7 +261,7 @@ wheels = [
 [[package]]
 name = "lome"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/Alldred/lome.git#182bc001b08dc20b98672df14ce85d09b17d1c85" }
+source = { git = "ssh://git@github.com/Alldred/lome.git#bf419910ec6e1f5f66896f953c5e9c86672149c8" }
 dependencies = [
     { name = "eumos" },
 ]
@@ -804,7 +804,7 @@ wheels = [
 [[package]]
 name = "tibbar"
 version = "0.1.0"
-source = { git = "https://github.com/Alldred/tibbar.git#21d5739e7974a98aafb5aca5cc0fa0c151ab48fe" }
+source = { git = "https://github.com/Alldred/tibbar.git#65b5ec138ab8c0787454ef74d88c0c29aac8dcf0" }
 dependencies = [
     { name = "eumos" },
     { name = "jsonschema" },

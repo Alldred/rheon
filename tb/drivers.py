@@ -42,6 +42,9 @@ async def imem_req_ready_driver(tb, io, clk, rst) -> None:
     """Drive req_ready high so DUT request handshake can complete (no backpressure)."""
     while True:
         await RisingEdge(clk)
+        if getattr(tb, "stop_requested", False):
+            io.set("req_ready", 0)
+            return
         if rst.value != tb.rst_active_value:
             io.set("req_ready", 1)
 
@@ -50,5 +53,8 @@ async def dmem_req_ready_driver(tb, io, clk, rst) -> None:
     """Drive req_ready high so DUT request handshake can complete (no backpressure)."""
     while True:
         await RisingEdge(clk)
+        if getattr(tb, "stop_requested", False):
+            io.set("req_ready", 0)
+            return
         if rst.value != tb.rst_active_value:
             io.set("req_ready", 1)
