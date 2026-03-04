@@ -40,7 +40,7 @@ export FAIL_FAST ?= yes
 SIM ?= verilator
 
 # Waveform dumping (Verilator): set WAVES=1 to build with tracing and dump VCD.
-# Output defaults next to COCOTB_RESULTS_FILE (set by scripts/rheon_sim).
+# Output defaults next to COCOTB_RESULTS_FILE (set by bin/rheon_sim).
 WAVES ?= 0
 WAVES_FILE ?= $(dir $(COCOTB_RESULTS_FILE))dump.vcd
 ifeq ($(SIM),verilator)

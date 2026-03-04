@@ -1,0 +1,19 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Stuart Alldred.
+
+# Example regression configuration for ./bin/rheon_regr --file examples/regression.example.yaml
+version: 1
+regression:
+  seed: 1
+  jobs: 7
+  update: 10
+  stages: [run]
+  # output_dir defaults to runs/regressions/<timestamp> when omitted
+  # output_dir: runs/regressions/nightly
+  verbosity: info
+  waves: false
+  tests:
+    - name: simple
+      count: 100
+    - name: branch
+      count: 25

@@ -651,6 +651,8 @@ dependencies = [
     { name = "packtype" },
     { name = "pydantic" },
     { name = "pyelftools" },
+    { name = "pyyaml" },
+    { name = "rich" },
     { name = "tibbar" },
 ]
 
@@ -673,6 +675,8 @@ requires-dist = [
     { name = "pyelftools", specifier = ">=0.31" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
+    { name = "pyyaml", specifier = ">=6.0.2" },
+    { name = "rich", specifier = ">=13.9.4" },
     { name = "tibbar", git = "https://github.com/Alldred/tibbar.git" },
 ]
 provides-extras = ["dev"]
