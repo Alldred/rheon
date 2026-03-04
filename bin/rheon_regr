@@ -6,7 +6,10 @@ from __future__ import annotations
 
 import argparse
 import sys
+from collections import defaultdict
+from dataclasses import dataclass
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "scripts"))
@@ -17,6 +20,77 @@ from rheon_cli_common import (  # noqa: E402
     format_elapsed,
     run_regression,
 )
+
+if TYPE_CHECKING:
+    from rheon_cli_common import JobResult
+
+
+@dataclass(frozen=True)
+class FailureTriageRow:
+    mnemonic: str
+    mismatch: str
+    count: int
+    fastest_result: JobResult
+
+
+def _asm_mnemonic(asm: str | None) -> str:
+    if asm is None:
+        return "unknown"
+    text = asm.strip()
+    if not text:
+        return "unknown"
+    return text.split()[0].lower()
+
+
+def _mismatch_keys(result: JobResult) -> list[str]:
+    if result.triage_mismatched_fields:
+        seen: set[str] = set()
+        keys: list[str] = []
+        for item in result.triage_mismatched_fields:
+            key = item.strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+        if keys:
+            return keys
+    reason = (result.status_reason or "").strip()
+    return [reason if reason else "unknown"]
+
+
+def build_failure_triage_rows(
+    failed_results: list[JobResult],
+) -> list[FailureTriageRow]:
+    counts: dict[tuple[str, str], int] = defaultdict(int)
+    fastest: dict[tuple[str, str], JobResult] = {}
+
+    for result in failed_results:
+        mnemonic = _asm_mnemonic(result.triage_instr_asm)
+        for mismatch in _mismatch_keys(result):
+            key = (mnemonic, mismatch)
+            counts[key] += 1
+            best = fastest.get(key)
+            if best is None or result.duration_seconds < best.duration_seconds:
+                fastest[key] = result
+
+    rows = [
+        FailureTriageRow(
+            mnemonic=mnemonic,
+            mismatch=mismatch,
+            count=count,
+            fastest_result=fastest[(mnemonic, mismatch)],
+        )
+        for (mnemonic, mismatch), count in counts.items()
+    ]
+    rows.sort(
+        key=lambda row: (
+            -row.count,
+            row.fastest_result.duration_seconds,
+            row.mnemonic,
+            row.mismatch,
+        )
+    )
+    return rows
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -156,6 +230,7 @@ def main(argv: list[str] | None = None) -> int:
         failed_table.add_column("JOB", justify="right")
         failed_table.add_column("TEST", style="bold")
         failed_table.add_column("SEED", justify="right")
+        failed_table.add_column("ELAPSED", justify="right")
         failed_table.add_column("PC", justify="right")
         failed_table.add_column("ASM", overflow="fold")
         failed_table.add_column("MISMATCHES", overflow="fold")
@@ -166,6 +241,7 @@ def main(argv: list[str] | None = None) -> int:
                 str(result.job.index),
                 result.job.test_name,
                 str(result.job.seed),
+                format_elapsed(result.duration_seconds),
                 f"0x{result.triage_pc:08x}" if result.triage_pc is not None else "-",
                 result.triage_instr_asm or "-",
                 ",".join(result.triage_mismatched_fields[:6]) or "-",
@@ -173,6 +249,23 @@ def main(argv: list[str] | None = None) -> int:
                 str(result.log_path),
             )
         console.print(failed_table)
+
+        triage_rows = build_failure_triage_rows(outcome.failed_results)
+        triage_table = Table(title="Failure Triage", show_lines=True, expand=True)
+        triage_table.add_column("INSTR", style="bold")
+        triage_table.add_column("MISMATCH")
+        triage_table.add_column("COUNT", justify="right")
+        triage_table.add_column("FASTEST", justify="right")
+        triage_table.add_column("FASTEST RERUN", overflow="fold")
+        for row in triage_rows:
+            triage_table.add_row(
+                row.mnemonic,
+                row.mismatch,
+                str(row.count),
+                format_elapsed(row.fastest_result.duration_seconds),
+                row.fastest_result.rerun_command,
+            )
+        console.print(triage_table)
 
     if outcome.interrupted:
         return 130

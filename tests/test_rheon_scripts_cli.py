@@ -8,6 +8,7 @@ import argparse
 import importlib.util
 import subprocess
 import sys
+from importlib.machinery import SourceFileLoader
 from pathlib import Path
 
 import pytest
@@ -21,6 +22,13 @@ assert SPEC is not None and SPEC.loader is not None
 COMMON = importlib.util.module_from_spec(SPEC)
 sys.modules[SPEC.name] = COMMON
 SPEC.loader.exec_module(COMMON)
+
+BIN_LOADER = SourceFileLoader("rheon_regr_cli", str(BIN_REGR))
+BIN_SPEC = importlib.util.spec_from_loader(BIN_LOADER.name, BIN_LOADER)
+assert BIN_SPEC is not None and BIN_SPEC.loader is not None
+REGR_CLI = importlib.util.module_from_spec(BIN_SPEC)
+sys.modules[BIN_SPEC.name] = REGR_CLI
+BIN_SPEC.loader.exec_module(REGR_CLI)
 
 
 def _args(**overrides: object) -> argparse.Namespace:
@@ -248,3 +256,69 @@ def test_wrapper_help_matches_bin_help() -> None:
     assert bin_help.returncode == 0
     assert wrapper_help.returncode == 0
     assert wrapper_help.stdout == bin_help.stdout
+
+
+def test_asm_mnemonic_uses_opcode_only() -> None:
+    assert REGR_CLI._asm_mnemonic("slli x0, x1, 0x3") == "slli"  # noqa: SLF001
+    assert REGR_CLI._asm_mnemonic("  JAL x0, 88 ") == "jal"  # noqa: SLF001
+    assert REGR_CLI._asm_mnemonic(None) == "unknown"  # noqa: SLF001
+
+
+def test_build_failure_triage_rows_counts_and_fastest() -> None:
+    def _result(
+        *,
+        index: int,
+        asm: str,
+        mismatches: list[str],
+        duration: float,
+        rerun: str,
+    ) -> COMMON.JobResult:
+        job = COMMON.RegressionJob(index=index, test_name="simple", seed=100 + index)
+        return COMMON.JobResult(
+            job=job,
+            run_dir=Path(f"/tmp/run{index}"),
+            log_path=Path(f"/tmp/run{index}/sim.log"),
+            returncode=1,
+            rerun_command=rerun,
+            status_reason="mismatch",
+            timed_out=False,
+            duration_seconds=duration,
+            triage_instr_asm=asm,
+            triage_mismatched_fields=mismatches,
+        )
+
+    rows = REGR_CLI.build_failure_triage_rows(  # noqa: SLF001
+        [
+            _result(
+                index=1,
+                asm="slli x0, x1, 0x3",
+                mismatches=["rd_val"],
+                duration=8.0,
+                rerun="rheon_run --test simple --seed 101",
+            ),
+            _result(
+                index=2,
+                asm="slli x2, x3, 0x1",
+                mismatches=["rd_val"],
+                duration=3.0,
+                rerun="rheon_run --test simple --seed 102",
+            ),
+            _result(
+                index=3,
+                asm="addi x1, x0, 1",
+                mismatches=["next_pc", "rd_val"],
+                duration=5.0,
+                rerun="rheon_run --test simple --seed 103",
+            ),
+        ]
+    )
+
+    assert rows[0].mnemonic == "slli"
+    assert rows[0].mismatch == "rd_val"
+    assert rows[0].count == 2
+    assert rows[0].fastest_result.rerun_command == "rheon_run --test simple --seed 102"
+
+    addi_next_pc = next(
+        row for row in rows if row.mnemonic == "addi" and row.mismatch == "next_pc"
+    )
+    assert addi_next_pc.count == 1
