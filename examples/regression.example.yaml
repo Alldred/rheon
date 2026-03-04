@@ -10,8 +10,14 @@ regression:
   stages: [run]
   # output_dir defaults to runs/regressions/<timestamp> when omitted
   # output_dir: runs/regressions/nightly
+  # resume supports an explicit directory or 'latest'
+  # resume: latest
   verbosity: info
   waves: false
+  # timeout_sec: 120
+  # fail_fast: true
+  # max_failures: 10
+  # report_json: runs/regressions/nightly_report.json
   tests:
     - name: simple
       count: 100

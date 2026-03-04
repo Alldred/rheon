@@ -145,6 +145,7 @@ def lome_push_reference(
         pc=ref_pc_before,
         next_pc=expected_pc,
         instr=exp_instr,
+        instr_asm=disasm_insn(exp_instr, ref_pc_before, decoder=tb.model.decoder),
         rd=exp_rd,
         rd_val=exp_rd_val,
         rs1=exp_rs1,

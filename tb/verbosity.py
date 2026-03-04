@@ -34,12 +34,18 @@ def configure_logging_from_env(logger_name: str | None = None) -> None:
     """Set logging level from RHEON_VERBOSITY. Call early (e.g. from test_elf).
     Third-party loggers (e.g. pykwalify, eumos) are set to WARNING so only our debug shows."""
     level = logging_level_from_verbosity()
+    scoreboard_level = min(level, logging.INFO)
     # Forastero uses "tb" as the log hierarchy root (tb, tb.scoreboard, ...).
     # Its default parameter file sets tb to INFO, so override that here.
     tb_root = logging.getLogger("tb")
     tb_root.setLevel(level)
     for handler in tb_root.handlers:
-        handler.setLevel(level)
+        # Keep global verbosity behavior while still allowing scoreboard INFO mismatch tables.
+        handler.setLevel(min(level, logging.INFO))
+    tb_scoreboard = logging.getLogger("tb.scoreboard")
+    tb_scoreboard.setLevel(scoreboard_level)
+    for handler in tb_scoreboard.handlers:
+        handler.setLevel(scoreboard_level)
     if logger_name:
         logging.getLogger(logger_name).setLevel(level)
     for name in _SUPPRESSED_LOGGERS:

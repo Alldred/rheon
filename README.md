@@ -46,9 +46,17 @@ make run ELF=path/to/program.elf
    ```bash
    ./bin/rheon_regr --test simple,100 --seed 1
    ./bin/rheon_regr --file examples/regression.example.yaml
+   ./bin/rheon_regr --resume latest
+   ./bin/rheon_regr --test simple,200 --timeout-sec 120 --max-failures 10
+   ./bin/rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json
    ```
    - Status refresh interval defaults to `2s`; override with `--update <seconds>`.
    - Parallel worker count defaults to CPU cores minus one; override with `--jobs <N>`.
+   - `--resume` accepts either an explicit regression directory path or `latest`.
+   - `runs/regressions/latest` is updated to the most recent regression output directory.
+   - Optional stop controls: `--timeout-sec`, `--fail-fast`, and `--max-failures`.
+   - Failed-job triage includes mismatch instruction context (`pc`, instruction word, disassembly, mismatched fields).
+   - Optional JSON report output: `--report-json <path>`.
    - Each regression creates `runs/regressions/<timestamp>/` and each job writes logs to `<job_dir>/sim.log`.
    - Example YAML file: `examples/regression.example.yaml`.
 

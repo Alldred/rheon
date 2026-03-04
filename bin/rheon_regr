@@ -22,6 +22,15 @@ from rheon_cli_common import (  # noqa: E402
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="Run rheon regressions in parallel with live status updates.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  rheon_regr --test simple,200 --jobs 8\n"
+            "  rheon_regr --file examples/regression.example.yaml\n"
+            "  rheon_regr --resume latest\n"
+            "  rheon_regr --test simple,100 --timeout-sec 120 --max-failures 10\n"
+            "  rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json\n"
+        ),
     )
     parser.add_argument(
         "--file", type=Path, default=None, help="Path to YAML regression file"
@@ -57,6 +66,35 @@ def build_parser() -> argparse.ArgumentParser:
         type=Path,
         default=None,
         help="Optional explicit output directory for regression artifacts",
+    )
+    parser.add_argument(
+        "--resume",
+        default=None,
+        help="Resume from an existing regression directory or use 'latest'",
+    )
+    parser.add_argument(
+        "--timeout-sec",
+        type=int,
+        default=None,
+        help="Per-job timeout in seconds (default: disabled)",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        default=None,
+        help="Stop scheduling new jobs after the first failure",
+    )
+    parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=None,
+        help="Stop scheduling new jobs once this many failures are seen",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        default=None,
+        help="Optional path for JSON regression report output",
     )
     parser.add_argument(
         "-v",
@@ -102,6 +140,14 @@ def main(argv: list[str] | None = None) -> int:
         f"total={outcome.total} passed={outcome.passed} failed={outcome.failed} "
         f"elapsed={format_elapsed(outcome.duration_seconds)}"
     )
+    if outcome.not_run:
+        console.print(f"Not run: {outcome.not_run}")
+    if outcome.fail_fast_triggered:
+        console.print("Stop condition: fail-fast triggered")
+    elif outcome.max_failures_triggered:
+        console.print("Stop condition: max-failures threshold reached")
+    if outcome.timed_out:
+        console.print(f"Timed out jobs: {outcome.timed_out}")
 
     if outcome.failed_results:
         from rich.table import Table
@@ -110,6 +156,9 @@ def main(argv: list[str] | None = None) -> int:
         failed_table.add_column("JOB", justify="right")
         failed_table.add_column("TEST", style="bold")
         failed_table.add_column("SEED", justify="right")
+        failed_table.add_column("PC", justify="right")
+        failed_table.add_column("ASM", overflow="fold")
+        failed_table.add_column("MISMATCHES", overflow="fold")
         failed_table.add_column("RERUN COMMAND", overflow="fold")
         failed_table.add_column("LOG", overflow="fold")
         for result in outcome.failed_results:
@@ -117,6 +166,9 @@ def main(argv: list[str] | None = None) -> int:
                 str(result.job.index),
                 result.job.test_name,
                 str(result.job.seed),
+                f"0x{result.triage_pc:08x}" if result.triage_pc is not None else "-",
+                result.triage_instr_asm or "-",
+                ",".join(result.triage_mismatched_fields[:6]) or "-",
                 result.rerun_command,
                 str(result.log_path),
             )
