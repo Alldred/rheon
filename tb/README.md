@@ -51,4 +51,4 @@ async def test_elf_loaded(tb: Testbench):
 
 Run with: `make` (or `MODULE=testcases.test_elf make`). Top-level is `rheon_core`; no wrapper.
 
-**ELF from command line:** `make run ELF=path/to.elf`. **CLI commands** (all use `--test` and `--seed`): `./bin/rheon_gen` (generate only); `./bin/rheon_sim` (run only, `--test` is elf path); `./bin/rheon_run` (generate then run); `./bin/rheon_regr` (parallel regressions from `--test NAME,COUNT` or `--file path.yaml`, default `--update 10`, see `examples/regression.example.yaml`). Or `./scripts/run_test.sh` for legacy generate+run with default generator.
+**ELF from command line:** `make run ELF=path/to.elf`. **CLI commands** (all use `--test` and `--seed`): `./bin/rheon_gen` (generate only); `./bin/rheon_sim` (run only, `--test` is elf path); `./bin/rheon_run` (generate then run); `./bin/rheon_regr` (parallel regressions from `--test NAME,COUNT` or `--file path.yaml`, default `--update 2`, see `examples/regression.example.yaml`). Or `./scripts/run_test.sh` for legacy generate+run with default generator.

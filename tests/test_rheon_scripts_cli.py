@@ -101,7 +101,7 @@ def test_build_regression_config_requires_tests() -> None:
         COMMON.build_regression_config(args)
 
 
-def test_build_regression_config_defaults_update_to_10() -> None:
+def test_build_regression_config_defaults_update_to_2() -> None:
     args = argparse.Namespace(
         file=None,
         test=["simple,1"],
@@ -115,7 +115,7 @@ def test_build_regression_config_defaults_update_to_10() -> None:
     )
     config = COMMON.build_regression_config(args)
     assert config.seed == 1
-    assert config.update == 10
+    assert config.update == 2
 
 
 def test_build_regression_config_validates_update(tmp_path: Path) -> None:

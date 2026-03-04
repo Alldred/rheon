@@ -47,7 +47,7 @@ make run ELF=path/to/program.elf
    ./bin/rheon_regr --test simple,100 --seed 1
    ./bin/rheon_regr --file examples/regression.example.yaml
    ```
-   - Status refresh interval defaults to `10s`; override with `--update <seconds>`.
+   - Status refresh interval defaults to `2s`; override with `--update <seconds>`.
    - Parallel worker count defaults to CPU cores minus one; override with `--jobs <N>`.
    - Each regression creates `runs/regressions/<timestamp>/` and each job writes logs to `<job_dir>/sim.log`.
    - Example YAML file: `examples/regression.example.yaml`.

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import importlib.util
 import sys
+from concurrent.futures import Future
 from io import StringIO
 from pathlib import Path
 
@@ -35,7 +36,7 @@ def _make_runner(failing_indices: set[int]):
             run_dir=run_dir,
             log_path=log_path,
             returncode=rc,
-            command="fake",
+            rerun_command="fake",
         )
 
     return _runner
@@ -68,6 +69,7 @@ def test_run_regression_tracks_status_and_failures(tmp_path: Path) -> None:
     assert outcome.failed == 2
     assert not outcome.interrupted
     assert len(outcome.failed_results) == 2
+    assert all(result.rerun_command for result in outcome.failed_results)
 
     job_dirs = sorted(path for path in tmp_path.iterdir() if path.is_dir())
     assert len(job_dirs) == 4
@@ -111,3 +113,40 @@ def test_expand_regression_jobs_uses_deterministic_seed_order() -> None:
     assert [(job.index, job.test_name, job.seed) for job in first] == [
         (job.index, job.test_name, job.seed) for job in second
     ]
+
+
+def test_build_job_rerun_command_excludes_run_dir() -> None:
+    config = COMMON.RegressionConfig(
+        tests=[COMMON.TestSpec("simple", 1)],
+        seed=1,
+        jobs=1,
+        update=1,
+        stages=("run",),
+        output_dir=None,
+        verbosity="info",
+        waves=True,
+    )
+    job = COMMON.RegressionJob(index=1, test_name="simple", seed=42)
+    rerun = COMMON.build_job_rerun_command(job, config)
+    assert rerun.startswith("rheon_run ")
+    assert "--run-dir" not in rerun
+    assert "--test simple" in rerun
+    assert "--seed 42" in rerun
+
+
+def test_running_job_entries_sorted_by_longest_elapsed() -> None:
+    f1: Future = Future()
+    f2: Future = Future()
+    f3: Future = Future()
+    jobs = {
+        f1: COMMON.RegressionJob(index=1, test_name="a", seed=1),
+        f2: COMMON.RegressionJob(index=2, test_name="b", seed=2),
+        f3: COMMON.RegressionJob(index=3, test_name="c", seed=3),
+    }
+    started_at = {
+        f1: 90.0,  # elapsed 10
+        f2: 80.0,  # elapsed 20
+        f3: 95.0,  # elapsed 5
+    }
+    entries = COMMON._running_job_entries(jobs, started_at, now=100.0)  # noqa: SLF001
+    assert [job.index for job, _elapsed in entries] == [2, 1, 3]

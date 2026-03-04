@@ -45,7 +45,7 @@ def build_parser() -> argparse.ArgumentParser:
         "--update",
         type=int,
         default=None,
-        help="Status refresh interval in seconds (default 10)",
+        help="Status refresh interval in seconds (default 2)",
     )
     parser.add_argument(
         "--stages",
@@ -104,12 +104,23 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if outcome.failed_results:
-        console.print("Failed jobs:")
+        from rich.table import Table
+
+        failed_table = Table(title="Failed Jobs", show_lines=True, expand=True)
+        failed_table.add_column("JOB", justify="right")
+        failed_table.add_column("TEST", style="bold")
+        failed_table.add_column("SEED", justify="right")
+        failed_table.add_column("RERUN COMMAND", overflow="fold")
+        failed_table.add_column("LOG", overflow="fold")
         for result in outcome.failed_results:
-            console.print(
-                f"  - job={result.job.index} test={result.job.test_name} "
-                f"seed={result.job.seed} rc={result.returncode} log={result.log_path}"
+            failed_table.add_row(
+                str(result.job.index),
+                result.job.test_name,
+                str(result.job.seed),
+                result.rerun_command,
+                str(result.log_path),
             )
+        console.print(failed_table)
 
     if outcome.interrupted:
         return 130

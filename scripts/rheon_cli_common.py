@@ -135,7 +135,7 @@ class JobResult:
     run_dir: Path
     log_path: Path
     returncode: int
-    command: str
+    rerun_command: str
 
 
 @dataclass(frozen=True)
@@ -292,7 +292,7 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
         jobs = _coerce_int(args.jobs, field="--jobs", min_value=1)
 
     update = _coerce_int(
-        10 if regression_model.update is None else regression_model.update,
+        2 if regression_model.update is None else regression_model.update,
         field="update",
         min_value=1,
     )
@@ -374,6 +374,21 @@ def make_run_dir(base_output_dir: Path, job: RegressionJob) -> Path:
     return base_output_dir / f"{job.index:04d}_{safe_test_name}_seed{job.seed}"
 
 
+def build_job_rerun_command(job: RegressionJob, config: RegressionConfig) -> str:
+    rerun_parts = [
+        "rheon_run",
+        "--test",
+        job.test_name,
+        "--seed",
+        str(job.seed),
+    ]
+    if config.verbosity:
+        rerun_parts.extend(["--verbosity", config.verbosity])
+    if config.waves:
+        rerun_parts.append("--waves")
+    return " ".join(shlex.quote(part) for part in rerun_parts)
+
+
 def _spawn_and_wait(
     command: Sequence[str],
     *,
@@ -417,7 +432,7 @@ def _run_job_default(
     log_path = run_dir / "sim.log"
 
     command_root = commands_dir()
-    command_text = ""
+    rerun_text = build_job_rerun_command(job, config)
 
     with log_path.open("w", encoding="utf-8") as log_handle:
         log_handle.write(
@@ -438,7 +453,6 @@ def _run_job_default(
                 cmd.extend(["--verbosity", config.verbosity])
             if config.waves:
                 cmd.append("--waves")
-            command_text = " ".join(shlex.quote(part) for part in cmd)
             rc = _spawn_and_wait(
                 cmd, cwd=repo_root(), log_handle=log_handle, stop_event=stop_event
             )
@@ -447,7 +461,7 @@ def _run_job_default(
                 run_dir=run_dir,
                 log_path=log_path,
                 returncode=rc,
-                command=command_text,
+                rerun_command=rerun_text,
             )
 
         gen_cmd = [
@@ -459,34 +473,14 @@ def _run_job_default(
             "--run-dir",
             str(run_dir),
         ]
-        command_text = " ".join(shlex.quote(part) for part in gen_cmd)
         rc = _spawn_and_wait(
             gen_cmd, cwd=repo_root(), log_handle=log_handle, stop_event=stop_event
         )
-        if rc != 0:
-            return JobResult(
-                job=job,
-                run_dir=run_dir,
-                log_path=log_path,
-                returncode=rc,
-                command=command_text,
-            )
-
-        elf = run_dir / "test.elf"
-        if not elf.exists():
-            log_handle.write(f"ERROR: Expected ELF missing: {elf}\n")
-            return JobResult(
-                job=job,
-                run_dir=run_dir,
-                log_path=log_path,
-                returncode=1,
-                command=command_text,
-            )
-
+        sim_elf = run_dir / "test.elf"
         sim_cmd = [
             str(command_root / "rheon_sim"),
             "--test",
-            str(elf),
+            str(sim_elf),
             "--seed",
             str(job.seed),
         ]
@@ -494,7 +488,26 @@ def _run_job_default(
             sim_cmd.extend(["--verbosity", config.verbosity])
         if config.waves:
             sim_cmd.append("--waves")
-        command_text = " ".join(shlex.quote(part) for part in sim_cmd)
+        if rc != 0:
+            return JobResult(
+                job=job,
+                run_dir=run_dir,
+                log_path=log_path,
+                returncode=rc,
+                rerun_command=rerun_text,
+            )
+
+        elf = sim_elf
+        if not elf.exists():
+            log_handle.write(f"ERROR: Expected ELF missing: {elf}\n")
+            return JobResult(
+                job=job,
+                run_dir=run_dir,
+                log_path=log_path,
+                returncode=1,
+                rerun_command=rerun_text,
+            )
+
         rc = _spawn_and_wait(
             sim_cmd, cwd=repo_root(), log_handle=log_handle, stop_event=stop_event
         )
@@ -503,23 +516,138 @@ def _run_job_default(
             run_dir=run_dir,
             log_path=log_path,
             returncode=rc,
-            command=command_text,
+            rerun_command=rerun_text,
         )
 
 
-def _status_table(
-    *, pending: int, running: int, passed: int, failed: int, elapsed: str
+def _status_dashboard(
+    *,
+    total: int,
+    pending: int,
+    running: int,
+    passed: int,
+    failed: int,
+    elapsed: str,
+    update_seconds: int,
+    running_jobs: list[tuple[RegressionJob, float]],
+    recent_failures: list[JobResult],
 ) -> Any:
+    from rich import box
+    from rich.align import Align
+    from rich.columns import Columns
+    from rich.console import Group
+    from rich.panel import Panel
+    from rich.progress_bar import ProgressBar
     from rich.table import Table
+    from rich.text import Text
 
-    table = Table(title="Rheon Regression Status", expand=True)
-    table.add_column("PENDING", justify="right")
-    table.add_column("RUNNING", justify="right")
-    table.add_column("PASSED", justify="right", style="green")
-    table.add_column("FAILED", justify="right", style="red")
-    table.add_column("ELAPSED", justify="right", style="cyan")
-    table.add_row(str(pending), str(running), str(passed), str(failed), elapsed)
-    return table
+    done = passed + failed
+    completion = (done / total) if total else 1.0
+
+    def metric_card(
+        label: str, value: str, border_style: str, value_style: str
+    ) -> Panel:
+        body = Text(justify="center")
+        body.append(f"{value}\n", style=value_style)
+        body.append(label, style=f"bold {border_style}")
+        return Panel(
+            Align.center(body),
+            box=box.ROUNDED,
+            border_style=border_style,
+            padding=(0, 1),
+        )
+
+    cards = Columns(
+        [
+            metric_card("PENDING", str(pending), "cyan", "bold cyan"),
+            metric_card("RUNNING", str(running), "blue", "bold blue"),
+            metric_card("PASSED", str(passed), "green", "bold green"),
+            metric_card("FAILED", str(failed), "red", "bold red"),
+            metric_card("ELAPSED", elapsed, "magenta", "bold magenta"),
+        ],
+        equal=True,
+        expand=True,
+    )
+
+    progress = ProgressBar(
+        total=max(total, 1),
+        completed=min(done, total),
+        pulse=False,
+        style="grey35",
+        complete_style="green",
+        finished_style="green",
+    )
+    progress_meta = Table.grid(expand=True)
+    progress_meta.add_column(justify="left")
+    progress_meta.add_column(justify="center")
+    progress_meta.add_column(justify="right")
+    progress_meta.add_row(
+        f"Completed: {done}/{total}",
+        f"{completion * 100:5.1f}%",
+        f"Refresh: {update_seconds}s",
+    )
+    progress_panel = Panel(
+        Group(progress, progress_meta),
+        title="Progress",
+        border_style="cyan",
+        box=box.ROUNDED,
+    )
+
+    running_table = Table(box=box.SIMPLE_HEAD, expand=True, show_header=True)
+    running_table.add_column("JOB", justify="right", style="bold")
+    running_table.add_column("TEST", overflow="fold")
+    running_table.add_column("SEED", justify="right")
+    running_table.add_column("ELAPSED", justify="right", style="cyan")
+    for job, job_elapsed in running_jobs[:10]:
+        running_table.add_row(
+            str(job.index),
+            job.test_name,
+            str(job.seed),
+            format_elapsed(job_elapsed),
+        )
+    if not running_jobs:
+        running_table.add_row("-", "idle", "-", "-")
+    running_panel = Panel(
+        running_table,
+        title=f"Running Jobs ({len(running_jobs)})",
+        border_style="blue",
+        box=box.ROUNDED,
+    )
+
+    failure_table = Table(box=box.SIMPLE_HEAD, expand=True, show_header=True)
+    failure_table.add_column("JOB", justify="right", style="bold")
+    failure_table.add_column("TEST", overflow="fold")
+    failure_table.add_column("SEED", justify="right")
+    for result in recent_failures[-6:]:
+        failure_table.add_row(
+            str(result.job.index),
+            result.job.test_name,
+            str(result.job.seed),
+        )
+    if not recent_failures:
+        failure_table.add_row("-", "none", "-")
+    failure_panel = Panel(
+        failure_table,
+        title=f"Recent Failures ({failed})",
+        border_style="red",
+        box=box.ROUNDED,
+    )
+
+    return Group(cards, progress_panel, running_panel, failure_panel)
+
+
+def _running_job_entries(
+    active_futures: dict[Future[JobResult], RegressionJob],
+    started_at: dict[Future[JobResult], float],
+    now: float,
+) -> list[tuple[RegressionJob, float]]:
+    rows: list[tuple[RegressionJob, float]] = []
+    for future, job in active_futures.items():
+        started = started_at.get(future, now)
+        elapsed = max(now - started, 0.0)
+        rows.append((job, elapsed))
+    rows.sort(key=lambda item: (-item[1], item[0].index))
+    return rows
 
 
 def run_regression(
@@ -551,12 +679,14 @@ def run_regression(
     failed = 0
     interrupted = False
     failed_results: list[JobResult] = []
+    recent_failures: list[JobResult] = []
 
     stop_event = threading.Event()
     start = monotonic()
     next_update = start + config.update
 
     active_futures: dict[Future[JobResult], RegressionJob] = {}
+    active_started_at: dict[Future[JobResult], float] = {}
     cursor = 0
 
     def submit_one(executor: ThreadPoolExecutor) -> bool:
@@ -575,34 +705,63 @@ def run_regression(
             stop_event=stop_event,
         )
         active_futures[future] = job
+        active_started_at[future] = monotonic()
         return True
 
-    def consume_completed(done: set[Future[JobResult]]) -> None:
+    def consume_completed(done: set[Future[JobResult]]) -> bool:
         nonlocal running, passed, failed
+        had_failure = False
         for future in done:
+            job = active_futures.get(future)
             running -= 1
             active_futures.pop(future, None)
+            active_started_at.pop(future, None)
             try:
                 result = future.result()
             except Exception:
                 failed += 1
+                had_failure = True
+                if job is not None:
+                    fallback_run_dir = make_run_dir(output_dir, job)
+                    fallback_result = JobResult(
+                        job=job,
+                        run_dir=fallback_run_dir,
+                        log_path=fallback_run_dir / "sim.log",
+                        returncode=1,
+                        rerun_command=build_job_rerun_command(job, config),
+                    )
+                    failed_results.append(fallback_result)
+                    recent_failures.append(fallback_result)
+                    if len(recent_failures) > 24:
+                        del recent_failures[:-24]
                 continue
             if result.returncode == 0:
                 passed += 1
             else:
                 failed += 1
+                had_failure = True
                 failed_results.append(result)
+                recent_failures.append(result)
+                if len(recent_failures) > 24:
+                    del recent_failures[:-24]
+        return had_failure
 
     def refresh_status(live: Any, now: float, *, force: bool = False) -> None:
         nonlocal next_update
         if force or now >= next_update:
             live.update(
-                _status_table(
+                _status_dashboard(
+                    total=total,
                     pending=pending,
                     running=running,
                     passed=passed,
                     failed=failed,
                     elapsed=format_elapsed(now - start),
+                    update_seconds=config.update,
+                    running_jobs=_running_job_entries(
+                        active_futures, active_started_at, now
+                    ),
+                    recent_failures=recent_failures,
                 ),
                 refresh=True,
             )
@@ -613,15 +772,21 @@ def run_regression(
             pass
 
         with Live(
-            _status_table(
+            _status_dashboard(
+                total=total,
                 pending=pending,
                 running=running,
                 passed=passed,
                 failed=failed,
                 elapsed=format_elapsed(0),
+                update_seconds=config.update,
+                running_jobs=_running_job_entries(
+                    active_futures, active_started_at, start
+                ),
+                recent_failures=recent_failures,
             ),
             console=console,
-            refresh_per_second=4,
+            refresh_per_second=8,
         ) as live:
             try:
                 while active_futures:
@@ -633,12 +798,13 @@ def run_regression(
                         return_when=FIRST_COMPLETED,
                     )
 
+                    had_failure = False
                     if done:
-                        consume_completed(done)
+                        had_failure = consume_completed(done)
                         while running < config.jobs and submit_one(executor):
                             pass
 
-                    refresh_status(live, monotonic())
+                    refresh_status(live, monotonic(), force=had_failure)
 
             except KeyboardInterrupt:
                 interrupted = True

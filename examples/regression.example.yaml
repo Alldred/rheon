@@ -6,7 +6,7 @@ version: 1
 regression:
   seed: 1
   jobs: 7
-  update: 10
+  update: 2
   stages: [run]
   # output_dir defaults to runs/regressions/<timestamp> when omitted
   # output_dir: runs/regressions/nightly
