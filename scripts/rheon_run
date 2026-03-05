@@ -1,73 +1,7 @@
 #!/usr/bin/env bash
 # SPDX-License-Identifier: MIT
-# Generate a Tibbar test then run the testbench with the same seed.
-#
-# Usage:
-#   ./scripts/rheon_run --test <testname> --seed <seed> [-v|--verbosity <level>] [--waves]
-#
-# Creates runs/<testname>_seed<N>_<YYYYMMDD>_<HHMMSS>/ with test.S, test.elf; runs simulation
-# with that ELF and RANDOM_SEED=<seed> for reproducibility.
-# Equivalent to: rheon_gen --test <name> --seed <N> then rheon_sim --test <elf> --seed <N>.
+# Compatibility shim: forward to bin/rheon_run.
 
 set -euo pipefail
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-usage() {
-  echo "Usage: $0 --test <testname> --seed <seed> [-v|--verbosity <level>] [--waves]" >&2
-  echo "  --test       passed to Tibbar as --generator (e.g. simple)" >&2
-  echo "  --seed       used for Tibbar and for testbench (RANDOM_SEED)" >&2
-  echo "  -v, --verbosity  optional; logging level: debug, info, warning, error, critical (passed to rheon_sim)" >&2
-  echo "  --waves      optional; enable simulator waveform dumping (passed to rheon_sim)" >&2
-  echo "  Run dir: runs/<testname>_seed<seed>_<YYYYMMDD>_<HHMMSS>/" >&2
-  exit 1
-}
-
-TEST=""
-SEED=""
-VERBOSE_ARGS=()
-WAVE_ARGS=()
-while [[ $# -gt 0 ]]; do
-  case "$1" in
-    --test) TEST="$2"; shift 2 ;;
-    --seed) SEED="$2"; shift 2 ;;
-    -v|--verbosity)
-      if [[ -n "${2:-}" ]]; then
-        VERBOSE_ARGS+=("$1" "$2"); shift 2
-      else
-        echo "Missing value for --verbosity" >&2
-        usage
-      fi
-      ;;
-    --waves)
-      WAVE_ARGS+=("$1"); shift
-      ;;
-    *) usage ;;
-  esac
-done
-[[ -n "$TEST" ]] || usage
-[[ -n "$SEED" ]] || usage
-
-# Delegate to rheon_gen then rheon_sim (stream rheon_gen output; capture last line for ELF path)
-echo "Generating test: rheon_gen --test $TEST --seed $SEED" >&2
-GEN_OUT="$(mktemp -t rheon_gen.XXXXXXXXXX)"
-trap 'rm -f "$GEN_OUT"' EXIT
-"${SCRIPT_DIR}/rheon_gen" --test "$TEST" --seed "$SEED" 2>&1 | tee "$GEN_OUT"
-ELF="$(tail -1 "$GEN_OUT")"
-[[ -f "$ELF" ]] || { echo "rheon_gen did not produce ELF: $ELF" >&2; exit 1; }
-RERUN="${SCRIPT_DIR}/rheon_run --test $TEST --seed $SEED"
-[[ ${#VERBOSE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${VERBOSE_ARGS[*]}"
-[[ ${#WAVE_ARGS[@]} -gt 0 ]] && RERUN="$RERUN ${WAVE_ARGS[*]}"
-
-SIM_CMD=("${SCRIPT_DIR}/rheon_sim" --test "$ELF" --seed "$SEED")
-SIM_DESC="rheon_sim --test $ELF --seed $SEED"
-if [[ ${#VERBOSE_ARGS[@]} -gt 0 ]]; then
-  SIM_CMD+=("${VERBOSE_ARGS[@]}")
-  SIM_DESC="$SIM_DESC ${VERBOSE_ARGS[*]}"
-fi
-if [[ ${#WAVE_ARGS[@]} -gt 0 ]]; then
-  SIM_CMD+=("${WAVE_ARGS[@]}")
-  SIM_DESC="$SIM_DESC ${WAVE_ARGS[*]}"
-fi
-echo "Running simulation: $SIM_DESC" >&2
-echo "Rerun: $RERUN" >&2
-exec "${SIM_CMD[@]}"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+exec "${ROOT_DIR}/bin/rheon_run" "$@"

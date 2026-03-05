@@ -1,0 +1,278 @@
+#!/usr/bin/env python3
+# SPDX-License-Identifier: MIT
+# Run Rheon regressions with parallel jobs and a timed live status panel.
+
+from __future__ import annotations
+
+import argparse
+import sys
+from collections import defaultdict
+from dataclasses import dataclass
+from pathlib import Path
+from typing import TYPE_CHECKING
+
+ROOT_DIR = Path(__file__).resolve().parents[1]
+sys.path.insert(0, str(ROOT_DIR / "scripts"))
+
+from rheon_cli_common import (  # noqa: E402
+    ConfigError,
+    build_regression_config,
+    format_elapsed,
+    run_regression,
+)
+
+if TYPE_CHECKING:
+    from rheon_cli_common import JobResult
+
+
+@dataclass(frozen=True)
+class FailureTriageRow:
+    mnemonic: str
+    mismatch: str
+    count: int
+    fastest_result: JobResult
+
+
+def _asm_mnemonic(asm: str | None) -> str:
+    if asm is None:
+        return "unknown"
+    text = asm.strip()
+    if not text:
+        return "unknown"
+    return text.split()[0].lower()
+
+
+def _mismatch_keys(result: JobResult) -> list[str]:
+    if result.triage_mismatched_fields:
+        seen: set[str] = set()
+        keys: list[str] = []
+        for item in result.triage_mismatched_fields:
+            key = item.strip()
+            if not key or key in seen:
+                continue
+            seen.add(key)
+            keys.append(key)
+        if keys:
+            return keys
+    reason = (result.status_reason or "").strip()
+    return [reason if reason else "unknown"]
+
+
+def build_failure_triage_rows(
+    failed_results: list[JobResult],
+) -> list[FailureTriageRow]:
+    counts: dict[tuple[str, str], int] = defaultdict(int)
+    fastest: dict[tuple[str, str], JobResult] = {}
+
+    for result in failed_results:
+        mnemonic = _asm_mnemonic(result.triage_instr_asm)
+        for mismatch in _mismatch_keys(result):
+            key = (mnemonic, mismatch)
+            counts[key] += 1
+            best = fastest.get(key)
+            if best is None or result.duration_seconds < best.duration_seconds:
+                fastest[key] = result
+
+    rows = [
+        FailureTriageRow(
+            mnemonic=mnemonic,
+            mismatch=mismatch,
+            count=count,
+            fastest_result=fastest[(mnemonic, mismatch)],
+        )
+        for (mnemonic, mismatch), count in counts.items()
+    ]
+    rows.sort(
+        key=lambda row: (
+            -row.count,
+            row.fastest_result.duration_seconds,
+            row.mnemonic,
+            row.mismatch,
+        )
+    )
+    return rows
+
+
+def build_parser() -> argparse.ArgumentParser:
+    parser = argparse.ArgumentParser(
+        description="Run rheon regressions in parallel with live status updates.",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog=(
+            "Examples:\n"
+            "  rheon_regr --test simple,200 --jobs 8\n"
+            "  rheon_regr --file examples/regression.example.yaml\n"
+            "  rheon_regr --resume latest\n"
+            "  rheon_regr --test simple,100 --timeout-sec 120 --max-failures 10\n"
+            "  rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json\n"
+        ),
+    )
+    parser.add_argument(
+        "--file", type=Path, default=None, help="Path to YAML regression file"
+    )
+    parser.add_argument(
+        "--test",
+        action="append",
+        default=[],
+        help="Test spec in NAME,COUNT format (repeatable)",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None, help="Regression seed (default 1)"
+    )
+    parser.add_argument(
+        "--jobs",
+        type=int,
+        default=None,
+        help="Parallel jobs (default: CPU cores - 1, min 1)",
+    )
+    parser.add_argument(
+        "--update",
+        type=int,
+        default=None,
+        help="Status refresh interval in seconds (default 2)",
+    )
+    parser.add_argument(
+        "--stages",
+        default=None,
+        help="Stages to run: run or gen,sim",
+    )
+    parser.add_argument(
+        "--output-dir",
+        type=Path,
+        default=None,
+        help="Optional explicit output directory for regression artifacts",
+    )
+    parser.add_argument(
+        "--resume",
+        default=None,
+        help="Resume from an existing regression directory or use 'latest'",
+    )
+    parser.add_argument(
+        "--timeout-sec",
+        type=int,
+        default=None,
+        help="Per-job timeout in seconds (default: disabled)",
+    )
+    parser.add_argument(
+        "--fail-fast",
+        action="store_true",
+        default=None,
+        help="Stop scheduling new jobs after the first failure",
+    )
+    parser.add_argument(
+        "--max-failures",
+        type=int,
+        default=None,
+        help="Stop scheduling new jobs once this many failures are seen",
+    )
+    parser.add_argument(
+        "--report-json",
+        type=Path,
+        default=None,
+        help="Optional path for JSON regression report output",
+    )
+    parser.add_argument(
+        "-v",
+        "--verbosity",
+        default=None,
+        help="Forwarded sim verbosity: debug, info, warning, error, critical",
+    )
+    parser.add_argument(
+        "--waves",
+        action="store_true",
+        default=None,
+        help="Enable simulator waveform dumping for each job",
+    )
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = build_parser()
+    args = parser.parse_args(argv)
+
+    try:
+        from rich.console import Console
+    except ModuleNotFoundError:
+        print(
+            "Missing dependency: rich. Install project dependencies (e.g. `uv sync`).",
+            file=sys.stderr,
+        )
+        return 1
+
+    console = Console(stderr=True)
+
+    try:
+        config = build_regression_config(args)
+    except ConfigError as exc:
+        console.print(f"[red]Config error:[/red] {exc}")
+        return 1
+
+    outcome = run_regression(config, console=console)
+
+    console.print(f"Regression output: {outcome.output_dir}")
+    console.print(
+        "Summary: "
+        f"total={outcome.total} passed={outcome.passed} failed={outcome.failed} "
+        f"elapsed={format_elapsed(outcome.duration_seconds)}"
+    )
+    if outcome.not_run:
+        console.print(f"Not run: {outcome.not_run}")
+    if outcome.fail_fast_triggered:
+        console.print("Stop condition: fail-fast triggered")
+    elif outcome.max_failures_triggered:
+        console.print("Stop condition: max-failures threshold reached")
+    if outcome.timed_out:
+        console.print(f"Timed out jobs: {outcome.timed_out}")
+
+    if outcome.failed_results:
+        from rich.table import Table
+
+        failed_table = Table(title="Failed Jobs", show_lines=True, expand=True)
+        failed_table.add_column("JOB", justify="right")
+        failed_table.add_column("TEST", style="bold")
+        failed_table.add_column("SEED", justify="right")
+        failed_table.add_column("ELAPSED", justify="right")
+        failed_table.add_column("PC", justify="right")
+        failed_table.add_column("ASM", overflow="fold")
+        failed_table.add_column("MISMATCHES", overflow="fold")
+        failed_table.add_column("RERUN COMMAND", overflow="fold")
+        failed_table.add_column("LOG", overflow="fold")
+        for result in outcome.failed_results:
+            failed_table.add_row(
+                str(result.job.index),
+                result.job.test_name,
+                str(result.job.seed),
+                format_elapsed(result.duration_seconds),
+                f"0x{result.triage_pc:08x}" if result.triage_pc is not None else "-",
+                result.triage_instr_asm or "-",
+                ",".join(result.triage_mismatched_fields[:6]) or "-",
+                result.rerun_command,
+                str(result.log_path),
+            )
+        console.print(failed_table)
+
+        triage_rows = build_failure_triage_rows(outcome.failed_results)
+        triage_table = Table(title="Failure Triage", show_lines=True, expand=True)
+        triage_table.add_column("INSTR", style="bold")
+        triage_table.add_column("MISMATCH")
+        triage_table.add_column("COUNT", justify="right")
+        triage_table.add_column("FASTEST", justify="right")
+        triage_table.add_column("FASTEST RERUN", overflow="fold")
+        for row in triage_rows:
+            triage_table.add_row(
+                row.mnemonic,
+                row.mismatch,
+                str(row.count),
+                format_elapsed(row.fastest_result.duration_seconds),
+                row.fastest_result.rerun_command,
+            )
+        console.print(triage_table)
+
+    if outcome.interrupted:
+        return 130
+    if outcome.failed > 0:
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

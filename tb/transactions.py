@@ -20,6 +20,8 @@ class CommitTx(BaseTransaction if BaseTransaction is not object else object):
     pc: int = 0
     next_pc: int = 0
     instr: int = 0  # 32-bit instruction word (opcode = instr & 0x7F)
+    # Human-readable decode for triage/debug. Excluded from scoreboard compare.
+    instr_asm: str = dataclasses.field(default="", compare=False)
     # Destination: rd = register index (None if no architectural writeback);
     # rd_val = value stored there (None if no architectural writeback).
     rd: Optional[int] = None
