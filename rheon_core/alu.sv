@@ -30,6 +30,8 @@ module alu (
 
   logic [XLEN-1:0] add_sub_result, shift_result, w_result;
   logic [31:0]      op_a_lo, op_b_lo, addw_subw_lo, shiftw_lo;
+  logic signed [31:0] op_a_lo_signed;
+  logic [4:0]      shiftw_shamt;
   logic             sub;
   logic [XLEN-1:0]  add_b, add_cin;
 
@@ -41,12 +43,16 @@ module alu (
 
   assign op_a_lo = op_a[31:0];
   assign op_b_lo = op_b[31:0];
+  assign op_a_lo_signed = op_a[31:0];
+  assign shiftw_shamt = op_b_lo[4:0];
   assign addw_subw_lo = op_a_lo + (sub ? ~op_b_lo : op_b_lo) + (sub ? 32'd1 : 32'd0);
-  assign shiftw_lo = op == ALU_SRAW
-    ? ($signed(op_a_lo) >>> op_b_lo[4:0])
-    : op == ALU_SRLW
-      ? (op_a_lo >> op_b_lo[4:0])
-      : (op_a_lo << op_b_lo[4:0]);
+  always_comb begin
+    unique case (op)
+      ALU_SRAW: shiftw_lo = $unsigned(op_a_lo_signed >>> shiftw_shamt);
+      ALU_SRLW: shiftw_lo = op_a_lo >> shiftw_shamt;
+      default:  shiftw_lo = op_a_lo << shiftw_shamt;
+    endcase
+  end
 
   always_comb begin
     w_result = '0;
