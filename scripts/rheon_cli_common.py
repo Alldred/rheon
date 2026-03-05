@@ -327,11 +327,20 @@ def _resolve_resume_path(raw_value: str) -> Path:
             raise ConfigError(f"Resume target 'latest' not found at {latest}")
         if latest.is_symlink():
             resolved = latest.resolve()
-        else:
-            text = latest.read_text(encoding="utf-8").strip()
+        elif latest.is_file():
+            try:
+                text = latest.read_text(encoding="utf-8").strip()
+            except OSError as exc:
+                raise ConfigError(
+                    f"Unable to read resume target file {latest}"
+                ) from exc
             if not text:
                 raise ConfigError(f"Resume target file {latest} is empty")
             resolved = Path(text).expanduser().resolve()
+        else:
+            raise ConfigError(
+                f"Resume target '{latest}' must be a symlink or a file containing a directory path"
+            )
         if not resolved.exists() or not resolved.is_dir():
             raise ConfigError(
                 f"Resume target resolved from 'latest' is invalid: {resolved}"

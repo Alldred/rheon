@@ -220,6 +220,21 @@ def test_resume_latest_missing_errors(
         )
 
 
+def test_resume_latest_directory_errors(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    latest = tmp_path / "latest"
+    latest.mkdir()
+    monkeypatch.setattr(COMMON, "latest_shortcut_path", lambda: latest)
+    with pytest.raises(COMMON.ConfigError, match="must be a symlink or a file"):
+        COMMON.build_regression_config(
+            _args(
+                test=["simple,1"],
+                resume="latest",
+            )
+        )
+
+
 def test_help_includes_new_flags_and_latest() -> None:
     completed = subprocess.run(
         [str(BIN_REGR), "--help"],
