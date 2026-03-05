@@ -10,7 +10,6 @@ from cocotb.triggers import ReadOnly, RisingEdge
 from forastero import BaseIO, IORole
 from forastero.monitor import BaseMonitor
 
-from ..disasm import disasm_insn
 from ..transactions import CommitTx
 
 
@@ -143,9 +142,6 @@ class PipelineCommitMonitor(BaseMonitor):
                     pc=commit_pc,
                     next_pc=next_pc,
                     instr=c_instr & 0xFFFFFFFF,
-                    instr_asm=disasm_insn(
-                        c_instr & 0xFFFFFFFF, commit_pc, decoder=self.tb.model.decoder
-                    ),
                     rd=rd,
                     rd_val=rd_val,
                     rs1=rs1,

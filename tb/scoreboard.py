@@ -53,7 +53,8 @@ def lome_push_reference(
     if event != MonitorEvent.CAPTURE or not isinstance(obj, CommitTx):
         return
 
-    if get_verbosity() == "debug":
+    verbose_debug = get_verbosity() == "debug"
+    if verbose_debug:
         # Ensure DEBUG records are not dropped by logger/handler thresholds.
         for lg in (logging.getLogger("tb"), logging.getLogger()):
             if lg.level > logging.DEBUG:
@@ -141,11 +142,15 @@ def lome_push_reference(
         load_data = int(mr.value) if mr.value is not None else None
         load_strb = _size_to_strobe(int(mr.size))
 
+    instr_asm = ""
+    if verbose_debug:
+        instr_asm = disasm_insn(exp_instr, ref_pc_before, decoder=tb.model.decoder)
+
     expected = CommitTx(
         pc=ref_pc_before,
         next_pc=expected_pc,
         instr=exp_instr,
-        instr_asm=disasm_insn(exp_instr, ref_pc_before, decoder=tb.model.decoder),
+        instr_asm=instr_asm,
         rd=exp_rd,
         rd_val=exp_rd_val,
         rs1=exp_rs1,
