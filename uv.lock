@@ -808,7 +808,7 @@ wheels = [
 [[package]]
 name = "tibbar"
 version = "0.1.0"
-source = { git = "https://github.com/Alldred/tibbar.git#65b5ec138ab8c0787454ef74d88c0c29aac8dcf0" }
+source = { git = "https://github.com/Alldred/tibbar.git#e9609953d4f86a8e28fb50be6f4b285ccbf96b30" }
 dependencies = [
     { name = "eumos" },
     { name = "jsonschema" },
