@@ -286,8 +286,9 @@ module rheon_core #(
         c_rd           <= e_rd;
         c_rs1          <= e_rs1_r;
         c_rs2          <= e_rs2_r;
-        c_rdata1       <= e_rdata1;
-        c_rdata2       <= e_rdata2;
+        // Record effective E-stage operands (after forwarding), not raw register reads.
+        c_rdata1       <= e_rs1_val;
+        c_rdata2       <= e_rs2_val;
         c_is_load      <= e_is_load_r;
         c_load_addr    <= ldst_addr;
         c_load_store_funct3 <= e_load_store_funct3_r;
