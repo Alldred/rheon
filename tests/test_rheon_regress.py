@@ -278,7 +278,6 @@ def test_resume_skips_only_matching_pass_jobs(tmp_path: Path) -> None:
 def test_extract_triage_from_ansi_log(tmp_path: Path) -> None:
     log_path = tmp_path / "sim.log"
     log_path.write_text(_mismatch_log_text(ansi=True), encoding="utf-8")
-
     summary, pc, instr_hex, instr_asm, mismatched = COMMON._extract_triage_from_log(
         log_path
     )  # noqa: SLF001
@@ -291,6 +290,71 @@ def test_extract_triage_from_ansi_log(tmp_path: Path) -> None:
     assert instr_asm == "jal x0, 88"
     assert "asm='jal x0, 88'" in summary
     assert "next_pc" in mismatched
+
+
+def test_regression_file_payload_round_trip() -> None:
+    config = COMMON.RegressionConfig(
+        tests=[COMMON.TestSpec("simple", 2), COMMON.TestSpec("alt", 1)],
+        seed=7,
+        jobs=4,
+        update=5,
+        stages=("run",),
+        output_dir=Path("/tmp/test_output"),
+        verbosity="debug",
+        waves=True,
+        resume=None,
+        timeout_sec=90,
+        fail_fast=True,
+        max_failures=2,
+        report_json=Path("/tmp/report.json"),
+    )
+    payload = COMMON.regression_file_payload(
+        config, tests=[COMMON.TestSpec("simple", 1)]
+    )
+    assert payload["version"] == 1
+    assert payload["regression"]["seed"] == 7
+    assert payload["regression"]["jobs"] == 4
+    assert payload["regression"]["tests"] == [{"name": "simple", "count": 1}]
+    assert payload["regression"]["output_dir"] == "/tmp/test_output"
+
+    yaml_text = COMMON.regression_yaml_text(
+        config, tests=[COMMON.TestSpec("simple", 1)]
+    )
+    loaded = COMMON._load_yaml_text(yaml_text)
+    assert loaded.regression.seed == 7
+    assert loaded.regression.jobs == 4
+    assert loaded.version == 1
+    assert [item.name for item in loaded.regression.tests] == ["simple"]
+
+
+def test_run_regression_writes_state_metadata(tmp_path: Path) -> None:
+    callbacks: list[dict[str, object]] = []
+
+    def _callback(payload: dict[str, object]) -> None:
+        callbacks.append(payload)
+
+    config = _config(tmp_path, tests=[COMMON.TestSpec("simple", 2)], jobs=1, update=1)
+    outcome = COMMON.run_regression(
+        config,
+        console=_make_console(),
+        runner=_make_runner(),
+        status_callback=_callback,
+    )
+
+    assert outcome.total == 2
+    assert outcome.passed == 2
+    assert callbacks
+    assert callbacks[-1]["status"] == "complete"
+    assert callbacks[-1]["status_reason"] == "complete"
+
+    state = COMMON._load_state(tmp_path / COMMON.STATE_FILE_NAME)
+    meta = state.get("meta", {})
+    assert meta.get("status") == "complete"
+    assert meta.get("status_reason") == "complete"
+    assert meta.get("total") == 2
+    assert meta.get("passed") == 2
+    assert meta.get("failed") == 0
+    assert isinstance(meta.get("elapsed_seconds"), float)
 
 
 def test_report_json_includes_instruction_aware_triage(tmp_path: Path) -> None:

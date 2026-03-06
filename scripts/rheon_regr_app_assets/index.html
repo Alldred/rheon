@@ -1,0 +1,850 @@
+<!--
+  ~ SPDX-License-Identifier: MIT
+  ~ Copyright (c) 2026 Stuart Alldred.
+  -->
+
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Rheon Regression Runner</title>
+    <style>
+      :root {
+        --bg: radial-gradient(1200px circle at 10% 10%, #2d4b78 0%, #1b2434 35%, #111827 100%);
+        --panel: rgba(17, 24, 39, 0.92);
+        --stroke: rgba(148, 163, 184, 0.28);
+        --text: #f8fafc;
+        --muted: #cbd5e1;
+        --good: #22c55e;
+        --bad: #f87171;
+        --warn: #facc15;
+        --blue: #60a5fa;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        font-family: "Avenir Next", "Gill Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+        color: var(--text);
+        background: var(--bg);
+        min-height: 100vh;
+      }
+
+      .page {
+        max-width: 1200px;
+        margin: 0 auto;
+        padding: 18px;
+      }
+
+      .panel {
+        background: var(--panel);
+        border: 1px solid var(--stroke);
+        border-radius: 14px;
+        padding: 16px;
+        margin-bottom: 16px;
+        box-shadow: 0 16px 26px rgba(15, 23, 42, 0.45);
+      }
+
+      h1,
+      h2 {
+        margin: 0 0 12px 0;
+      }
+
+      h1 {
+        font-size: 1.7rem;
+        letter-spacing: 0.02em;
+      }
+
+      .row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .col {
+        flex: 1 1 220px;
+      }
+
+      label {
+        display: block;
+        margin-bottom: 6px;
+        font-size: 0.9rem;
+        color: var(--muted);
+      }
+
+      input,
+      select,
+      textarea,
+      button {
+        width: 100%;
+        border: 1px solid var(--stroke);
+        border-radius: 10px;
+        padding: 9px;
+        margin-bottom: 10px;
+        color: var(--text);
+        background: rgba(15, 23, 42, 0.85);
+        font-size: 0.95rem;
+      }
+
+      button {
+        background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
+        border: 0;
+        cursor: pointer;
+        font-weight: 600;
+      }
+
+      button.secondary {
+        background: linear-gradient(120deg, #334155 0%, #1f2937 100%);
+      }
+
+      button:disabled {
+        opacity: 0.45;
+        cursor: not-allowed;
+      }
+
+      .metricGrid {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 10px;
+      }
+
+      .metric {
+        padding: 10px;
+        border-radius: 10px;
+        border: 1px solid var(--stroke);
+      }
+
+      .metric.good {
+        border-left: 4px solid var(--good);
+      }
+
+      .metric.bad {
+        border-left: 4px solid var(--bad);
+      }
+
+      .metric.warn {
+        border-left: 4px solid var(--warn);
+      }
+
+      .metric .value {
+        font-size: 1.45rem;
+        font-weight: 700;
+      }
+
+      .metric .label {
+        color: var(--muted);
+        font-size: 0.8rem;
+      }
+
+      table {
+        width: 100%;
+        border-collapse: collapse;
+      }
+
+      th,
+      td {
+        border-bottom: 1px solid var(--stroke);
+        padding: 7px 4px;
+        text-align: left;
+        font-size: 0.9rem;
+      }
+
+      th {
+        color: var(--muted);
+        font-weight: 500;
+      }
+
+      tbody tr:hover {
+        background: rgba(30, 41, 59, 0.45);
+      }
+
+      .status-ok {
+        color: var(--good);
+      }
+
+      .status-fail {
+        color: var(--bad);
+      }
+
+      .logPanel {
+        background: #0b1120;
+        border: 1px solid var(--stroke);
+        border-radius: 10px;
+        padding: 10px;
+        white-space: pre-wrap;
+        max-height: 260px;
+        overflow: auto;
+        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+        font-size: 0.78rem;
+      }
+
+      #testsTable {
+        margin-bottom: 8px;
+      }
+
+      #testsTable th:last-child,
+      #testsTable td:last-child {
+        width: 80px;
+      }
+
+      .split {
+        display: grid;
+        grid-template-columns: 1.35fr 1fr;
+        gap: 16px;
+      }
+
+      .status-pill {
+        display: inline-block;
+        font-size: 0.8rem;
+        padding: 4px 8px;
+        border-radius: 999px;
+        border: 1px solid var(--stroke);
+        text-transform: uppercase;
+      }
+
+      .status-pill.complete {
+        color: var(--good);
+      }
+
+      .status-pill.interrupted,
+      .status-pill.cancelled,
+      .status-pill.fail_fast,
+      .status-pill.max_failures {
+        color: var(--warn);
+      }
+
+      .status-pill.running {
+        color: var(--blue);
+      }
+
+      .status-pill.paused {
+        color: #d4d4d8;
+      }
+
+      .status-pill.idle {
+        color: #94a3b8;
+      }
+
+      .message {
+        color: var(--warn);
+        min-height: 1.2rem;
+      }
+
+      @media (max-width: 960px) {
+        .split {
+          grid-template-columns: 1fr;
+        }
+        .metricGrid {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <div class="page">
+      <div class="panel">
+        <h1>Rheon Regression Runner</h1>
+        <p class="message" id="globalMessage"></p>
+      </div>
+
+      <div class="split">
+        <div class="panel">
+          <h2>Run Configuration</h2>
+          <form id="runForm">
+            <div class="row">
+              <div class="col">
+                <label>Seed</label>
+                <input id="seedInput" type="number" min="1" value="1" />
+              </div>
+              <div class="col">
+                <label>Parallel Jobs</label>
+                <input id="jobsInput" type="number" min="1" value="4" />
+              </div>
+              <div class="col">
+                <label>Dashboard Refresh (s)</label>
+                <input id="updateInput" type="number" min="1" value="2" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label>Output Directory</label>
+                <input id="outputDirInput" placeholder="Optional, leave empty for default" />
+              </div>
+              <div class="col">
+                <label>Resume</label>
+                <input id="resumeInput" placeholder="Path, or latest" />
+              </div>
+              <div class="col">
+                <label>Verbosity</label>
+                <select id="verbosityInput">
+                  <option value="">(default)</option>
+                  <option value="debug">debug</option>
+                  <option value="info">info</option>
+                  <option value="warning">warning</option>
+                  <option value="error">error</option>
+                  <option value="critical">critical</option>
+                </select>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label>Stages</label>
+                <select id="stagesInput">
+                  <option value="run">run</option>
+                  <option value="gen,sim">gen,sim</option>
+                </select>
+              </div>
+              <div class="col">
+                <label>Timeout (s)</label>
+                <input id="timeoutInput" type="number" min="1" placeholder="optional" />
+              </div>
+              <div class="col">
+                <label>Max Failures</label>
+                <input id="maxFailuresInput" type="number" min="1" placeholder="optional" />
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <label>Waves</label>
+                <input id="wavesInput" type="checkbox" />
+              </div>
+              <div class="col">
+                <label>Fail Fast</label>
+                <input id="failFastInput" type="checkbox" />
+              </div>
+              <div class="col">
+                <label>Parallelism at Start</label>
+                <input id="parallelismInput" type="number" min="1" value="4" />
+              </div>
+            </div>
+
+            <h3>Test Matrix</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Test Name</th>
+                  <th>Count</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="testsTable"></tbody>
+            </table>
+            <button type="button" id="addTestBtn" class="secondary">Add Test Row</button>
+
+            <div class="row" style="margin-top: 12px">
+              <div class="col">
+                <button id="startBtn" type="button">Start Run</button>
+              </div>
+              <div class="col">
+                <button id="pauseBtn" class="secondary" type="button">Pause</button>
+              </div>
+              <div class="col">
+                <button id="resumeBtn" class="secondary" type="button">Resume</button>
+              </div>
+              <div class="col">
+                <button id="cancelBtn" class="secondary" type="button">Cancel</button>
+              </div>
+            </div>
+            <div class="row">
+              <div class="col">
+                <button id="setParallelismBtn" type="button" class="secondary">Set Parallelism</button>
+              </div>
+              <div class="col">
+                <button id="rerunFailedBtn" type="button" class="secondary">Rerun Failed</button>
+              </div>
+            </div>
+          </form>
+        </div>
+
+        <div class="panel">
+          <h2>Attach / Import / Export</h2>
+          <div class="row">
+            <div class="col">
+              <label>Attach Existing Output Directory</label>
+              <input id="attachOutputInput" placeholder="runs/regressions/20260306_..." />
+            </div>
+            <div class="col">
+              <button id="attachBtn" class="secondary" type="button">Attach</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <label>Import rheon_regr YAML</label>
+              <textarea id="importYamlInput" rows="9" placeholder="Paste regression YAML here"></textarea>
+            </div>
+            <div class="col">
+              <label>Export YAML Preview</label>
+              <textarea id="exportYamlOutput" rows="9" placeholder="Exported YAML appears here"></textarea>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <button id="importYamlBtn" type="button" class="secondary">Import YAML</button>
+            </div>
+            <div class="col">
+              <button id="exportYamlBtn" type="button" class="secondary">Export YAML</button>
+            </div>
+          </div>
+          <div id="notificationControls" style="margin-top: 8px">
+            <button id="notifyEnableBtn" class="secondary" type="button">Enable Browser Notifications</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Live Status</h2>
+        <div style="margin-bottom: 10px">
+          <span id="runModeLabel" class="status-pill idle">idle</span>
+          <span id="runStatusLabel" class="status-pill idle">idle</span>
+          <span id="runStatusReason"></span>
+        </div>
+
+        <div class="metricGrid">
+          <div class="metric good"><div class="value" id="metricTotal">0</div><div class="label">Total</div></div>
+          <div class="metric"><div class="value" id="metricScheduled">0</div><div class="label">Scheduled</div></div>
+          <div class="metric good"><div class="value" id="metricPassed">0</div><div class="label">Passed</div></div>
+          <div class="metric bad"><div class="value" id="metricFailed">0</div><div class="label">Failed</div></div>
+          <div class="metric warn"><div class="value" id="metricNotRun">0</div><div class="label">Not Run</div></div>
+          <div class="metric warn"><div class="value" id="metricRunning">0</div><div class="label">Running</div></div>
+        </div>
+
+        <h3>Jobs</h3>
+        <table>
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Test</th>
+              <th>Seed</th>
+              <th>Status</th>
+              <th>Reason</th>
+              <th>Duration</th>
+              <th>Artifacts</th>
+            </tr>
+          </thead>
+          <tbody id="jobsTable"></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Current Running Jobs</h2>
+        <table>
+          <thead>
+            <tr>
+              <th>Job</th>
+              <th>Test</th>
+              <th>Seed</th>
+              <th>Elapsed</th>
+            </tr>
+          </thead>
+          <tbody id="runningTable"></tbody>
+        </table>
+      </div>
+
+      <div class="panel">
+        <h2>Log Viewer</h2>
+        <p class="message" id="logMessage"></p>
+        <div class="logPanel" id="logViewer">Select a job from the table to view its sim.log</div>
+      </div>
+    </div>
+
+    <script>
+      const POLL_MS = 1000;
+      const testsTable = document.getElementById("testsTable");
+      const globalMessage = document.getElementById("globalMessage");
+      const logViewer = document.getElementById("logViewer");
+      const logMessage = document.getElementById("logMessage");
+      let lastTerminalStatus = null;
+      let currentState = null;
+
+      function setMessage(message) {
+        globalMessage.textContent = message || "";
+        if (message) {
+          setTimeout(() => {
+            if (globalMessage.textContent === message) {
+              globalMessage.textContent = "";
+            }
+          }, 4500);
+        }
+      }
+
+      function buildFormConfig() {
+        const tests = [];
+        testsTable.querySelectorAll("tr").forEach((row) => {
+          const name = row.querySelector("input[data-kind=name]").value.trim();
+          const count = parseInt(row.querySelector("input[data-kind=count]").value || "0", 10);
+          if (name && count > 0) {
+            tests.push({ name, count });
+          }
+        });
+        return {
+          tests,
+          seed: parseInt(document.getElementById("seedInput").value, 10),
+          jobs: parseInt(document.getElementById("jobsInput").value, 10),
+          update: parseInt(document.getElementById("updateInput").value, 10),
+          stages: document.getElementById("stagesInput").value,
+          output_dir: document.getElementById("outputDirInput").value.trim() || null,
+          resume: document.getElementById("resumeInput").value.trim() || null,
+          timeout_sec: parseOptionalInt("timeoutInput"),
+          verbosity: document.getElementById("verbosityInput").value || null,
+          waves: document.getElementById("wavesInput").checked,
+          fail_fast: document.getElementById("failFastInput").checked,
+          max_failures: parseOptionalInt("maxFailuresInput"),
+        };
+      }
+
+      function parseOptionalInt(id) {
+        const value = document.getElementById(id).value.trim();
+        if (!value) {
+          return null;
+        }
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+
+      function addTestRow(name = "", count = 1) {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td><input data-kind="name" value="${escapeHtml(name)}" /></td>
+          <td><input type="number" min="1" data-kind="count" value="${count}" /></td>
+          <td><button type="button" class="secondary" data-action="remove">remove</button></td>
+        `;
+        tr.querySelector('[data-action="remove"]').addEventListener("click", () => tr.remove());
+        testsTable.appendChild(tr);
+      }
+
+      function escapeHtml(text) {
+        return String(text)
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function applyConfigToForm(data) {
+        const regression = data || {};
+        document.getElementById("seedInput").value = regression.seed || 1;
+        document.getElementById("jobsInput").value = regression.jobs || 4;
+        document.getElementById("updateInput").value = regression.update || 2;
+        document.getElementById("parallelismInput").value = regression.jobs || 4;
+        document.getElementById("stagesInput").value = (regression.stages || "run").join ? regression.stages.join(",") : regression.stages || "run";
+        document.getElementById("outputDirInput").value = regression.output_dir || "";
+        document.getElementById("resumeInput").value = regression.resume || "";
+        document.getElementById("verbosityInput").value = regression.verbosity || "";
+        document.getElementById("timeoutInput").value = regression.timeout_sec || "";
+        document.getElementById("maxFailuresInput").value = regression.max_failures || "";
+        document.getElementById("wavesInput").checked = Boolean(regression.waves);
+        document.getElementById("failFastInput").checked = Boolean(regression.fail_fast);
+        testsTable.innerHTML = "";
+        if (Array.isArray(regression.tests) && regression.tests.length) {
+          regression.tests.forEach((item) => addTestRow(item.name || "", item.count || 1));
+        } else {
+          addTestRow();
+        }
+      }
+
+      async function apiJson(method, path, body = null) {
+        const params = {
+          method,
+          headers: {
+            "Content-Type": "application/json"
+          },
+        };
+        if (body) {
+          params.body = JSON.stringify(body);
+        }
+        const response = await fetch(path, params);
+        const data = await response.json().catch(() => ({ error: "invalid json" }));
+        if (!response.ok) {
+          const error = data && data.error ? data.error : `HTTP ${response.status}`;
+          throw new Error(error);
+        }
+        return data;
+      }
+
+      function formatDuration(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(totalSeconds));
+        const h = Math.floor(seconds / 3600).toString().padStart(2, "0");
+        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
+        const s = Math.floor(seconds % 60).toString().padStart(2, "0");
+        return `${h}:${m}:${s}`;
+      }
+
+      function updateStatusPill(element, status) {
+        element.textContent = status || "idle";
+        element.classList.remove("running", "paused", "complete", "interrupted", "cancelled", "fail_fast", "max_failures", "idle");
+        element.classList.add((status || "idle").toLowerCase());
+      }
+
+      function renderJobs(jobs) {
+        const jobsTable = document.getElementById("jobsTable");
+        jobsTable.innerHTML = "";
+        (jobs || []).forEach((job) => {
+          const tr = document.createElement("tr");
+          const status = job.status || "not_run";
+          tr.innerHTML = `
+            <td>${job.index}</td>
+            <td>${escapeHtml(job.test_name || "-")}</td>
+            <td>${job.seed}</td>
+            <td class="${status === "passed" ? "status-ok" : "status-fail"}">${status}</td>
+            <td>${escapeHtml(job.status_reason || "")}</td>
+            <td>${formatDuration(job.duration_seconds || 0)}</td>
+            <td><button class="secondary" data-log="${job.index}">view log</button></td>
+          `;
+          const button = tr.querySelector("button");
+          button.addEventListener("click", () => fetchLog(job.index));
+          jobsTable.appendChild(tr);
+        });
+      }
+
+      function renderRunning(jobs) {
+        const runningTable = document.getElementById("runningTable");
+        runningTable.innerHTML = "";
+        (jobs || []).forEach((item) => {
+          const tr = document.createElement("tr");
+          tr.innerHTML = `
+            <td>${item.index}</td>
+            <td>${escapeHtml(item.test_name || "-")}</td>
+            <td>${item.seed}</td>
+            <td>${formatDuration(item.elapsed_seconds || 0)}</td>
+          `;
+          runningTable.appendChild(tr);
+        });
+      }
+
+      async function fetchLog(index) {
+        try {
+          logMessage.textContent = `Loading log for job ${index}`;
+          const response = await fetch(`/api/job-log?index=${encodeURIComponent(index)}`);
+          if (!response.ok) {
+            const payload = await response.json().catch(() => ({}));
+            throw new Error(payload.error || "log unavailable");
+          }
+          const text = await response.text();
+          logViewer.textContent = text;
+          logMessage.textContent = "";
+        } catch (error) {
+          logViewer.textContent = "";
+          logMessage.textContent = String(error.message || error);
+        }
+      }
+
+      function renderSummary(summary) {
+        document.getElementById("metricTotal").textContent = summary.total ?? 0;
+        document.getElementById("metricScheduled").textContent = summary.scheduled ?? 0;
+        document.getElementById("metricPassed").textContent = summary.passed ?? 0;
+        document.getElementById("metricFailed").textContent = summary.failed ?? 0;
+        document.getElementById("metricNotRun").textContent = summary.not_run ?? 0;
+        document.getElementById("metricRunning").textContent = summary.running ?? 0;
+      }
+
+      function applyState(payload) {
+        currentState = payload || {};
+        const mode = currentState.mode || "idle";
+        const status = currentState.status || "idle";
+        const reason = currentState.status_reason || "";
+
+        const modeLabel = document.getElementById("runModeLabel");
+        const statusLabel = document.getElementById("runStatusLabel");
+        const statusReason = document.getElementById("runStatusReason");
+        modeLabel.textContent = mode;
+        statusLabel.textContent = status;
+        statusReason.textContent = reason ? `(${reason})` : "";
+        updateStatusPill(modeLabel, mode);
+        updateStatusPill(statusLabel, status);
+
+        const controls = currentState.controls || {};
+        document.getElementById("pauseBtn").disabled = !controls.can_pause;
+        document.getElementById("resumeBtn").disabled = !controls.can_resume;
+        document.getElementById("cancelBtn").disabled = !controls.can_cancel;
+        document.getElementById("setParallelismBtn").disabled = !controls.can_set_parallelism;
+        document.getElementById("rerunFailedBtn").disabled = !controls.can_rerun_failed;
+
+        if (currentState.config) {
+          document.getElementById("parallelismInput").value = currentState.config.jobs ?? 1;
+        }
+
+        if (currentState.summary) {
+          renderSummary(currentState.summary);
+        }
+        renderJobs(currentState.jobs || []);
+        renderRunning(currentState.running_jobs || []);
+
+        const next = status in {complete: true, interrupted: true, cancelled: true, fail_fast: true, max_failures: true};
+        const isTerminal = ["complete", "interrupted", "cancelled", "fail_fast", "max_failures"].includes(status);
+        if (Notification.permission === "granted" && isTerminal && lastTerminalStatus !== status) {
+          const total = currentState.summary?.total ?? 0;
+          const failed = currentState.summary?.failed ?? 0;
+          new Notification("Rheon run updated", {
+            body: `Run ${status}: total ${total}, failed ${failed}`,
+          });
+        }
+        if (isTerminal) {
+          lastTerminalStatus = status;
+        }
+      }
+
+      async function refreshState() {
+        try {
+          const payload = await apiJson("GET", "/api/state");
+          applyState(payload.data || {});
+        } catch (error) {
+          // Keep showing stale data unless there's a parse/network failure.
+          setMessage(String(error.message || error));
+        }
+      }
+
+      function gatherPayloadForRun() {
+        const config = buildFormConfig();
+        if (!config.tests.length) {
+          throw new Error("Add at least one test");
+        }
+        config.jobs = parseInt(document.getElementById("jobsInput").value, 10);
+        return config;
+      }
+
+      document.getElementById("addTestBtn").addEventListener("click", () => addTestRow());
+      document.getElementById("startBtn").addEventListener("click", async () => {
+        try {
+          const payload = gatherPayloadForRun();
+          await apiJson("POST", "/api/run", payload);
+          setMessage("Run started");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("pauseBtn").addEventListener("click", async () => {
+        try {
+          await apiJson("POST", "/api/pause");
+          setMessage("Pause requested");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("resumeBtn").addEventListener("click", async () => {
+        try {
+          await apiJson("POST", "/api/resume");
+          setMessage("Resume requested");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("cancelBtn").addEventListener("click", async () => {
+        try {
+          await apiJson("POST", "/api/cancel");
+          setMessage("Cancel requested");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("setParallelismBtn").addEventListener("click", async () => {
+        try {
+          await apiJson("POST", "/api/set-parallelism", {
+            parallelism: parseInt(document.getElementById("parallelismInput").value, 10),
+          });
+          setMessage("Parallelism set");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("rerunFailedBtn").addEventListener("click", async () => {
+        try {
+          await apiJson("POST", "/api/rerun-failed");
+          setMessage("Rerun failed jobs started");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("attachBtn").addEventListener("click", async () => {
+        try {
+          const outputDir = document.getElementById("attachOutputInput").value.trim();
+          if (!outputDir) {
+            throw new Error("output directory is required");
+          }
+          await apiJson("POST", "/api/attach", { output_dir: outputDir });
+          setMessage("Attached");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("importYamlBtn").addEventListener("click", async () => {
+        try {
+          const yaml = document.getElementById("importYamlInput").value;
+          if (!yaml.trim()) {
+            throw new Error("paste YAML first");
+          }
+          const payload = await apiJson("POST", "/api/import", { yaml });
+          applyConfigToForm(payload.data.regression || payload.data);
+          setMessage("YAML imported");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("exportYamlBtn").addEventListener("click", async () => {
+        try {
+          const payload = buildFormConfig();
+          const exported = await apiJson("POST", "/api/export", payload);
+          document.getElementById("exportYamlOutput").value = exported.yaml || "";
+          setMessage("YAML exported");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      });
+      document.getElementById("notifyEnableBtn").addEventListener("click", async () => {
+        if (!("Notification" in window)) {
+          setMessage("Notifications are not supported");
+          return;
+        }
+        const permission = await Notification.requestPermission();
+        setMessage(`Notification permission: ${permission}`);
+      });
+
+      document.getElementById("testsTable").addEventListener("click", (event) => {
+        const target = event.target;
+        if (target && target.dataset && target.dataset.action === "remove") {
+          target.closest("tr").remove();
+        }
+      });
+
+      async function attachFromQuery() {
+        const params = new URLSearchParams(window.location.search);
+        const attachPath = params.get("attach");
+        if (!attachPath) {
+          return;
+        }
+        let decoded = "";
+        try {
+          decoded = decodeURIComponent(attachPath.trim());
+        } catch (error) {
+          setMessage("Invalid attach parameter");
+          return;
+        }
+        if (!decoded) {
+          return;
+        }
+        document.getElementById("attachOutputInput").value = decoded;
+        try {
+          await apiJson("POST", "/api/attach", {
+            output_dir: decoded,
+          });
+          setMessage("Attached regression from URL");
+        } catch (error) {
+          setMessage(String(error.message || error));
+        }
+      }
+
+      function addInitialTestRows() {
+        addTestRow("simple", 20);
+      }
+
+      addInitialTestRows();
+      attachFromQuery();
+      refreshState();
+      setInterval(refreshState, POLL_MS);
+    </script>
+  </body>
+</html>
