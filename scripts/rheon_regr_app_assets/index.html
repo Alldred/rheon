@@ -50,13 +50,23 @@
       }
 
       h1,
-      h2 {
+      h2,
+      h3 {
         margin: 0 0 12px 0;
       }
 
       h1 {
         font-size: 1.7rem;
         letter-spacing: 0.02em;
+      }
+
+      h2 {
+        font-size: 1.25rem;
+      }
+
+      h3 {
+        font-size: 1rem;
+        color: var(--muted);
       }
 
       .row {
@@ -69,11 +79,38 @@
         flex: 1 1 220px;
       }
 
-      label {
-        display: block;
+      .labelRow {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
         margin-bottom: 6px;
-        font-size: 0.9rem;
+      }
+
+      .labelText {
         color: var(--muted);
+        font-size: 0.9rem;
+      }
+
+      .helpIcon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        border: 1px solid var(--stroke);
+        color: var(--text);
+        font-size: 0.75rem;
+        line-height: 1;
+        cursor: help;
+      }
+
+      .sectionTitle {
+        color: var(--muted);
+        margin: 4px 0 10px;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
       }
 
       input,
@@ -104,6 +141,39 @@
       button:disabled {
         opacity: 0.45;
         cursor: not-allowed;
+      }
+
+      .tabs {
+        display: flex;
+        gap: 8px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+      }
+
+      .tabBtn {
+        width: auto;
+        margin-bottom: 0;
+        background: rgba(30, 41, 59, 0.85);
+        border: 1px solid var(--stroke);
+        border-radius: 999px;
+        padding: 8px 14px;
+      }
+
+      .tabBtn.active {
+        background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
+      }
+
+      .tabBtn:focus-visible {
+        outline: 2px solid var(--blue);
+        outline-offset: 2px;
+      }
+
+      .tabPanel {
+        display: none;
+      }
+
+      .tabPanel.active {
+        display: block;
       }
 
       .metricGrid {
@@ -138,6 +208,12 @@
       .metric .label {
         color: var(--muted);
         font-size: 0.8rem;
+      }
+
+      .statusGrid {
+        display: grid;
+        grid-template-columns: 1.8fr 1.5fr;
+        gap: 14px;
       }
 
       table {
@@ -176,7 +252,7 @@
         border-radius: 10px;
         padding: 10px;
         white-space: pre-wrap;
-        max-height: 260px;
+        max-height: 420px;
         overflow: auto;
         font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
         font-size: 0.78rem;
@@ -189,12 +265,6 @@
       #testsTable th:last-child,
       #testsTable td:last-child {
         width: 80px;
-      }
-
-      .split {
-        display: grid;
-        grid-template-columns: 1.35fr 1fr;
-        gap: 16px;
       }
 
       .status-pill {
@@ -235,7 +305,7 @@
       }
 
       @media (max-width: 960px) {
-        .split {
+        .statusGrid {
           grid-template-columns: 1fr;
         }
         .metricGrid {
@@ -251,168 +321,238 @@
         <p class="message" id="globalMessage"></p>
       </div>
 
-      <div class="split">
-        <div class="panel">
-          <h2>Run Configuration</h2>
-          <form id="runForm">
-            <div class="row">
-              <div class="col">
-                <label>Seed</label>
-                <input id="seedInput" type="number" min="1" value="1" />
-              </div>
-              <div class="col">
-                <label>Parallel Jobs</label>
-                <input id="jobsInput" type="number" min="1" value="4" />
-              </div>
-              <div class="col">
-                <label>Dashboard Refresh (s)</label>
-                <input id="updateInput" type="number" min="1" value="2" />
-              </div>
-            </div>
-            <div class="row">
-              <div class="col">
-                <label>Output Directory</label>
-                <input id="outputDirInput" placeholder="Optional, leave empty for default" />
-              </div>
-              <div class="col">
-                <label>Resume</label>
-                <input id="resumeInput" placeholder="Path, or latest" />
-              </div>
-              <div class="col">
-                <label>Verbosity</label>
-                <select id="verbosityInput">
-                  <option value="">(default)</option>
-                  <option value="debug">debug</option>
-                  <option value="info">info</option>
-                  <option value="warning">warning</option>
-                  <option value="error">error</option>
-                  <option value="critical">critical</option>
-                </select>
-              </div>
-            </div>
-            <div class="row">
-              <div class="col">
-                <label>Stages</label>
-                <select id="stagesInput">
-                  <option value="run">run</option>
-                  <option value="gen,sim">gen,sim</option>
-                </select>
-              </div>
-              <div class="col">
-                <label>Timeout (s)</label>
-                <input id="timeoutInput" type="number" min="1" placeholder="optional" />
-              </div>
-              <div class="col">
-                <label>Max Failures</label>
-                <input id="maxFailuresInput" type="number" min="1" placeholder="optional" />
-              </div>
-            </div>
-            <div class="row">
-              <div class="col">
-                <label>Waves</label>
-                <input id="wavesInput" type="checkbox" />
-              </div>
-              <div class="col">
-                <label>Fail Fast</label>
-                <input id="failFastInput" type="checkbox" />
-              </div>
-              <div class="col">
-                <label>Parallelism at Start</label>
-                <input id="parallelismInput" type="number" min="1" value="4" />
-              </div>
-            </div>
+      <div class="tabs" role="tablist" aria-label="Runner sections">
+        <button class="tabBtn active" type="button" role="tab" aria-selected="true" data-tab="configure">Run Setup</button>
+        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="files">Files</button>
+        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="status">Live Status</button>
+        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="logs">Logs</button>
+      </div>
 
-            <h3>Test Matrix</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Test Name</th>
-                  <th>Count</th>
-                  <th></th>
-                </tr>
-              </thead>
-              <tbody id="testsTable"></tbody>
-            </table>
-            <button type="button" id="addTestBtn" class="secondary">Add Test Row</button>
+      <div class="panel tabPanel active" data-tab-panel="configure">
+        <h2>Run Configuration</h2>
+        <form id="runForm">
+          <div class="sectionTitle">Basic options</div>
+          <div class="row">
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Seed</span>
+                <span class="helpIcon" title="Set the random seed used for generated cases.">?</span>
+              </div>
+              <input id="seedInput" type="number" min="1" value="1" title="Set the random seed used for generated cases." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Parallel Jobs</span>
+                <span class="helpIcon" title="Maximum parallel jobs to execute at once.">?</span>
+              </div>
+              <input id="jobsInput" type="number" min="1" value="4" title="Maximum parallel jobs to execute at once." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Dashboard Refresh (s)</span>
+                <span class="helpIcon" title="How often the status panel polls updates from the runner.">?</span>
+              </div>
+              <input id="updateInput" type="number" min="1" value="2" title="How often the status panel polls updates from the runner." />
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Output Directory</span>
+                <span class="helpIcon" title="Override where artifacts are written. Leave empty for defaults.">?</span>
+              </div>
+              <input id="outputDirInput" placeholder="Optional, leave empty for default" title="Override where artifacts are written. Leave empty for defaults." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Resume</span>
+                <span class="helpIcon" title="Attach to a previous run directory or use `latest`." >?</span>
+              </div>
+              <input id="resumeInput" placeholder="Path, or latest" title="Attach to a previous run directory or use `latest`." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Verbosity</span>
+                <span class="helpIcon" title="Simulator log level. Higher verbosity prints more logs.">?</span>
+              </div>
+              <select id="verbosityInput" title="Simulator log level. Higher verbosity prints more logs.">
+                <option value="">(default)</option>
+                <option value="debug">debug</option>
+                <option value="info">info</option>
+                <option value="warning">warning</option>
+                <option value="error">error</option>
+                <option value="critical">critical</option>
+              </select>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Stages</span>
+                <span class="helpIcon" title="Choose which pipeline stages to run (`run` or `gen,sim`).">?</span>
+              </div>
+              <select id="stagesInput" title="Choose which pipeline stages to run (`run` or `gen,sim`).">
+                <option value="run">run</option>
+                <option value="gen,sim">gen,sim</option>
+              </select>
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Timeout (s)</span>
+                <span class="helpIcon" title="Optional per-job timeout in seconds.">?</span>
+              </div>
+              <input id="timeoutInput" type="number" min="1" placeholder="optional" title="Optional per-job timeout in seconds." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Max Failures</span>
+                <span class="helpIcon" title="Stop scheduling new jobs after this many failures.">?</span>
+              </div>
+              <input id="maxFailuresInput" type="number" min="1" placeholder="optional" title="Stop scheduling new jobs after this many failures." />
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Waves</span>
+                <span class="helpIcon" title="Enable waveform dump generation for this regression.">?</span>
+              </div>
+              <input id="wavesInput" type="checkbox" title="Enable waveform dump generation for this regression." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Fail Fast</span>
+                <span class="helpIcon" title="Stop scheduling new jobs after the first failure.">?</span>
+              </div>
+              <input id="failFastInput" type="checkbox" title="Stop scheduling new jobs after the first failure." />
+            </div>
+            <div class="col">
+              <div class="labelRow">
+                <span class="labelText">Parallelism at Start</span>
+                <span class="helpIcon" title="How many jobs to start with when control panel sets parallelism.">?</span>
+              </div>
+              <input id="parallelismInput" type="number" min="1" value="4" title="How many jobs to start with when control panel sets parallelism." />
+            </div>
+          </div>
 
-            <div class="row" style="margin-top: 12px">
-              <div class="col">
-                <button id="startBtn" type="button">Start Run</button>
-              </div>
-              <div class="col">
-                <button id="pauseBtn" class="secondary" type="button">Pause</button>
-              </div>
-              <div class="col">
-                <button id="resumeBtn" class="secondary" type="button">Resume</button>
-              </div>
-              <div class="col">
-                <button id="cancelBtn" class="secondary" type="button">Cancel</button>
-              </div>
+          <div class="sectionTitle">Test Matrix</div>
+          <table>
+            <thead>
+              <tr>
+                <th>Test Name</th>
+                <th>Count</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="testsTable"></tbody>
+          </table>
+          <button type="button" id="addTestBtn" class="secondary" title="Add another test row">Add Test Row</button>
+
+          <div class="row" style="margin-top: 12px">
+            <div class="col">
+              <button id="startBtn" type="button" title="Start run with the configured values">Start Run</button>
             </div>
-            <div class="row">
-              <div class="col">
-                <button id="setParallelismBtn" type="button" class="secondary">Set Parallelism</button>
-              </div>
-              <div class="col">
-                <button id="rerunFailedBtn" type="button" class="secondary">Rerun Failed</button>
-              </div>
+            <div class="col">
+              <button id="pauseBtn" class="secondary" type="button" title="Pause run">Pause</button>
             </div>
-          </form>
+            <div class="col">
+              <button id="resumeBtn" class="secondary" type="button" title="Resume run">Resume</button>
+            </div>
+            <div class="col">
+              <button id="cancelBtn" class="secondary" type="button" title="Cancel run and stop scheduling new work">Cancel</button>
+            </div>
+          </div>
+          <div class="row">
+            <div class="col">
+              <button id="setParallelismBtn" type="button" class="secondary" title="Update run parallelism for an active run">Set Parallelism</button>
+            </div>
+            <div class="col">
+              <button id="rerunFailedBtn" type="button" class="secondary" title="Rerun only jobs that previously failed">Rerun Failed</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="panel tabPanel" data-tab-panel="files">
+        <h2>Attach / Import / Export</h2>
+        <div class="row">
+          <div class="col">
+            <div class="labelRow">
+              <span class="labelText">Attach Existing Output Directory</span>
+              <span class="helpIcon" title="Load a prior regression directory to inspect or continue monitoring.">?</span>
+            </div>
+            <input id="attachOutputInput" placeholder="runs/regressions/20260306_..." title="Load a prior regression directory to inspect or continue monitoring." />
+          </div>
+          <div class="col">
+            <button id="attachBtn" class="secondary" type="button" title="Attach to an existing run directory">Attach</button>
+          </div>
         </div>
-
-        <div class="panel">
-          <h2>Attach / Import / Export</h2>
-          <div class="row">
-            <div class="col">
-              <label>Attach Existing Output Directory</label>
-              <input id="attachOutputInput" placeholder="runs/regressions/20260306_..." />
+        <div class="row">
+          <div class="col">
+            <div class="labelRow">
+              <span class="labelText">Import rheon_regr YAML</span>
+              <span class="helpIcon" title="Paste a rheon_regr YAML document to prefill config and tests.">?</span>
             </div>
-            <div class="col">
-              <button id="attachBtn" class="secondary" type="button">Attach</button>
-            </div>
+            <textarea id="importYamlInput" rows="9" placeholder="Paste regression YAML here" title="Paste a rheon_regr YAML document to prefill config and tests."></textarea>
           </div>
-          <div class="row">
-            <div class="col">
-              <label>Import rheon_regr YAML</label>
-              <textarea id="importYamlInput" rows="9" placeholder="Paste regression YAML here"></textarea>
+          <div class="col">
+            <div class="labelRow">
+              <span class="labelText">Export YAML Preview</span>
+              <span class="helpIcon" title="Generate a rheon_regr-compatible YAML for sharing or versioning.">?</span>
             </div>
-            <div class="col">
-              <label>Export YAML Preview</label>
-              <textarea id="exportYamlOutput" rows="9" placeholder="Exported YAML appears here"></textarea>
-            </div>
+            <textarea id="exportYamlOutput" rows="9" placeholder="Exported YAML appears here" title="Generate a rheon_regr-compatible YAML for sharing or versioning."></textarea>
           </div>
-          <div class="row">
-            <div class="col">
-              <button id="importYamlBtn" type="button" class="secondary">Import YAML</button>
-            </div>
-            <div class="col">
-              <button id="exportYamlBtn" type="button" class="secondary">Export YAML</button>
-            </div>
+        </div>
+        <div class="row">
+          <div class="col">
+            <button id="importYamlBtn" type="button" class="secondary" title="Import from the YAML on the left">Import YAML</button>
           </div>
-          <div id="notificationControls" style="margin-top: 8px">
-            <button id="notifyEnableBtn" class="secondary" type="button">Enable Browser Notifications</button>
+          <div class="col">
+            <button id="exportYamlBtn" type="button" class="secondary" title="Export current form values to YAML">Export YAML</button>
           </div>
+        </div>
+        <div id="notificationControls" style="margin-top: 8px">
+          <button id="notifyEnableBtn" class="secondary" type="button" title="Enable desktop notifications for terminal run completion states">Enable Browser Notifications</button>
         </div>
       </div>
 
-      <div class="panel">
+      <div class="panel tabPanel" data-tab-panel="status">
         <h2>Live Status</h2>
-        <div style="margin-bottom: 10px">
-          <span id="runModeLabel" class="status-pill idle">idle</span>
-          <span id="runStatusLabel" class="status-pill idle">idle</span>
-          <span id="runStatusReason"></span>
+        <div class="statusGrid">
+          <div>
+            <div style="margin-bottom: 10px">
+              <span id="runModeLabel" class="status-pill idle">idle</span>
+              <span id="runStatusLabel" class="status-pill idle">idle</span>
+              <span id="runStatusReason"></span>
+            </div>
+
+            <div class="metricGrid">
+              <div class="metric good"><div class="value" id="metricTotal">0</div><div class="label">Total</div></div>
+              <div class="metric"><div class="value" id="metricScheduled">0</div><div class="label">Scheduled</div></div>
+              <div class="metric good"><div class="value" id="metricPassed">0</div><div class="label">Passed</div></div>
+              <div class="metric bad"><div class="value" id="metricFailed">0</div><div class="label">Failed</div></div>
+              <div class="metric warn"><div class="value" id="metricNotRun">0</div><div class="label">Not Run</div></div>
+              <div class="metric warn"><div class="value" id="metricRunning">0</div><div class="label">Running</div></div>
+            </div>
+          </div>
+
+          <div>
+            <h3>Current Running Jobs</h3>
+            <table>
+              <thead>
+                <tr>
+                  <th>Job</th>
+                  <th>Test</th>
+                  <th>Seed</th>
+                  <th>Elapsed</th>
+                </tr>
+              </thead>
+              <tbody id="runningTable"></tbody>
+            </table>
+          </div>
         </div>
 
-        <div class="metricGrid">
-          <div class="metric good"><div class="value" id="metricTotal">0</div><div class="label">Total</div></div>
-          <div class="metric"><div class="value" id="metricScheduled">0</div><div class="label">Scheduled</div></div>
-          <div class="metric good"><div class="value" id="metricPassed">0</div><div class="label">Passed</div></div>
-          <div class="metric bad"><div class="value" id="metricFailed">0</div><div class="label">Failed</div></div>
-          <div class="metric warn"><div class="value" id="metricNotRun">0</div><div class="label">Not Run</div></div>
-          <div class="metric warn"><div class="value" id="metricRunning">0</div><div class="label">Running</div></div>
-        </div>
-
-        <h3>Jobs</h3>
+        <h3>All Jobs</h3>
         <table>
           <thead>
             <tr>
@@ -429,22 +569,7 @@
         </table>
       </div>
 
-      <div class="panel">
-        <h2>Current Running Jobs</h2>
-        <table>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Test</th>
-              <th>Seed</th>
-              <th>Elapsed</th>
-            </tr>
-          </thead>
-          <tbody id="runningTable"></tbody>
-        </table>
-      </div>
-
-      <div class="panel">
+      <div class="panel tabPanel" data-tab-panel="logs">
         <h2>Log Viewer</h2>
         <p class="message" id="logMessage"></p>
         <div class="logPanel" id="logViewer">Select a job from the table to view its sim.log</div>
@@ -457,6 +582,8 @@
       const globalMessage = document.getElementById("globalMessage");
       const logViewer = document.getElementById("logViewer");
       const logMessage = document.getElementById("logMessage");
+      const tabButtons = document.querySelectorAll(".tabBtn");
+      const tabPanels = document.querySelectorAll(".tabPanel");
       let lastTerminalStatus = null;
       let currentState = null;
 
@@ -469,6 +596,39 @@
             }
           }, 4500);
         }
+      }
+
+      function showTab(tabId) {
+        const validTabs = new Set(["configure", "files", "status", "logs"]);
+        const target = validTabs.has(tabId) ? tabId : "configure";
+        tabButtons.forEach((button) => {
+          const isActive = button.dataset.tab === target;
+          button.classList.toggle("active", isActive);
+          button.setAttribute("aria-selected", isActive ? "true" : "false");
+        });
+        tabPanels.forEach((panel) => {
+          const isActive = panel.dataset.tabPanel === target;
+          panel.classList.toggle("active", isActive);
+          panel.hidden = !isActive;
+        });
+        try {
+          localStorage.setItem("rheonRegrTab", target);
+        } catch {
+          // Ignore storage failures.
+        }
+      }
+
+      function initTabs() {
+        let savedTab = "configure";
+        try {
+          savedTab = localStorage.getItem("rheonRegrTab") || "configure";
+        } catch {
+          // ignore if localStorage unavailable
+        }
+        showTab(savedTab);
+        tabButtons.forEach((button) => {
+          button.addEventListener("click", () => showTab(button.dataset.tab));
+        });
       }
 
       function buildFormConfig() {
@@ -508,9 +668,9 @@
       function addTestRow(name = "", count = 1) {
         const tr = document.createElement("tr");
         tr.innerHTML = `
-          <td><input data-kind="name" value="${escapeHtml(name)}" /></td>
-          <td><input type="number" min="1" data-kind="count" value="${count}" /></td>
-          <td><button type="button" class="secondary" data-action="remove">remove</button></td>
+          <td><input data-kind="name" value="${escapeHtml(name)}" title="Test name (e.g. simple, stress)" /></td>
+          <td><input type="number" min="1" data-kind="count" value="${count}" title="How many seeded jobs to run for this test." /></td>
+          <td><button type="button" class="secondary" data-action="remove" title="Remove this test row">remove</button></td>
         `;
         tr.querySelector('[data-action="remove"]').addEventListener("click", () => tr.remove());
         testsTable.appendChild(tr);
@@ -619,6 +779,7 @@
       async function fetchLog(index) {
         try {
           logMessage.textContent = `Loading log for job ${index}`;
+          showTab("logs");
           const response = await fetch(`/api/job-log?index=${encodeURIComponent(index)}`);
           if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
@@ -674,7 +835,6 @@
         renderJobs(currentState.jobs || []);
         renderRunning(currentState.running_jobs || []);
 
-        const next = status in {complete: true, interrupted: true, cancelled: true, fail_fast: true, max_failures: true};
         const isTerminal = ["complete", "interrupted", "cancelled", "fail_fast", "max_failures"].includes(status);
         if (Notification.permission === "granted" && isTerminal && lastTerminalStatus !== status) {
           const total = currentState.summary?.total ?? 0;
@@ -712,6 +872,7 @@
         try {
           const payload = gatherPayloadForRun();
           await apiJson("POST", "/api/run", payload);
+          showTab("status");
           setMessage("Run started");
         } catch (error) {
           setMessage(String(error.message || error));
@@ -766,6 +927,7 @@
             throw new Error("output directory is required");
           }
           await apiJson("POST", "/api/attach", { output_dir: outputDir });
+          showTab("status");
           setMessage("Attached");
         } catch (error) {
           setMessage(String(error.message || error));
@@ -779,6 +941,7 @@
           }
           const payload = await apiJson("POST", "/api/import", { yaml });
           applyConfigToForm(payload.data.regression || payload.data);
+          showTab("configure");
           setMessage("YAML imported");
         } catch (error) {
           setMessage(String(error.message || error));
@@ -789,6 +952,7 @@
           const payload = buildFormConfig();
           const exported = await apiJson("POST", "/api/export", payload);
           document.getElementById("exportYamlOutput").value = exported.yaml || "";
+          showTab("files");
           setMessage("YAML exported");
         } catch (error) {
           setMessage(String(error.message || error));
@@ -831,6 +995,7 @@
           await apiJson("POST", "/api/attach", {
             output_dir: decoded,
           });
+          showTab("status");
           setMessage("Attached regression from URL");
         } catch (error) {
           setMessage(String(error.message || error));
@@ -841,6 +1006,7 @@
         addTestRow("simple", 20);
       }
 
+      initTabs();
       addInitialTestRows();
       attachFromQuery();
       refreshState();
