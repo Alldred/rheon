@@ -286,8 +286,9 @@ module rheon_core #(
         c_rd           <= e_rd;
         c_rs1          <= e_rs1_r;
         c_rs2          <= e_rs2_r;
-        c_rdata1       <= e_rdata1;
-        c_rdata2       <= e_rdata2;
+        // Record effective E-stage operands (after forwarding), not raw register reads.
+        c_rdata1       <= e_rs1_val;
+        c_rdata2       <= e_rs2_val;
         c_is_load      <= e_is_load_r;
         c_load_addr    <= ldst_addr;
         c_load_store_funct3 <= e_load_store_funct3_r;
@@ -328,12 +329,15 @@ module rheon_core #(
   commit #(.ADDR_W(ADDR_W)) commit_i (
     .clk          (clk),
     .rst_n        (rst_n),
+    .instr        (c_instr),
     .alu_result   (c_alu_result),
     .load_data    (c_load_data_wb),
     .pc_plus4     (c_pc_plus4),
     .branch_target(c_branch_target),
     .branch_taken (c_branch_taken),
     .rd           (c_rd),
+    .rs1          (c_rs1),
+    .rs1_val      (c_rdata1),
     .wb_src_alu   (c_wb_src_alu),
     .wb_src_pc4   (c_wb_src_pc4),
     .wb_src_load  (c_wb_src_load),
