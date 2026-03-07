@@ -11,6 +11,7 @@ import os
 import random
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -256,6 +257,44 @@ def commands_dir() -> Path:
     if (bin_dir / "rheon_run").exists():
         return bin_dir
     return scripts_dir()
+
+
+def _command_entrypoint(name: str) -> list[str]:
+    command_path = commands_dir() / name
+    try:
+        first_line = command_path.read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError, UnicodeDecodeError):
+        first_line = ""
+    if first_line.startswith("#!") and "python" in first_line.lower():
+        return [sys.executable, str(command_path)]
+    return [str(command_path)]
+
+
+def _augment_runtime_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    runtime_env = os.environ.copy()
+    if env is not None:
+        runtime_env.update(env)
+
+    current_python_bin = Path(sys.executable).resolve().parent
+    extra_entries = [str(current_python_bin)]
+
+    repo_python_bin = repo_root() / ".venv" / "bin"
+    if repo_python_bin.exists():
+        extra_entries.append(str(repo_python_bin.resolve()))
+
+    command_root = commands_dir()
+    if command_root.exists():
+        extra_entries.append(str(command_root.resolve()))
+
+    existing_entries = [
+        entry for entry in runtime_env.get("PATH", "").split(os.pathsep) if entry
+    ]
+    deduped_entries: list[str] = []
+    for entry in [*extra_entries, *existing_entries]:
+        if entry and entry not in deduped_entries:
+            deduped_entries.append(entry)
+    runtime_env["PATH"] = os.pathsep.join(deduped_entries)
+    return runtime_env
 
 
 def regressions_root() -> Path:
@@ -753,10 +792,11 @@ def _spawn_and_wait(
     timeout_sec: int | None,
     env: dict[str, str] | None = None,
 ) -> tuple[int, bool, float]:
+    runtime_env = _augment_runtime_env(env)
     process = subprocess.Popen(
         list(command),
         cwd=cwd,
-        env=env,
+        env=runtime_env,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         text=True,
@@ -973,7 +1013,6 @@ def _run_job_default(
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "sim.log"
 
-    command_root = commands_dir()
     rerun_text = build_job_rerun_command(job, config)
 
     with log_path.open("w", encoding="utf-8") as log_handle:
@@ -983,7 +1022,7 @@ def _run_job_default(
 
         if config.stages == RUN_STAGES:
             cmd = [
-                str(command_root / "rheon_run"),
+                *_command_entrypoint("rheon_run"),
                 "--test",
                 job.test_name,
                 "--seed",
@@ -1016,7 +1055,7 @@ def _run_job_default(
 
         total_elapsed = 0.0
         gen_cmd = [
-            str(command_root / "rheon_gen"),
+            *_command_entrypoint("rheon_gen"),
             "--test",
             job.test_name,
             "--seed",
@@ -1060,7 +1099,7 @@ def _run_job_default(
             )
 
         sim_cmd = [
-            str(command_root / "rheon_sim"),
+            *_command_entrypoint("rheon_sim"),
             "--test",
             str(sim_elf),
             "--seed",
@@ -1786,8 +1825,9 @@ def run_checked(
     cwd: Path,
     env: dict[str, str] | None = None,
 ) -> None:
+    runtime_env = _augment_runtime_env(env)
     try:
-        subprocess.run(list(command), cwd=cwd, env=env, check=True)
+        subprocess.run(list(command), cwd=cwd, env=runtime_env, check=True)
     except subprocess.CalledProcessError as exc:
         cmd = " ".join(shlex.quote(part) for part in command)
         raise ConfigError(f"Command failed ({exc.returncode}): {cmd}") from exc
@@ -1864,7 +1904,7 @@ def run_simulation(
     cocotb_results = run_dir / "results.xml"
     waves_file = run_dir / "dump.vcd"
 
-    env = os.environ.copy()
+    env = _augment_runtime_env()
     env["COCOTB_RESULTS_FILE"] = str(cocotb_results)
     if validated_verbosity:
         env["RHEON_VERBOSITY"] = validated_verbosity
@@ -1890,6 +1930,12 @@ def run_simulation(
         print(f"Verbosity: {validated_verbosity}", file=sys.stderr)
     if waves:
         print(f"Waves: enabled (WAVES=1), target: {waves_file}", file=sys.stderr)
+
+    if shutil.which("cocotb-config", path=env.get("PATH")) is None:
+        raise ConfigError(
+            "cocotb-config was not found on PATH. Run `uv sync` in the Rheon repo "
+            "or launch the app from a synced checkout so the project .venv is available."
+        )
 
     result = subprocess.run(make_args, cwd=root, env=env, check=False)
 

@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
+import threading
 import time
 from concurrent.futures import Future
 from io import StringIO
@@ -414,6 +416,96 @@ def test_build_job_rerun_command_excludes_run_dir() -> None:
     assert "--run-dir" not in rerun
     assert "--test simple" in rerun
     assert "--seed 42" in rerun
+
+
+def test_run_job_default_uses_current_python_for_python_entrypoints(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    command_root = tmp_path / "bin"
+    command_root.mkdir()
+    entrypoint = command_root / "rheon_run"
+    entrypoint.write_text(
+        "#!/usr/bin/env python3\nprint('stub')\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def _fake_spawn(command, **kwargs):
+        captured["command"] = list(command)
+        return 0, False, 0.01
+
+    monkeypatch.setattr(COMMON, "commands_dir", lambda: command_root)
+    monkeypatch.setattr(COMMON, "_spawn_and_wait", _fake_spawn)
+
+    output_dir = tmp_path / "out"
+    config = _config(output_dir, stages=("run",))
+    result = COMMON._run_job_default(  # noqa: SLF001
+        job=COMMON.RegressionJob(index=1, test_name="simple", seed=42),
+        config=config,
+        output_dir=output_dir,
+        stop_event=threading.Event(),
+    )
+
+    assert result.returncode == 0
+    assert captured["command"] == [
+        sys.executable,
+        str(entrypoint),
+        "--test",
+        "simple",
+        "--seed",
+        "42",
+        "--run-dir",
+        str(result.run_dir),
+    ]
+
+
+def test_run_checked_prepends_runtime_bins_to_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_python = tmp_path / "venv" / "bin" / "python"
+    fake_python.parent.mkdir(parents=True)
+    fake_python.write_text("", encoding="utf-8")
+
+    command_root = tmp_path / "commands"
+    command_root.mkdir()
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(command, *, cwd, env, check):
+        captured["command"] = list(command)
+        captured["cwd"] = cwd
+        captured["env"] = dict(env)
+        captured["check"] = check
+        return None
+
+    monkeypatch.setattr(COMMON.sys, "executable", str(fake_python))
+    monkeypatch.setattr(COMMON, "commands_dir", lambda: command_root)
+    monkeypatch.setattr(COMMON.subprocess, "run", _fake_run)
+
+    COMMON.run_checked(["echo", "hello"], cwd=tmp_path, env={"PATH": "/usr/bin"})
+
+    path_entries = captured["env"]["PATH"].split(os.pathsep)
+    assert path_entries[0] == str(fake_python.parent)
+    assert str(command_root) in path_entries
+    assert "/usr/bin" in path_entries
+
+
+def test_run_simulation_raises_clear_error_when_cocotb_config_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elf_path = tmp_path / "test.elf"
+    elf_path.write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(COMMON.shutil, "which", lambda _name, path=None: None)
+
+    with pytest.raises(COMMON.ConfigError, match="cocotb-config"):
+        COMMON.run_simulation(
+            elf_path=elf_path,
+            seed="42",
+            verbosity=None,
+            waves=False,
+        )
 
 
 def test_running_job_entries_sorted_by_longest_elapsed() -> None:

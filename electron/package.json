@@ -1,0 +1,48 @@
+{
+  "name": "rheon-electron",
+  "version": "0.1.0",
+  "description": "Rheon regression desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "build": "electron-builder",
+    "build:mac": "electron-builder --mac"
+  },
+  "author": "Stuart Alldred",
+  "license": "MIT",
+  "devDependencies": {
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3"
+  },
+  "build": {
+    "appId": "com.rheon.regression.app",
+    "productName": "Rheon Regr",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "../assets/rheon_regr_app.icns"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "source_root.txt",
+        "to": "source_root.txt"
+      }
+    ],
+    "directories": {
+      "buildResources": "."
+    }
+  }
+}

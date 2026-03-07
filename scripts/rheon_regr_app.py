@@ -26,10 +26,12 @@ from rheon_cli_common import (
     _load_yaml_text,
     _resolve_resume_path,
     default_parallel_jobs,
+    expand_regression_jobs,
     make_default_regression_output,
     parse_stages,
     regression_file_payload,
     regression_yaml_text,
+    repo_root,
     run_regression,
     validate_verbosity,
 )
@@ -55,6 +57,18 @@ class AppSession:
 
 session_lock = threading.Lock()
 current_session: AppSession | None = None
+
+
+def _try_int(value: Any) -> int | None:
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _int_or_default(value: Any, default: int) -> int:
+    parsed = _try_int(value)
+    return parsed if parsed is not None else default
 
 
 def _coerce_str(value: Any, field: str) -> str:
@@ -239,6 +253,267 @@ def _collect_jobs_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
     return jobs
 
 
+def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] | None:
+    tests_payload = []
+    for item in meta.get("tests", []):
+        if not isinstance(item, dict):
+            continue
+        name = _coerce_optional_str(item.get("name"))
+        count = _try_int(item.get("count"))
+        if name is None or count is None or count < 1:
+            continue
+        tests_payload.append({"name": name, "count": count})
+
+    seed = _try_int(meta.get("seed"))
+    jobs = _try_int(meta.get("jobs_requested"))
+    timeout_sec = _try_int(meta.get("timeout_sec"))
+    max_failures = _try_int(meta.get("max_failures"))
+    verbosity = _coerce_optional_str(meta.get("verbosity"))
+    stages = meta.get("stages")
+    if isinstance(stages, str):
+        stages_payload: str | list[str] = stages
+    elif isinstance(stages, list):
+        stages_payload = [str(item) for item in stages if str(item).strip()]
+    else:
+        stages_payload = ["run"]
+
+    has_explicit_config = any(
+        [
+            bool(tests_payload),
+            seed is not None,
+            jobs is not None,
+            verbosity is not None,
+            "stages" in meta,
+            "waves" in meta,
+            timeout_sec is not None,
+            "fail_fast" in meta,
+            max_failures is not None,
+        ]
+    )
+    if not has_explicit_config:
+        return None
+
+    payload = {
+        "tests": tests_payload,
+        "seed": seed,
+        "jobs": jobs,
+        "stages": stages_payload,
+        "output_dir": str(output_dir),
+        "verbosity": verbosity,
+        "waves": bool(meta.get("waves", False)),
+        "timeout_sec": timeout_sec,
+        "fail_fast": bool(meta.get("fail_fast", False)),
+        "max_failures": max_failures,
+    }
+    compact = {
+        key: value for key, value in payload.items() if value not in (None, [], "")
+    }
+    return compact or None
+
+
+def _summary_from_jobs(jobs: list[dict[str, Any]]) -> dict[str, Any]:
+    running_jobs = []
+    passed = 0
+    failed = 0
+    not_run = 0
+    timed_out = 0
+    latest_update = None
+
+    for item in jobs:
+        status = str(item.get("status", "not_run"))
+        if status == "passed":
+            passed += 1
+        elif status == "failed":
+            failed += 1
+            if bool(item.get("timed_out")) or item.get("status_reason") == "timeout":
+                timed_out += 1
+        elif status == "running":
+            running_jobs.append(
+                {
+                    "index": item["index"],
+                    "test_name": item.get("test_name"),
+                    "seed": item["seed"],
+                    "elapsed_seconds": item.get("duration_seconds", 0.0),
+                }
+            )
+        else:
+            not_run += 1
+
+        updated_at = item.get("updated_at")
+        if isinstance(updated_at, str) and updated_at:
+            latest_update = (
+                max(latest_update, updated_at) if latest_update else updated_at
+            )
+
+    total = len(jobs)
+    if total == 0:
+        status = "idle"
+        status_reason = "idle"
+    elif running_jobs:
+        status = "running"
+        status_reason = "running"
+    elif not_run > 0:
+        status = "interrupted"
+        status_reason = "interrupted"
+    else:
+        status = "complete"
+        status_reason = "complete"
+
+    return {
+        "status": status,
+        "status_reason": status_reason,
+        "running_jobs": running_jobs,
+        "summary": {
+            "total": total,
+            "scheduled": total,
+            "skipped_resume": 0,
+            "passed": passed,
+            "failed": failed,
+            "not_run": not_run,
+            "timed_out": timed_out,
+            "running": len(running_jobs),
+        },
+        "updated_at": latest_update,
+    }
+
+
+def _snapshot_from_state(
+    output_dir: Path, state_data: dict[str, Any]
+) -> dict[str, Any]:
+    meta = (
+        state_data.get("meta", {}) if isinstance(state_data.get("meta"), dict) else {}
+    )
+    jobs = _collect_jobs_from_state(state_data)
+    fallback = _summary_from_jobs(jobs)
+
+    running_jobs = meta.get("running_jobs")
+    if not isinstance(running_jobs, list):
+        running_jobs = fallback["running_jobs"]
+
+    return {
+        "output_dir": str(output_dir),
+        "created_at": state_data.get("created_at"),
+        "updated_at": meta.get("updated_at")
+        or state_data.get("updated_at")
+        or fallback["updated_at"],
+        "status": meta.get("status") or fallback["status"],
+        "status_reason": meta.get("status_reason") or fallback["status_reason"],
+        "running_jobs": running_jobs,
+        "summary": {
+            "total": _int_or_default(meta.get("total"), fallback["summary"]["total"]),
+            "scheduled": _int_or_default(
+                meta.get("scheduled"), fallback["summary"]["scheduled"]
+            ),
+            "skipped_resume": _int_or_default(
+                meta.get("skipped_resume"), fallback["summary"]["skipped_resume"]
+            ),
+            "passed": _int_or_default(
+                meta.get("passed"), fallback["summary"]["passed"]
+            ),
+            "failed": _int_or_default(
+                meta.get("failed"), fallback["summary"]["failed"]
+            ),
+            "not_run": _int_or_default(
+                meta.get("not_run"), fallback["summary"]["not_run"]
+            ),
+            "timed_out": _int_or_default(
+                meta.get("timed_out"), fallback["summary"]["timed_out"]
+            ),
+            "running": _int_or_default(
+                meta.get("running"), fallback["summary"]["running"]
+            ),
+        },
+        "config": _config_from_meta(meta, output_dir),
+        "jobs": jobs,
+    }
+
+
+def _regressions_root() -> Path:
+    return repo_root() / "runs" / "regressions"
+
+
+def _resolve_output_dir_reference(value: str) -> Path:
+    raw = value.strip()
+    if raw == "latest":
+        return _resolve_resume_path(raw)
+    return Path(raw).expanduser().resolve()
+
+
+def _state_data_for_output_dir(output_dir: Path) -> dict[str, Any]:
+    state_data = _safe_read_state(output_dir / STATE_FILE)
+    if not isinstance(state_data, dict):
+        raise FileNotFoundError("output_dir does not contain regression state")
+    return state_data
+
+
+def _job_log_text(output_dir: Path, index: int) -> str:
+    state_data = _state_data_for_output_dir(output_dir)
+    matching = []
+    for item in state_data.get("jobs", {}).values():
+        if not isinstance(item, dict):
+            continue
+        item_index = _try_int(item.get("index"))
+        if item_index == index:
+            matching.append(item)
+    if not matching:
+        raise KeyError(f"no job with index {index}")
+
+    log_path = matching[0].get("log_path")
+    if not isinstance(log_path, str):
+        raise FileNotFoundError("log not available")
+    try:
+        return Path(log_path).read_text(encoding="utf-8", errors="replace")
+    except OSError as exc:
+        raise FileNotFoundError("log not readable") from exc
+
+
+def _list_regression_runs(limit: int | None = None) -> list[dict[str, Any]]:
+    root = _regressions_root()
+    if not root.is_dir():
+        return []
+
+    runs = []
+    for item in root.iterdir():
+        if item.name == "latest" or not item.is_dir():
+            continue
+        state_path = item / STATE_FILE
+        state_data = _safe_read_state(state_path)
+        if not isinstance(state_data, dict):
+            continue
+        snapshot = _snapshot_from_state(item, state_data)
+        runs.append(
+            {
+                "name": item.name,
+                "output_dir": snapshot["output_dir"],
+                "created_at": snapshot["created_at"],
+                "updated_at": snapshot["updated_at"],
+                "status": snapshot["status"],
+                "status_reason": snapshot["status_reason"],
+                "summary": snapshot["summary"],
+                "config": snapshot["config"],
+            }
+        )
+
+    runs.sort(
+        key=lambda item: ((item.get("updated_at") or ""), item["name"]),
+        reverse=True,
+    )
+    return runs[:limit] if limit is not None else runs
+
+
+def _planned_jobs_payload(config: RegressionConfig | None) -> list[dict[str, Any]]:
+    if config is None:
+        return []
+    return [
+        {
+            "index": job.index,
+            "test_name": job.test_name,
+            "seed": job.seed,
+        }
+        for job in expand_regression_jobs(config.tests, config.seed)
+    ]
+
+
 def _safe_read_state(state_path: Path) -> dict[str, Any] | None:
     if not state_path.exists():
         return None
@@ -264,14 +539,23 @@ def _session_state() -> dict[str, Any]:
         "meta": {},
         "jobs": {},
     }
-    meta = state_data.get("meta", {}) if isinstance(state_data, dict) else {}
-    if not isinstance(meta, dict):
-        meta = {}
-    jobs = _collect_jobs_from_state(state_data) if isinstance(state_data, dict) else []
+    snapshot = _snapshot_from_state(session.output_dir, state_data)
+    meta = (
+        state_data.get("meta", {}) if isinstance(state_data.get("meta"), dict) else {}
+    )
+    jobs = snapshot["jobs"]
 
-    cfg_payload = None
-    if session.config is not None:
-        cfg_payload = regression_file_payload(session.config)["regression"]
+    cfg_payload = (
+        regression_file_payload(session.config)["regression"]
+        if session.config is not None
+        else snapshot["config"]
+    )
+    planned_jobs_config = session.config
+    if planned_jobs_config is None and cfg_payload is not None:
+        try:
+            planned_jobs_config, _ = build_config_from_payload(cfg_payload)
+        except (ConfigError, ValueError, OSError):
+            planned_jobs_config = None
 
     if session.mode == "active" and session.controller is not None:
         is_paused = session.controller.is_paused
@@ -292,31 +576,19 @@ def _session_state() -> dict[str, Any]:
         "is_cancelled": is_cancelled,
     }
 
-    not_run = 0
-    try:
-        not_run = int(meta.get("not_run", 0))
-    except (TypeError, ValueError):
-        not_run = 0
-
     return {
         "mode": session.mode,
-        "status": meta.get("status", "running"),
-        "status_reason": meta.get("status_reason", "running"),
+        "status": snapshot["status"],
+        "status_reason": snapshot["status_reason"],
         "output_dir": str(session.output_dir),
         "started_at": session.started_at,
+        "created_at": snapshot["created_at"],
+        "updated_at": snapshot["updated_at"],
         "jobs": jobs,
-        "running_jobs": meta.get("running_jobs", []),
-        "summary": {
-            "total": meta.get("total", 0),
-            "scheduled": meta.get("scheduled", 0),
-            "skipped_resume": meta.get("skipped_resume", 0),
-            "passed": meta.get("passed", 0),
-            "failed": meta.get("failed", 0),
-            "not_run": not_run,
-            "timed_out": meta.get("timed_out", 0),
-            "running": len(meta.get("running_jobs", [])),
-        },
+        "running_jobs": snapshot["running_jobs"],
+        "summary": snapshot["summary"],
         "config": cfg_payload,
+        "planned_jobs": _planned_jobs_payload(planned_jobs_config),
         "controls": controls,
         "last_error": session.last_error,
     }
@@ -515,12 +787,42 @@ class _RequestHandler(BaseHTTPRequestHandler):
             _write_json(self, 200, {"ok": True, "data": _session_state()})
             return
 
-        if parsed.path == "/api/job-log":
-            state = _session_state()
-            if state.get("output_dir") is None:
-                _write_error(self, 409, "no active run")
-                return
+        if parsed.path == "/api/runs":
+            query = parse_qs(parsed.query)
+            limit = None
+            if "limit" in query:
+                try:
+                    limit = _coerce_int(query["limit"][0], field="limit", min_value=1)
+                except (ConfigError, ValueError, TypeError) as exc:
+                    _write_error(self, 400, str(exc))
+                    return
+            _write_json(
+                self, 200, {"ok": True, "data": {"runs": _list_regression_runs(limit)}}
+            )
+            return
 
+        if parsed.path == "/api/run-info":
+            query = parse_qs(parsed.query)
+            if "output_dir" not in query:
+                _write_error(self, 400, "output_dir is required")
+                return
+            try:
+                output_dir = _resolve_output_dir_reference(query["output_dir"][0])
+            except (ConfigError, OSError, ValueError) as exc:
+                _write_error(self, 400, str(exc))
+                return
+            state_data = _safe_read_state(output_dir / STATE_FILE)
+            if not isinstance(state_data, dict):
+                _write_error(self, 404, "output_dir does not contain regression state")
+                return
+            _write_json(
+                self,
+                200,
+                {"ok": True, "data": _snapshot_from_state(output_dir, state_data)},
+            )
+            return
+
+        if parsed.path == "/api/job-log":
             query = parse_qs(parsed.query)
             if "index" not in query:
                 _write_error(self, 400, "index is required")
@@ -532,34 +834,24 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 _write_error(self, 400, "index must be an integer")
                 return
 
-            session_data = _safe_read_state(Path(state["output_dir"]) / STATE_FILE)
-            if not isinstance(session_data, dict):
-                _write_error(self, 409, "run state is not available")
-                return
-
-            matching = []
-            for item in session_data.get("jobs", {}).values():
-                if not isinstance(item, dict):
-                    continue
-                try:
-                    item_index = int(item.get("index"))
-                except (TypeError, ValueError):
-                    continue
-                if item_index == index:
-                    matching.append(item)
-            if not matching:
-                _write_error(self, 404, f"no job with index {index}")
-                return
-
-            log_path = matching[0].get("log_path")
-            if not isinstance(log_path, str):
-                _write_error(self, 404, "log not available")
-                return
             try:
-                text = Path(log_path).read_text(encoding="utf-8", errors="replace")
+                if "output_dir" in query:
+                    output_dir = _resolve_output_dir_reference(query["output_dir"][0])
+                else:
+                    state = _session_state()
+                    if state.get("output_dir") is None:
+                        _write_error(self, 409, "no active run")
+                        return
+                    output_dir = Path(str(state["output_dir"])).resolve()
+
+                text = _job_log_text(output_dir, index)
                 _write_text(self, 200, text, content_type="text/plain")
-            except OSError:
-                _write_error(self, 404, "log not readable")
+            except KeyError as exc:
+                _write_error(self, 404, str(exc))
+            except FileNotFoundError as exc:
+                _write_error(self, 404, str(exc))
+            except (ConfigError, OSError, ValueError) as exc:
+                _write_error(self, 400, str(exc))
             return
 
         self._write_404()
@@ -577,7 +869,11 @@ class _RequestHandler(BaseHTTPRequestHandler):
             if output_dir is None:
                 _write_error(self, 400, "output_dir is required")
                 return
-            output_path = Path(output_dir).expanduser().resolve()
+            try:
+                output_path = _resolve_output_dir_reference(output_dir)
+            except (ConfigError, OSError, ValueError) as exc:
+                _write_error(self, 400, str(exc))
+                return
             state_path = (output_path / STATE_FILE).resolve()
             if not output_path.exists() or not output_path.is_dir():
                 _write_error(self, 404, "output_dir does not exist")

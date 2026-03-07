@@ -91,6 +91,47 @@ Build a standalone artifact bundle (for packaging or distribution):
 ./build.sh --clean  # wipe staged build artifacts first
 ```
 
+### macOS One-Click App
+
+`./build.sh` also creates a macOS app bundle at
+`build/rheon_regr_app/Rheon Regr.app` (on Darwin systems):
+
+```bash
+open build/rheon_regr_app/Rheon\ Regr.app
+```
+
+The app starts the server automatically and opens the UI. You can also start with an
+existing output directory:
+
+```bash
+./bin/rheon_regr_app_mac --attach runs/regressions/20260306_120000
+```
+
+The app exposes a simple shutdown path so quitting the app (or closing its process) also
+stops the local server it started:
+
+```bash
+./bin/rheon_regr_app_mac --stop
+```
+
+To install, copy the built app into Applications:
+
+```bash
+cp -R build/rheon_regr_app/Rheon\ Regr.app /Applications/
+```
+
+Or use the build helper directly:
+
+```bash
+./build.sh --install
+./build.sh --install /path/to/your/apps
+```
+
+The installed app is a launcher for the current Rheon checkout and its `.venv`, so build it after
+running `uv sync`. If the repo moves, rebuild the app from the new checkout location. Provide your
+logo at `assets/rheon_regr_app.icns` (preferred) or `assets/rheon_regr_app.png` before running
+`./build.sh`.
+
 ## Legacy
 
 **Legacy:** `./scripts/run_test.sh` (no args or `--seed N`) generates with default generator and runs; `./scripts/run_test.sh path/to/program.elf` runs with that ELF only.

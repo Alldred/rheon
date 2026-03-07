@@ -8,18 +8,29 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Rheon Regression Runner</title>
+    <title>Rheon Regression Deck</title>
     <style>
       :root {
-        --bg: radial-gradient(1200px circle at 10% 10%, #2d4b78 0%, #1b2434 35%, #111827 100%);
-        --panel: rgba(17, 24, 39, 0.92);
-        --stroke: rgba(148, 163, 184, 0.28);
-        --text: #f8fafc;
-        --muted: #cbd5e1;
-        --good: #22c55e;
-        --bad: #f87171;
-        --warn: #facc15;
-        --blue: #60a5fa;
+        --bg: #07111d;
+        --bg-deep: #09192a;
+        --panel: rgba(8, 18, 32, 0.88);
+        --panel-strong: rgba(10, 24, 40, 0.96);
+        --panel-soft: rgba(17, 33, 52, 0.86);
+        --line: rgba(142, 169, 201, 0.18);
+        --line-strong: rgba(142, 169, 201, 0.34);
+        --text: #f4f7fb;
+        --muted: #90a4bc;
+        --muted-strong: #c6d4e4;
+        --accent: #ff9c54;
+        --accent-strong: #ff6d3e;
+        --accent-cool: #4fb6ff;
+        --good: #36d99a;
+        --bad: #ff6e66;
+        --warn: #f4c85d;
+        --shadow: 0 28px 80px rgba(0, 0, 0, 0.34);
+        --radius-lg: 28px;
+        --radius-md: 18px;
+        --radius-sm: 12px;
       }
 
       * {
@@ -28,192 +39,1017 @@
 
       body {
         margin: 0;
-        font-family: "Avenir Next", "Gill Sans", "Segoe UI", Helvetica, Arial, sans-serif;
+        min-height: 100vh;
         color: var(--text);
-        background: var(--bg);
+        font-family: "Avenir Next", "Helvetica Neue", "Segoe UI", sans-serif;
+        background:
+          radial-gradient(circle at 12% 12%, rgba(79, 182, 255, 0.22), transparent 28%),
+          radial-gradient(circle at 88% 18%, rgba(255, 156, 84, 0.16), transparent 22%),
+          linear-gradient(135deg, #07111d 0%, #08121f 42%, #0a1830 100%);
+        overflow-x: hidden;
+      }
+
+      body::before {
+        content: "";
+        position: fixed;
+        inset: 0;
+        pointer-events: none;
+        background:
+          linear-gradient(rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.02)),
+          repeating-linear-gradient(
+            90deg,
+            transparent 0,
+            transparent 104px,
+            rgba(255, 255, 255, 0.025) 104px,
+            rgba(255, 255, 255, 0.025) 105px
+          );
+        mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.7), transparent 82%);
+      }
+
+      button,
+      input,
+      select,
+      textarea {
+        font: inherit;
+      }
+
+      button {
+        border: 0;
+        cursor: pointer;
+      }
+
+      .app-shell {
+        display: grid;
+        grid-template-columns: 296px minmax(0, 1fr);
         min-height: 100vh;
       }
 
-      .page {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 18px;
+      .sidebar {
+        position: sticky;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 18px;
+        min-height: 100vh;
+        padding: 26px 22px 24px;
+        background:
+          linear-gradient(180deg, rgba(7, 15, 26, 0.92) 0%, rgba(8, 17, 29, 0.96) 100%);
+        border-right: 1px solid rgba(142, 169, 201, 0.12);
+        backdrop-filter: blur(18px);
       }
 
-      .panel {
-        background: var(--panel);
-        border: 1px solid var(--stroke);
-        border-radius: 14px;
-        padding: 16px;
-        margin-bottom: 16px;
-        box-shadow: 0 16px 26px rgba(15, 23, 42, 0.45);
+      .brand-block {
+        padding: 8px 4px 0;
       }
 
-      h1,
-      h2,
-      h3 {
-        margin: 0 0 12px 0;
+      .eyebrow {
+        margin: 0 0 10px;
+        color: var(--accent);
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        font-size: 0.72rem;
+        font-weight: 700;
       }
 
-      h1 {
-        font-size: 1.7rem;
-        letter-spacing: 0.02em;
+      .brand-block h1 {
+        margin: 0;
+        font-family: "Avenir Next Condensed", "Avenir Next", sans-serif;
+        font-size: 2rem;
+        line-height: 0.95;
+        letter-spacing: -0.03em;
       }
 
-      h2 {
-        font-size: 1.25rem;
+      .brand-block p {
+        margin: 12px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+        font-size: 0.96rem;
       }
 
-      h3 {
+      .nav-stack {
+        display: grid;
+        gap: 10px;
+      }
+
+      .nav-btn {
+        display: grid;
+        gap: 3px;
+        width: 100%;
+        padding: 16px 16px 15px;
+        border-radius: var(--radius-md);
+        border: 1px solid var(--line);
+        background: rgba(12, 26, 43, 0.68);
+        color: var(--text);
+        text-align: left;
+        transition: transform 160ms ease, border-color 160ms ease, background 160ms ease;
+      }
+
+      .nav-btn:hover {
+        transform: translateY(-1px);
+        border-color: var(--line-strong);
+      }
+
+      .nav-btn.active {
+        background:
+          linear-gradient(135deg, rgba(255, 156, 84, 0.18), rgba(79, 182, 255, 0.14)),
+          rgba(12, 26, 43, 0.92);
+        border-color: rgba(255, 156, 84, 0.46);
+        box-shadow: inset 0 0 0 1px rgba(255, 156, 84, 0.18);
+      }
+
+      .nav-title {
         font-size: 1rem;
+        font-weight: 700;
+      }
+
+      .nav-copy {
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.4;
+      }
+
+      .sidebar-card {
+        padding: 18px;
+        background: rgba(10, 22, 37, 0.74);
+        border: 1px solid var(--line);
+        border-radius: 20px;
+        box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      }
+
+      .sidebar-card h3 {
+        margin: 4px 0 0;
+        font-size: 1.08rem;
+      }
+
+      .status-ribbon {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        border-radius: 999px;
+        margin-top: 8px;
+        border: 1px solid var(--line);
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.1em;
+        font-weight: 700;
+      }
+
+      .status-ribbon::before,
+      .pill::before,
+      .chip-count::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: currentColor;
+        box-shadow: 0 0 12px currentColor;
+      }
+
+      .status-ribbon.idle,
+      .pill.idle {
+        color: #8aa0b6;
+      }
+
+      .status-ribbon.running,
+      .pill.running,
+      .pill.active {
+        color: var(--accent-cool);
+      }
+
+      .status-ribbon.complete,
+      .pill.complete,
+      .pill.passed {
+        color: var(--good);
+      }
+
+      .status-ribbon.failed,
+      .pill.failed {
+        color: var(--bad);
+      }
+
+      .status-ribbon.interrupted,
+      .status-ribbon.cancelled,
+      .status-ribbon.fail_fast,
+      .status-ribbon.max_failures,
+      .pill.interrupted,
+      .pill.cancelled,
+      .pill.fail_fast,
+      .pill.max_failures,
+      .pill.timeout {
+        color: var(--warn);
+      }
+
+      .status-ribbon.paused,
+      .pill.paused {
+        color: #d3dae2;
+      }
+
+      .mini-stat-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 16px;
+      }
+
+      .mini-stat {
+        padding: 12px;
+        border-radius: 14px;
+        background: rgba(17, 31, 49, 0.72);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .mini-stat strong {
+        display: block;
+        font-size: 1.34rem;
+      }
+
+      .mini-stat span {
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .path-label {
+        margin: 14px 0 0;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+        word-break: break-word;
+      }
+
+      .stack-buttons {
+        display: grid;
+        gap: 10px;
+        margin-top: 14px;
+      }
+
+      .workspace {
+        padding: 28px;
+      }
+
+      .workspace-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 20px;
+        margin-bottom: 20px;
+      }
+
+      .workspace-header h2 {
+        margin: 0;
+        font-family: "Avenir Next Condensed", "Avenir Next", sans-serif;
+        font-size: 2.4rem;
+        line-height: 0.94;
+        letter-spacing: -0.04em;
+      }
+
+      .workspace-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        max-width: 560px;
+        line-height: 1.55;
+      }
+
+      .banner {
+        min-height: 48px;
+        min-width: 260px;
+        padding: 13px 16px;
+        border-radius: 16px;
+        background: rgba(11, 22, 37, 0.74);
+        border: 1px solid transparent;
         color: var(--muted);
       }
 
-      .row {
+      .banner.info {
+        border-color: rgba(79, 182, 255, 0.28);
+        color: #b9dfff;
+      }
+
+      .banner.success {
+        border-color: rgba(54, 217, 154, 0.28);
+        color: #c8f5e3;
+      }
+
+      .banner.warn {
+        border-color: rgba(244, 200, 93, 0.28);
+        color: #f7e6b0;
+      }
+
+      .banner.error {
+        border-color: rgba(255, 110, 102, 0.28);
+        color: #ffd3cf;
+      }
+
+      .view {
+        display: none;
+        animation: rise 220ms ease;
+      }
+
+      .view.active {
+        display: block;
+      }
+
+      @keyframes rise {
+        from {
+          opacity: 0;
+          transform: translateY(10px);
+        }
+
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .card {
+        background:
+          linear-gradient(180deg, rgba(10, 22, 37, 0.95), rgba(8, 18, 32, 0.88));
+        border: 1px solid var(--line);
+        border-radius: var(--radius-lg);
+        box-shadow: var(--shadow);
+      }
+
+      .card-inner {
+        padding: 24px;
+      }
+
+      .section-title {
+        margin: 0;
+        font-size: 1.42rem;
+        line-height: 1.05;
+      }
+
+      .section-copy {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .hero-card {
+        display: grid;
+        grid-template-columns: 1.4fr 0.95fr;
+        gap: 18px;
+        padding: 26px;
+        overflow: hidden;
+        position: relative;
+      }
+
+      .hero-card::after {
+        content: "";
+        position: absolute;
+        inset: auto -10% -34% 48%;
+        height: 240px;
+        background: radial-gradient(circle, rgba(255, 156, 84, 0.22), transparent 68%);
+        pointer-events: none;
+      }
+
+      .hero-card h3 {
+        margin: 0;
+        font-family: "Avenir Next Condensed", "Avenir Next", sans-serif;
+        font-size: 2.1rem;
+        line-height: 0.94;
+        letter-spacing: -0.04em;
+      }
+
+      .hero-card p {
+        margin: 14px 0 0;
+        color: var(--muted-strong);
+        line-height: 1.6;
+        max-width: 560px;
+      }
+
+      .hero-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 12px;
+        margin-top: 22px;
+      }
+
+      .hero-metrics {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .metric-card {
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(17, 31, 49, 0.72);
+        border: 1px solid rgba(142, 169, 201, 0.13);
+      }
+
+      .metric-card strong {
+        display: block;
+        font-size: 2rem;
+        line-height: 1;
+      }
+
+      .metric-card span {
+        display: block;
+        margin-top: 8px;
+        color: var(--muted);
+        font-size: 0.86rem;
+      }
+
+      .metric-card.good {
+        box-shadow: inset 3px 0 0 var(--good);
+      }
+
+      .metric-card.bad {
+        box-shadow: inset 3px 0 0 var(--bad);
+      }
+
+      .metric-card.warn {
+        box-shadow: inset 3px 0 0 var(--warn);
+      }
+
+      .metric-card.cool {
+        box-shadow: inset 3px 0 0 var(--accent-cool);
+      }
+
+      .overview-grid,
+      .history-layout,
+      .compose-layout,
+      .monitor-layout {
+        display: grid;
+        gap: 18px;
+        margin-top: 18px;
+      }
+
+      .overview-grid {
+        grid-template-columns: minmax(0, 1.35fr) minmax(330px, 0.95fr);
+      }
+
+      .run-list {
+        display: grid;
+        gap: 12px;
+      }
+
+      .run-item {
+        display: grid;
+        gap: 12px;
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(12, 26, 42, 0.72);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .run-item.selected {
+        border-color: rgba(255, 156, 84, 0.44);
+        box-shadow: inset 0 0 0 1px rgba(255, 156, 84, 0.14);
+      }
+
+      .run-head {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .run-head strong {
+        display: block;
+        font-size: 1rem;
+      }
+
+      .run-head small {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.82rem;
+      }
+
+      .run-summary {
         display: flex;
         flex-wrap: wrap;
         gap: 8px;
       }
 
-      .col {
-        flex: 1 1 220px;
-      }
-
-      .labelRow {
-        display: flex;
-        justify-content: space-between;
+      .chip-count {
+        display: inline-flex;
         align-items: center;
-        margin-bottom: 6px;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(16, 33, 53, 0.84);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+        color: var(--muted-strong);
+        font-size: 0.8rem;
       }
 
-      .labelText {
+      .chip-count.good {
+        color: var(--good);
+      }
+
+      .chip-count.bad {
+        color: var(--bad);
+      }
+
+      .chip-count.warn {
+        color: var(--warn);
+      }
+
+      .run-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        padding: 7px 10px;
+        border-radius: 999px;
+        border: 1px solid rgba(142, 169, 201, 0.18);
+        background: rgba(12, 26, 42, 0.9);
+        font-size: 0.78rem;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .template-grid,
+      .failure-stack,
+      .details-stack,
+      .action-row,
+      .field-grid,
+      .monitor-top-grid,
+      .history-detail-grid {
+        display: grid;
+        gap: 12px;
+      }
+
+      .template-grid {
+        margin-top: 6px;
+      }
+
+      .template-card,
+      .failure-card,
+      .details-block {
+        padding: 16px;
+        border-radius: 18px;
+        background: rgba(12, 26, 42, 0.72);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .failure-card strong,
+      .template-card strong {
+        display: block;
+        font-size: 0.98rem;
+      }
+
+      .failure-card p,
+      .template-card p,
+      .details-block p {
+        margin: 8px 0 0;
         color: var(--muted);
-        font-size: 0.9rem;
+        line-height: 1.5;
       }
 
-      .helpIcon {
+      .action-row {
+        grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+      }
+
+      .btn,
+      .btn-ghost,
+      .btn-subtle {
         display: inline-flex;
         align-items: center;
         justify-content: center;
-        width: 16px;
-        height: 16px;
-        border-radius: 50%;
-        border: 1px solid var(--stroke);
-        color: var(--text);
-        font-size: 0.75rem;
-        line-height: 1;
-        cursor: help;
+        gap: 8px;
+        min-height: 46px;
+        padding: 0 16px;
+        border-radius: 14px;
+        transition: transform 160ms ease, filter 160ms ease, border-color 160ms ease;
       }
 
-      .sectionTitle {
+      .btn:hover,
+      .btn-ghost:hover,
+      .btn-subtle:hover {
+        transform: translateY(-1px);
+      }
+
+      .btn {
+        color: #0b1220;
+        font-weight: 800;
+        background: linear-gradient(135deg, var(--accent), var(--accent-strong));
+        box-shadow: 0 12px 26px rgba(255, 109, 62, 0.28);
+      }
+
+      .btn.cool {
+        background: linear-gradient(135deg, #4fb6ff, #7ae8ff);
+        box-shadow: 0 12px 26px rgba(79, 182, 255, 0.22);
+      }
+
+      .btn-ghost {
+        background: rgba(15, 30, 49, 0.76);
+        color: var(--text);
+        border: 1px solid rgba(142, 169, 201, 0.18);
+      }
+
+      .btn-subtle {
+        background: rgba(12, 26, 42, 0.5);
+        color: var(--muted-strong);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .btn:disabled,
+      .btn-ghost:disabled,
+      .btn-subtle:disabled {
+        transform: none;
+        opacity: 0.42;
+        cursor: not-allowed;
+        box-shadow: none;
+      }
+
+      .small-btn {
+        min-height: 36px;
+        padding: 0 12px;
+        border-radius: 12px;
+        font-size: 0.84rem;
+      }
+
+      .compose-layout {
+        grid-template-columns: minmax(0, 1.6fr) minmax(320px, 0.9fr);
+      }
+
+      .compose-main,
+      .compose-side,
+      .stack {
+        display: grid;
+        gap: 18px;
+      }
+
+      .form-section,
+      .utility-block {
+        padding: 22px;
+      }
+
+      .section-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 16px;
+        margin-bottom: 16px;
+      }
+
+      .section-header h3 {
+        margin: 0;
+        font-size: 1.22rem;
+      }
+
+      .section-header p {
+        margin: 6px 0 0;
         color: var(--muted);
-        margin: 4px 0 10px;
-        font-size: 0.82rem;
+        line-height: 1.55;
+      }
+
+      .field-grid {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .field {
+        display: grid;
+        gap: 8px;
+      }
+
+      .field.wide {
+        grid-column: 1 / -1;
+      }
+
+      .field label,
+      .matrix-head span,
+      .toolbar-label {
+        color: var(--muted-strong);
+        font-size: 0.86rem;
+        font-weight: 700;
+        letter-spacing: 0.02em;
+      }
+
+      .field input,
+      .field select,
+      .field textarea,
+      .utility-block input,
+      .utility-block textarea {
+        width: 100%;
+        min-height: 48px;
+        padding: 0 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(142, 169, 201, 0.18);
+        background: rgba(6, 14, 25, 0.78);
+        color: var(--text);
+      }
+
+      .field textarea,
+      .utility-block textarea {
+        min-height: 220px;
+        padding: 14px;
+        resize: vertical;
+      }
+
+      .field input:focus,
+      .field select:focus,
+      .field textarea:focus,
+      .utility-block input:focus,
+      .utility-block textarea:focus {
+        outline: none;
+        border-color: rgba(79, 182, 255, 0.5);
+        box-shadow: 0 0 0 3px rgba(79, 182, 255, 0.12);
+      }
+
+      .toggle-row {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .toggle-card {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        padding: 14px 16px;
+        border-radius: 16px;
+        background: rgba(12, 26, 42, 0.74);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .toggle-copy strong {
+        display: block;
+        font-size: 0.96rem;
+      }
+
+      .toggle-copy span {
+        display: block;
+        margin-top: 5px;
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.45;
+      }
+
+      .toggle-card input {
+        width: 22px;
+        height: 22px;
+        margin: 0;
+      }
+
+      .matrix-block {
+        padding: 22px;
+      }
+
+      .matrix-head {
+        display: grid;
+        grid-template-columns: 1.4fr 150px 120px;
+        gap: 12px;
+        padding: 0 4px 10px;
+      }
+
+      .matrix-row {
+        display: grid;
+        grid-template-columns: 1.4fr 150px 120px;
+        gap: 12px;
+        padding: 12px 0;
+        border-top: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .matrix-row:first-of-type {
+        border-top: 0;
+      }
+
+      .matrix-row input {
+        width: 100%;
+        min-height: 46px;
+        padding: 0 14px;
+        border-radius: 14px;
+        border: 1px solid rgba(142, 169, 201, 0.18);
+        background: rgba(6, 14, 25, 0.78);
+        color: var(--text);
+      }
+
+      details.utility-block {
+        border: 1px solid var(--line);
+        border-radius: 22px;
+        background: rgba(10, 22, 37, 0.88);
+        box-shadow: var(--shadow);
+      }
+
+      details.utility-block summary {
+        list-style: none;
+        cursor: pointer;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 18px 22px;
+        font-size: 1rem;
+        font-weight: 700;
+      }
+
+      details.utility-block summary::-webkit-details-marker {
+        display: none;
+      }
+
+      details.utility-block[open] summary {
+        border-bottom: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .utility-body {
+        display: grid;
+        gap: 14px;
+        padding: 18px 22px 22px;
+      }
+
+      .blueprint-grid,
+      .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 12px;
+      }
+
+      .blueprint-item,
+      .detail-item {
+        padding: 14px;
+        border-radius: 16px;
+        background: rgba(12, 26, 42, 0.72);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+        min-width: 0;
+      }
+
+      .blueprint-item span,
+      .detail-item span {
+        display: block;
+        color: var(--muted);
+        font-size: 0.8rem;
         text-transform: uppercase;
         letter-spacing: 0.08em;
       }
 
-      input,
-      select,
-      textarea,
-      button {
-        width: 100%;
-        border: 1px solid var(--stroke);
-        border-radius: 10px;
-        padding: 9px;
-        margin-bottom: 10px;
-        color: var(--text);
-        background: rgba(15, 23, 42, 0.85);
-        font-size: 0.95rem;
+      .blueprint-item strong,
+      .detail-item strong {
+        display: block;
+        margin-top: 7px;
+        line-height: 1.4;
+        overflow-wrap: anywhere;
       }
 
-      button {
-        background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
-        border: 0;
-        cursor: pointer;
-        font-weight: 600;
+      .monitor-layout {
+        gap: 18px;
       }
 
-      button.secondary {
-        background: linear-gradient(120deg, #334155 0%, #1f2937 100%);
+      .monitor-hero {
+        padding: 24px;
       }
 
-      button:disabled {
-        opacity: 0.45;
-        cursor: not-allowed;
-      }
-
-      .tabs {
+      .monitor-head {
         display: flex;
-        gap: 8px;
-        margin-bottom: 14px;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 18px;
+      }
+
+      .monitor-head h3,
+      .history-summary-card h3 {
+        margin: 0;
+        font-size: 1.46rem;
+      }
+
+      .monitor-head p,
+      .history-summary-card p {
+        margin: 8px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
+      }
+
+      .monitor-status-row {
+        display: flex;
         flex-wrap: wrap;
+        gap: 10px;
+        justify-content: flex-end;
       }
 
-      .tabBtn {
-        width: auto;
-        margin-bottom: 0;
-        background: rgba(30, 41, 59, 0.85);
-        border: 1px solid var(--stroke);
-        border-radius: 999px;
-        padding: 8px 14px;
+      .metric-ribbon {
+        display: grid;
+        grid-template-columns: repeat(6, minmax(0, 1fr));
+        gap: 12px;
+        margin-top: 20px;
       }
 
-      .tabBtn.active {
-        background: linear-gradient(120deg, #2563eb 0%, #1d4ed8 100%);
+      .control-rack {
+        display: grid;
+        grid-template-columns: 160px repeat(5, minmax(0, 1fr));
+        gap: 10px;
+        margin-top: 18px;
       }
 
-      .tabBtn:focus-visible {
-        outline: 2px solid var(--blue);
-        outline-offset: 2px;
+      .control-rack input {
+        width: 100%;
+        min-height: 46px;
+        padding: 0 12px;
+        border-radius: 14px;
+        border: 1px solid rgba(142, 169, 201, 0.18);
+        background: rgba(6, 14, 25, 0.78);
+        color: var(--text);
       }
 
-      .tabPanel {
+      .monitor-top-grid,
+      .history-detail-grid {
+        grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      }
+
+      .split-card {
+        padding: 20px;
+      }
+
+      .split-card h4 {
+        margin: 0 0 10px;
+        font-size: 1rem;
+      }
+
+      .split-card,
+      .table-card,
+      .inspector-card,
+      .history-summary-card,
+      .two-panel > *,
+      .monitor-top-grid > *,
+      .history-detail-grid > * {
+        min-width: 0;
+      }
+
+      .table-card,
+      .inspector-card,
+      .history-summary-card {
+        padding: 22px;
+      }
+
+      .two-panel {
+        display: grid;
+        grid-template-columns: minmax(0, 1.35fr) minmax(360px, 0.92fr);
+        gap: 18px;
+      }
+
+      .monitor-scene {
         display: none;
       }
 
-      .tabPanel.active {
+      .monitor-scene.active {
         display: block;
       }
 
-      .metricGrid {
-        display: grid;
-        grid-template-columns: repeat(6, minmax(0, 1fr));
-        gap: 10px;
+      .toolbar {
+        display: flex;
+        flex-wrap: wrap;
+        justify-content: space-between;
+        align-items: center;
+        gap: 12px;
+        margin-bottom: 14px;
       }
 
-      .metric {
-        padding: 10px;
-        border-radius: 10px;
-        border: 1px solid var(--stroke);
+      .toolbar h4 {
+        margin: 0;
+        font-size: 1.1rem;
       }
 
-      .metric.good {
-        border-left: 4px solid var(--good);
-      }
-
-      .metric.bad {
-        border-left: 4px solid var(--bad);
-      }
-
-      .metric.warn {
-        border-left: 4px solid var(--warn);
-      }
-
-      .metric .value {
-        font-size: 1.45rem;
-        font-weight: 700;
-      }
-
-      .metric .label {
+      .toolbar p {
+        margin: 6px 0 0;
         color: var(--muted);
-        font-size: 0.8rem;
       }
 
-      .statusGrid {
-        display: grid;
-        grid-template-columns: 1.8fr 1.5fr;
-        gap: 14px;
+      .toolbar-tools {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        align-items: center;
+      }
+
+      .toolbar-tools input {
+        min-width: 220px;
+        min-height: 40px;
+        padding: 0 12px;
+        border-radius: 12px;
+        border: 1px solid rgba(142, 169, 201, 0.18);
+        background: rgba(6, 14, 25, 0.78);
+        color: var(--text);
+      }
+
+      .chip-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .chip {
+        min-height: 34px;
+        padding: 0 12px;
+        border-radius: 999px;
+        background: rgba(16, 33, 53, 0.84);
+        color: var(--muted-strong);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+      }
+
+      .chip.active {
+        background: linear-gradient(135deg, rgba(255, 156, 84, 0.25), rgba(79, 182, 255, 0.18));
+        border-color: rgba(255, 156, 84, 0.36);
+        color: var(--text);
       }
 
       table {
@@ -223,419 +1059,1882 @@
 
       th,
       td {
-        border-bottom: 1px solid var(--stroke);
-        padding: 7px 4px;
+        padding: 12px 10px;
+        border-bottom: 1px solid rgba(142, 169, 201, 0.12);
         text-align: left;
-        font-size: 0.9rem;
+        vertical-align: top;
       }
 
       th {
         color: var(--muted);
-        font-weight: 500;
+        font-size: 0.82rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        font-weight: 700;
+      }
+
+      tbody tr {
+        transition: background 140ms ease;
       }
 
       tbody tr:hover {
-        background: rgba(30, 41, 59, 0.45);
+        background: rgba(17, 31, 49, 0.6);
       }
 
-      .status-ok {
+      tbody tr.selected-row {
+        background: rgba(255, 156, 84, 0.08);
+      }
+
+      .job-link {
+        display: inline-flex;
+        align-items: center;
+        gap: 10px;
+        color: var(--text);
+        font-weight: 700;
+      }
+
+      .job-link::before {
+        content: "";
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent-cool);
+        box-shadow: 0 0 14px rgba(79, 182, 255, 0.38);
+      }
+
+      .row-status {
+        font-weight: 700;
+      }
+
+      .row-status.passed {
         color: var(--good);
       }
 
-      .status-fail {
+      .row-status.failed {
         color: var(--bad);
       }
 
-      .logPanel {
-        background: #0b1120;
-        border: 1px solid var(--stroke);
-        border-radius: 10px;
-        padding: 10px;
-        white-space: pre-wrap;
-        max-height: 420px;
-        overflow: auto;
-        font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      .row-status.running {
+        color: var(--accent-cool);
+      }
+
+      .row-status.other {
+        color: var(--warn);
+      }
+
+      .inspector-card {
+        display: grid;
+        gap: 16px;
+        align-content: start;
+      }
+
+      .inspector-header {
+        display: flex;
+        justify-content: space-between;
+        gap: 12px;
+        align-items: flex-start;
+      }
+
+      .inspector-header > * {
+        min-width: 0;
+      }
+
+      .inspector-header h4 {
+        margin: 0;
+        font-size: 1.12rem;
+      }
+
+      .inspector-header p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        overflow-wrap: anywhere;
+      }
+
+      .badge-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 7px 10px;
+        border-radius: 999px;
+        background: rgba(16, 33, 53, 0.84);
+        border: 1px solid rgba(142, 169, 201, 0.12);
+        color: var(--muted-strong);
         font-size: 0.78rem;
       }
 
-      #testsTable {
-        margin-bottom: 8px;
+      .mono {
+        font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+        display: block;
+        white-space: normal;
+        overflow-wrap: anywhere;
+        word-break: break-word;
       }
 
-      #testsTable th:last-child,
-      #testsTable td:last-child {
-        width: 80px;
+      .log-viewer {
+        margin: 0;
+        padding: 16px;
+        min-height: 320px;
+        max-height: 520px;
+        overflow: auto;
+        border-radius: 18px;
+        background: rgba(3, 10, 19, 0.92);
+        border: 1px solid rgba(79, 182, 255, 0.12);
+        color: #d8e3f1;
+        font-family: "SFMono-Regular", "Menlo", "Monaco", "Consolas", monospace;
+        font-size: 0.82rem;
+        line-height: 1.55;
+        white-space: pre-wrap;
+        word-break: break-word;
+        cursor: text;
+        user-select: text;
+        -webkit-user-select: text;
       }
 
-      .status-pill {
-        display: inline-block;
-        font-size: 0.8rem;
-        padding: 4px 8px;
-        border-radius: 999px;
-        border: 1px solid var(--stroke);
-        text-transform: uppercase;
+      .lagoon-frame {
+        position: relative;
+        overflow: hidden;
+        border-radius: 22px;
+        min-height: 520px;
+        border: 1px solid rgba(79, 182, 255, 0.16);
+        background:
+          radial-gradient(circle at 20% 20%, rgba(79, 182, 255, 0.14), transparent 28%),
+          radial-gradient(circle at 80% 30%, rgba(255, 156, 84, 0.1), transparent 24%),
+          linear-gradient(180deg, rgba(6, 16, 28, 0.96), rgba(3, 10, 19, 0.98));
       }
 
-      .status-pill.complete {
-        color: var(--good);
+      .lagoon-canvas {
+        display: block;
+        width: 100%;
+        height: 520px;
       }
 
-      .status-pill.interrupted,
-      .status-pill.cancelled,
-      .status-pill.fail_fast,
-      .status-pill.max_failures {
-        color: var(--warn);
+      .lagoon-toolbar {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        gap: 14px;
+        margin-bottom: 14px;
       }
 
-      .status-pill.running {
-        color: var(--blue);
+      .lagoon-toolbar h4 {
+        margin: 0;
+        font-size: 1.08rem;
       }
 
-      .status-pill.paused {
-        color: #d4d4d8;
+      .lagoon-toolbar p {
+        margin: 6px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
       }
 
-      .status-pill.idle {
-        color: #94a3b8;
+      .lagoon-legend {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+        margin-top: 14px;
       }
 
-      .message {
-        color: var(--warn);
-        min-height: 1.2rem;
+      .lagoon-note {
+        margin: 14px 0 0;
+        color: var(--muted);
+        line-height: 1.55;
       }
 
-      @media (max-width: 960px) {
-        .statusGrid {
+      .empty-state {
+        padding: 20px;
+        border-radius: 18px;
+        background: rgba(12, 26, 42, 0.64);
+        border: 1px dashed rgba(142, 169, 201, 0.16);
+        color: var(--muted);
+        line-height: 1.6;
+      }
+
+      .history-layout {
+        grid-template-columns: minmax(290px, 0.85fr) minmax(0, 1.55fr);
+      }
+
+      .history-summary-card {
+        display: grid;
+        gap: 16px;
+      }
+
+      .summary-actions {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+      }
+
+      .subtle-note {
+        color: var(--muted);
+        font-size: 0.84rem;
+        line-height: 1.5;
+      }
+
+      @media (max-width: 1380px) {
+        .metric-ribbon {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+
+        .control-rack {
+          grid-template-columns: repeat(3, minmax(0, 1fr));
+        }
+      }
+
+      @media (max-width: 1200px) {
+        .app-shell {
           grid-template-columns: 1fr;
         }
-        .metricGrid {
-          grid-template-columns: repeat(3, minmax(0, 1fr));
+
+        .sidebar {
+          position: relative;
+          min-height: auto;
+          border-right: 0;
+          border-bottom: 1px solid rgba(142, 169, 201, 0.12);
+        }
+
+        .overview-grid,
+        .compose-layout,
+        .two-panel,
+        .history-layout {
+          grid-template-columns: 1fr;
+        }
+
+        .hero-card {
+          grid-template-columns: 1fr;
+        }
+
+        .workspace {
+          padding: 22px;
+        }
+      }
+
+      @media (max-width: 900px) {
+        .workspace-header {
+          flex-direction: column;
+        }
+
+        .field-grid,
+        .toggle-row,
+        .blueprint-grid,
+        .detail-grid,
+        .monitor-top-grid,
+        .history-detail-grid,
+        .hero-metrics,
+        .metric-ribbon {
+          grid-template-columns: 1fr;
+        }
+
+        .matrix-head,
+        .matrix-row {
+          grid-template-columns: 1fr;
+        }
+
+        .control-rack {
+          grid-template-columns: 1fr;
         }
       }
     </style>
   </head>
   <body>
-    <div class="page">
-      <div class="panel">
-        <h1>Rheon Regression Runner</h1>
-        <p class="message" id="globalMessage"></p>
-      </div>
+    <div class="app-shell">
+      <aside class="sidebar">
+        <section class="brand-block">
+          <p class="eyebrow">Rheon Control Room</p>
+          <h1>Regression Deck</h1>
+          <p>
+            Run wide sweeps, reopen old regressions, and inspect failures without
+            digging through folders.
+          </p>
+        </section>
 
-      <div class="tabs" role="tablist" aria-label="Runner sections">
-        <button class="tabBtn active" type="button" role="tab" aria-selected="true" data-tab="configure">Run Setup</button>
-        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="files">Files</button>
-        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="status">Live Status</button>
-        <button class="tabBtn" type="button" role="tab" aria-selected="false" data-tab="logs">Logs</button>
-      </div>
+        <nav class="nav-stack" aria-label="Primary navigation">
+          <button class="nav-btn active" type="button" data-view="overview">
+            <span class="nav-title">Overview</span>
+            <span class="nav-copy">Recent runs, quick actions, and live signal.</span>
+          </button>
+          <button class="nav-btn" type="button" data-view="compose">
+            <span class="nav-title">Compose Run</span>
+            <span class="nav-copy">Build the matrix, adjust stop rules, and launch.</span>
+          </button>
+          <button class="nav-btn" type="button" data-view="monitor">
+            <span class="nav-title">Live Monitor</span>
+            <span class="nav-copy">Control the active session and inspect failing jobs.</span>
+          </button>
+          <button class="nav-btn" type="button" data-view="history">
+            <span class="nav-title">Run History</span>
+            <span class="nav-copy">Browse archives, compare outcomes, and reuse configs.</span>
+          </button>
+        </nav>
 
-      <div class="panel tabPanel active" data-tab-panel="configure">
-        <h2>Run Configuration</h2>
-        <form id="runForm">
-          <div class="sectionTitle">Basic options</div>
-          <div class="row">
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Seed</span>
-                <span class="helpIcon" title="Set the random seed used for generated cases.">?</span>
-              </div>
-              <input id="seedInput" type="number" min="1" value="1" title="Set the random seed used for generated cases." />
+        <section class="sidebar-card">
+          <p class="eyebrow">Session</p>
+          <div id="sidebarSessionStatus" class="status-ribbon idle">Idle</div>
+          <div class="mini-stat-grid">
+            <div class="mini-stat">
+              <strong id="sidebarTotal">0</strong>
+              <span>Total jobs</span>
             </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Parallel Jobs</span>
-                <span class="helpIcon" title="Maximum parallel jobs to execute at once.">?</span>
-              </div>
-              <input id="jobsInput" type="number" min="1" value="4" title="Maximum parallel jobs to execute at once." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Dashboard Refresh (s)</span>
-                <span class="helpIcon" title="How often the status panel polls updates from the runner.">?</span>
-              </div>
-              <input id="updateInput" type="number" min="1" value="2" title="How often the status panel polls updates from the runner." />
+            <div class="mini-stat">
+              <strong id="sidebarFailed">0</strong>
+              <span>Failed jobs</span>
             </div>
           </div>
-          <div class="row">
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Output Directory</span>
-                <span class="helpIcon" title="Override where artifacts are written. Leave empty for defaults.">?</span>
-              </div>
-              <input id="outputDirInput" placeholder="Optional, leave empty for default" title="Override where artifacts are written. Leave empty for defaults." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Resume</span>
-                <span class="helpIcon" title="Attach to a previous run directory or use `latest`." >?</span>
-              </div>
-              <input id="resumeInput" placeholder="Path, or latest" title="Attach to a previous run directory or use `latest`." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Verbosity</span>
-                <span class="helpIcon" title="Simulator log level. Higher verbosity prints more logs.">?</span>
-              </div>
-              <select id="verbosityInput" title="Simulator log level. Higher verbosity prints more logs.">
-                <option value="">(default)</option>
-                <option value="debug">debug</option>
-                <option value="info">info</option>
-                <option value="warning">warning</option>
-                <option value="error">error</option>
-                <option value="critical">critical</option>
-              </select>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Stages</span>
-                <span class="helpIcon" title="Choose which pipeline stages to run (`run` or `gen,sim`).">?</span>
-              </div>
-              <select id="stagesInput" title="Choose which pipeline stages to run (`run` or `gen,sim`).">
-                <option value="run">run</option>
-                <option value="gen,sim">gen,sim</option>
-              </select>
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Timeout (s)</span>
-                <span class="helpIcon" title="Optional per-job timeout in seconds.">?</span>
-              </div>
-              <input id="timeoutInput" type="number" min="1" placeholder="optional" title="Optional per-job timeout in seconds." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Max Failures</span>
-                <span class="helpIcon" title="Stop scheduling new jobs after this many failures.">?</span>
-              </div>
-              <input id="maxFailuresInput" type="number" min="1" placeholder="optional" title="Stop scheduling new jobs after this many failures." />
-            </div>
-          </div>
-          <div class="row">
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Waves</span>
-                <span class="helpIcon" title="Enable waveform dump generation for this regression.">?</span>
-              </div>
-              <input id="wavesInput" type="checkbox" title="Enable waveform dump generation for this regression." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Fail Fast</span>
-                <span class="helpIcon" title="Stop scheduling new jobs after the first failure.">?</span>
-              </div>
-              <input id="failFastInput" type="checkbox" title="Stop scheduling new jobs after the first failure." />
-            </div>
-            <div class="col">
-              <div class="labelRow">
-                <span class="labelText">Parallelism at Start</span>
-                <span class="helpIcon" title="How many jobs to start with when control panel sets parallelism.">?</span>
-              </div>
-              <input id="parallelismInput" type="number" min="1" value="4" title="How many jobs to start with when control panel sets parallelism." />
-            </div>
-          </div>
+          <p id="sidebarOutputPath" class="path-label">No run attached.</p>
+        </section>
 
-          <div class="sectionTitle">Test Matrix</div>
-          <table>
-            <thead>
-              <tr>
-                <th>Test Name</th>
-                <th>Count</th>
-                <th></th>
-              </tr>
-            </thead>
-            <tbody id="testsTable"></tbody>
-          </table>
-          <button type="button" id="addTestBtn" class="secondary" title="Add another test row">Add Test Row</button>
+        <section class="sidebar-card">
+          <p class="eyebrow">Quick Actions</p>
+          <div class="stack-buttons">
+            <button id="sidebarComposeBtn" type="button" class="btn">Compose New Run</button>
+            <button id="sidebarMonitorBtn" type="button" class="btn-ghost">Open Monitor</button>
+            <button id="sidebarAttachLatestBtn" type="button" class="btn-subtle">Attach Latest Saved Run</button>
+          </div>
+        </section>
+      </aside>
 
-          <div class="row" style="margin-top: 12px">
-            <div class="col">
-              <button id="startBtn" type="button" title="Start run with the configured values">Start Run</button>
-            </div>
-            <div class="col">
-              <button id="pauseBtn" class="secondary" type="button" title="Pause run">Pause</button>
-            </div>
-            <div class="col">
-              <button id="resumeBtn" class="secondary" type="button" title="Resume run">Resume</button>
-            </div>
-            <div class="col">
-              <button id="cancelBtn" class="secondary" type="button" title="Cancel run and stop scheduling new work">Cancel</button>
-            </div>
-          </div>
-          <div class="row">
-            <div class="col">
-              <button id="setParallelismBtn" type="button" class="secondary" title="Update run parallelism for an active run">Set Parallelism</button>
-            </div>
-            <div class="col">
-              <button id="rerunFailedBtn" type="button" class="secondary" title="Rerun only jobs that previously failed">Rerun Failed</button>
-            </div>
-          </div>
-        </form>
-      </div>
-
-      <div class="panel tabPanel" data-tab-panel="files">
-        <h2>Attach / Import / Export</h2>
-        <div class="row">
-          <div class="col">
-            <div class="labelRow">
-              <span class="labelText">Attach Existing Output Directory</span>
-              <span class="helpIcon" title="Load a prior regression directory to inspect or continue monitoring.">?</span>
-            </div>
-            <input id="attachOutputInput" placeholder="runs/regressions/20260306_..." title="Load a prior regression directory to inspect or continue monitoring." />
-          </div>
-          <div class="col">
-            <button id="attachBtn" class="secondary" type="button" title="Attach to an existing run directory">Attach</button>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col">
-            <div class="labelRow">
-              <span class="labelText">Import rheon_regr YAML</span>
-              <span class="helpIcon" title="Paste a rheon_regr YAML document to prefill config and tests.">?</span>
-            </div>
-            <textarea id="importYamlInput" rows="9" placeholder="Paste regression YAML here" title="Paste a rheon_regr YAML document to prefill config and tests."></textarea>
-          </div>
-          <div class="col">
-            <div class="labelRow">
-              <span class="labelText">Export YAML Preview</span>
-              <span class="helpIcon" title="Generate a rheon_regr-compatible YAML for sharing or versioning.">?</span>
-            </div>
-            <textarea id="exportYamlOutput" rows="9" placeholder="Exported YAML appears here" title="Generate a rheon_regr-compatible YAML for sharing or versioning."></textarea>
-          </div>
-        </div>
-        <div class="row">
-          <div class="col">
-            <button id="importYamlBtn" type="button" class="secondary" title="Import from the YAML on the left">Import YAML</button>
-          </div>
-          <div class="col">
-            <button id="exportYamlBtn" type="button" class="secondary" title="Export current form values to YAML">Export YAML</button>
-          </div>
-        </div>
-        <div id="notificationControls" style="margin-top: 8px">
-          <button id="notifyEnableBtn" class="secondary" type="button" title="Enable desktop notifications for terminal run completion states">Enable Browser Notifications</button>
-        </div>
-      </div>
-
-      <div class="panel tabPanel" data-tab-panel="status">
-        <h2>Live Status</h2>
-        <div class="statusGrid">
+      <main class="workspace">
+        <header class="workspace-header">
           <div>
-            <div style="margin-bottom: 10px">
-              <span id="runModeLabel" class="status-pill idle">idle</span>
-              <span id="runStatusLabel" class="status-pill idle">idle</span>
-              <span id="runStatusReason"></span>
-            </div>
+            <p id="headerEyebrow" class="eyebrow">Overview</p>
+            <h2 id="headerTitle">Regression command center</h2>
+            <p id="headerCopy">
+              Start the next run quickly, jump to the most recent regressions, and
+              keep the failing jobs in front of you.
+            </p>
+          </div>
+          <div id="globalBanner" class="banner" aria-live="polite"></div>
+        </header>
 
-            <div class="metricGrid">
-              <div class="metric good"><div class="value" id="metricTotal">0</div><div class="label">Total</div></div>
-              <div class="metric"><div class="value" id="metricScheduled">0</div><div class="label">Scheduled</div></div>
-              <div class="metric good"><div class="value" id="metricPassed">0</div><div class="label">Passed</div></div>
-              <div class="metric bad"><div class="value" id="metricFailed">0</div><div class="label">Failed</div></div>
-              <div class="metric warn"><div class="value" id="metricNotRun">0</div><div class="label">Not Run</div></div>
-              <div class="metric warn"><div class="value" id="metricRunning">0</div><div class="label">Running</div></div>
+        <section class="view active" data-view-panel="overview">
+          <article class="card hero-card">
+            <div>
+              <p class="eyebrow">Command Deck</p>
+              <h3 id="overviewHeroTitle">No live regression attached</h3>
+              <p id="overviewHeroBody">
+                Compose a fresh run or inspect the latest saved regression to get
+                back to signal fast.
+              </p>
+              <div class="hero-actions">
+                <button id="overviewComposeBtn" type="button" class="btn">Start New Run</button>
+                <button id="overviewAttachLatestBtn" type="button" class="btn cool">Attach Latest</button>
+                <button id="overviewMonitorBtn" type="button" class="btn-ghost">Go To Monitor</button>
+              </div>
+            </div>
+            <div class="hero-metrics">
+              <div class="metric-card cool">
+                <strong id="overviewMetricTotal">0</strong>
+                <span>Total jobs in focus</span>
+              </div>
+              <div class="metric-card good">
+                <strong id="overviewMetricPassed">0</strong>
+                <span>Passed</span>
+              </div>
+              <div class="metric-card bad">
+                <strong id="overviewMetricFailed">0</strong>
+                <span>Failed</span>
+              </div>
+              <div class="metric-card warn">
+                <strong id="overviewMetricRunning">0</strong>
+                <span>Currently running</span>
+              </div>
+            </div>
+          </article>
+
+          <div class="overview-grid">
+            <section class="card card-inner">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Recent Runs</p>
+                  <h3>Regression archive</h3>
+                  <p>Reopen finished sweeps, attach to the latest output, or reuse an old config as a template.</p>
+                </div>
+                <button id="refreshRunsBtn" type="button" class="btn-subtle small-btn">Refresh</button>
+              </div>
+              <div id="overviewRecentRuns" class="run-list"></div>
+            </section>
+
+            <div class="stack">
+              <section class="card card-inner">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Reusable Configs</p>
+                    <h3>Launch from a known-good shape</h3>
+                  </div>
+                </div>
+                <div id="overviewTemplates" class="template-grid"></div>
+              </section>
+
+              <section class="card card-inner">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Failure Radar</p>
+                    <h3>What is going wrong most often</h3>
+                  </div>
+                </div>
+                <div id="overviewFailureRadar" class="failure-stack"></div>
+              </section>
             </div>
           </div>
+        </section>
 
-          <div>
-            <h3>Current Running Jobs</h3>
-            <table>
-              <thead>
-                <tr>
-                  <th>Job</th>
-                  <th>Test</th>
-                  <th>Seed</th>
-                  <th>Elapsed</th>
-                </tr>
-              </thead>
-              <tbody id="runningTable"></tbody>
-            </table>
+        <section class="view" data-view-panel="compose">
+          <div class="compose-layout">
+            <div class="compose-main">
+              <section class="card form-section">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Run Composer</p>
+                    <h3>Build the next regression</h3>
+                    <p>Keep the common path short. Advanced knobs stay available, but out of the way.</p>
+                  </div>
+                  <button id="composeResetBtn" type="button" class="btn-subtle small-btn">Reset Form</button>
+                </div>
+
+                <div class="field-grid">
+                  <div class="field">
+                    <label for="seedInput">Seed</label>
+                    <input id="seedInput" type="number" min="1" value="1" />
+                  </div>
+                  <div class="field">
+                    <label for="jobsInput">Parallel workers</label>
+                    <input id="jobsInput" type="number" min="1" value="4" />
+                  </div>
+                  <div class="field">
+                    <label for="updateInput">Dashboard refresh (s)</label>
+                    <input id="updateInput" type="number" min="1" value="2" />
+                  </div>
+                  <div class="field">
+                    <label for="stagesInput">Stages</label>
+                    <select id="stagesInput">
+                      <option value="run">run</option>
+                      <option value="gen,sim">gen,sim</option>
+                    </select>
+                  </div>
+                </div>
+              </section>
+
+              <section class="card form-section">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Safety And Artifacts</p>
+                    <h3>Stop rules and output placement</h3>
+                  </div>
+                  <button id="composeUseAttachedBtn" type="button" class="btn-subtle small-btn">Use Attached Run As Template</button>
+                </div>
+
+                <div class="field-grid">
+                  <div class="field wide">
+                    <label for="outputDirInput">Output directory override</label>
+                    <input id="outputDirInput" type="text" placeholder="Leave empty for the default timestamped location" />
+                  </div>
+                  <div class="field wide">
+                    <label for="resumeInput">Resume from output directory</label>
+                    <input id="resumeInput" type="text" placeholder="Path or latest" />
+                  </div>
+                  <div class="field">
+                    <label for="verbosityInput">Verbosity</label>
+                    <select id="verbosityInput">
+                      <option value="">(default)</option>
+                      <option value="debug">debug</option>
+                      <option value="info">info</option>
+                      <option value="warning">warning</option>
+                      <option value="error">error</option>
+                      <option value="critical">critical</option>
+                    </select>
+                  </div>
+                  <div class="field">
+                    <label for="timeoutInput">Timeout per job (s)</label>
+                    <input id="timeoutInput" type="number" min="1" placeholder="optional" />
+                  </div>
+                  <div class="field">
+                    <label for="maxFailuresInput">Max failures before stop</label>
+                    <input id="maxFailuresInput" type="number" min="1" placeholder="optional" />
+                  </div>
+                </div>
+
+                <div class="toggle-row" style="margin-top: 14px;">
+                  <label class="toggle-card" for="wavesInput">
+                    <span class="toggle-copy">
+                      <strong>Dump waves</strong>
+                      <span>Keep waveform artifacts for deeper post-failure analysis.</span>
+                    </span>
+                    <input id="wavesInput" type="checkbox" />
+                  </label>
+                  <label class="toggle-card" for="failFastInput">
+                    <span class="toggle-copy">
+                      <strong>Fail fast</strong>
+                      <span>Stop scheduling new work after the first failing job.</span>
+                    </span>
+                    <input id="failFastInput" type="checkbox" />
+                  </label>
+                </div>
+              </section>
+
+              <section class="card matrix-block">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Test Matrix</p>
+                    <h3>Define what to sweep</h3>
+                    <p>Every row becomes one generated test family with its own seeded job count.</p>
+                  </div>
+                  <button id="addTestBtn" type="button" class="btn-subtle small-btn">Add Test Row</button>
+                </div>
+
+                <div class="matrix-head">
+                  <span>Test name</span>
+                  <span>Count</span>
+                  <span>Actions</span>
+                </div>
+                <div id="testsTable"></div>
+
+                <div class="action-row" style="margin-top: 18px;">
+                  <button id="startRunBtn" type="button" class="btn">Launch Run</button>
+                  <button id="exportYamlBtn" type="button" class="btn-ghost">Generate YAML</button>
+                </div>
+              </section>
+            </div>
+
+            <div class="compose-side">
+              <section class="card form-section">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Run Blueprint</p>
+                    <h3>What this launch will do</h3>
+                  </div>
+                </div>
+                <div id="composeBlueprint" class="blueprint-grid"></div>
+              </section>
+
+              <details class="utility-block" open>
+                <summary>Attach Existing Run</summary>
+                <div class="utility-body">
+                  <label class="field" for="attachOutputInput">
+                    <span>Output directory</span>
+                    <input id="attachOutputInput" type="text" placeholder="runs/regressions/20260306_203035 or latest" />
+                  </label>
+                  <button id="attachBtn" type="button" class="btn-ghost">Attach To Monitor</button>
+                </div>
+              </details>
+
+              <details class="utility-block">
+                <summary>Import YAML</summary>
+                <div class="utility-body">
+                  <label class="field" for="importYamlInput">
+                    <span>Paste a rheon_regr YAML document</span>
+                    <textarea id="importYamlInput" placeholder="version: 1&#10;regression:"></textarea>
+                  </label>
+                  <button id="importYamlBtn" type="button" class="btn-ghost">Load Into Composer</button>
+                </div>
+              </details>
+
+              <details class="utility-block" open>
+                <summary>Export YAML</summary>
+                <div class="utility-body">
+                  <label class="field" for="exportYamlOutput">
+                    <span>Generated YAML preview</span>
+                    <textarea id="exportYamlOutput" readonly placeholder="Generated YAML appears here"></textarea>
+                  </label>
+                </div>
+              </details>
+
+              <section class="card form-section">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Signals</p>
+                    <h3>Desktop notifications</h3>
+                  </div>
+                </div>
+                <button id="notifyEnableBtn" type="button" class="btn-subtle">Enable Desktop Notifications</button>
+              </section>
+            </div>
           </div>
-        </div>
+        </section>
 
-        <h3>All Jobs</h3>
-        <table>
-          <thead>
-            <tr>
-              <th>Job</th>
-              <th>Test</th>
-              <th>Seed</th>
-              <th>Status</th>
-              <th>Reason</th>
-              <th>Duration</th>
-              <th>Artifacts</th>
-            </tr>
-          </thead>
-          <tbody id="jobsTable"></tbody>
-        </table>
-      </div>
+        <section class="view" data-view-panel="monitor">
+          <div class="monitor-layout">
+            <section class="card monitor-hero">
+              <div class="monitor-head">
+                <div>
+                  <p class="eyebrow">Live Session</p>
+                  <h3 id="monitorTitle">No run attached</h3>
+                  <p id="monitorPath">Attach a saved run or launch a new regression to monitor it here.</p>
+                </div>
+                <div>
+                  <div class="monitor-status-row">
+                    <span id="monitorModePill" class="pill idle">idle</span>
+                    <span id="monitorStatusPill" class="pill idle">idle</span>
+                    <span id="monitorReasonPill" class="pill idle">idle</span>
+                  </div>
+                </div>
+              </div>
 
-      <div class="panel tabPanel" data-tab-panel="logs">
-        <h2>Log Viewer</h2>
-        <p class="message" id="logMessage"></p>
-        <div class="logPanel" id="logViewer">Select a job from the table to view its sim.log</div>
-      </div>
+              <div class="metric-ribbon">
+                <div class="metric-card cool">
+                  <strong id="monitorMetricTotal">0</strong>
+                  <span>Total</span>
+                </div>
+                <div class="metric-card cool">
+                  <strong id="monitorMetricScheduled">0</strong>
+                  <span>Scheduled</span>
+                </div>
+                <div class="metric-card good">
+                  <strong id="monitorMetricPassed">0</strong>
+                  <span>Passed</span>
+                </div>
+                <div class="metric-card bad">
+                  <strong id="monitorMetricFailed">0</strong>
+                  <span>Failed</span>
+                </div>
+                <div class="metric-card warn">
+                  <strong id="monitorMetricNotRun">0</strong>
+                  <span>Not run</span>
+                </div>
+                <div class="metric-card warn">
+                  <strong id="monitorMetricRunning">0</strong>
+                  <span>Running</span>
+                </div>
+              </div>
+
+              <div class="control-rack">
+                <input id="monitorParallelismInput" type="number" min="1" value="1" />
+                <button id="pauseBtn" type="button" class="btn-subtle">Pause</button>
+                <button id="resumeBtn" type="button" class="btn-subtle">Resume</button>
+                <button id="cancelBtn" type="button" class="btn-subtle">Cancel</button>
+                <button id="setParallelismBtn" type="button" class="btn-ghost">Set Parallelism</button>
+                <button id="rerunFailedBtn" type="button" class="btn-ghost">Rerun Failed</button>
+              </div>
+            </section>
+
+            <div class="monitor-top-grid">
+              <section class="card split-card">
+                <h4>Running now</h4>
+                <table>
+                  <thead>
+                    <tr>
+                      <th>Job</th>
+                      <th>Test</th>
+                      <th>Seed</th>
+                      <th>Elapsed</th>
+                    </tr>
+                  </thead>
+                  <tbody id="monitorRunningTable"></tbody>
+                </table>
+              </section>
+
+              <section class="card split-card">
+                <h4>Failure radar</h4>
+                <div id="monitorFailureGroups" class="failure-stack"></div>
+              </section>
+            </div>
+
+            <div class="two-panel">
+              <section class="card table-card">
+                <div class="toolbar">
+                  <div>
+                    <h4>Session lens</h4>
+                    <p>Switch between the operator table and a playful physics scene for the active regression.</p>
+                  </div>
+                  <div class="toolbar-tools">
+                    <div class="chip-row" id="monitorSceneSwitch">
+                      <button type="button" class="chip active" data-monitor-scene="operator">Operator Table</button>
+                      <button type="button" class="chip" data-monitor-scene="physics">Heron Lagoon</button>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="monitor-scene active" data-monitor-scene-panel="operator">
+                  <div class="toolbar">
+                    <div>
+                      <h4>Jobs</h4>
+                      <p>Filter the session, then click a row to inspect triage and logs.</p>
+                    </div>
+                    <div class="toolbar-tools">
+                      <div class="chip-row" data-filter-scope="monitor">
+                        <button type="button" class="chip active" data-filter="all">All</button>
+                        <button type="button" class="chip" data-filter="failed">Failed</button>
+                        <button type="button" class="chip" data-filter="running">Running</button>
+                        <button type="button" class="chip" data-filter="passed">Passed</button>
+                        <button type="button" class="chip" data-filter="queued">Queued</button>
+                      </div>
+                      <input id="monitorSearchInput" type="search" placeholder="Search test, seed, reason, or triage text" />
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Job</th>
+                        <th>Test</th>
+                        <th>Seed</th>
+                        <th>Status</th>
+                        <th>Reason</th>
+                        <th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody id="monitorJobsTbody"></tbody>
+                  </table>
+                </div>
+
+                <div class="monitor-scene" data-monitor-scene-panel="physics">
+                  <div class="lagoon-toolbar">
+                    <div>
+                      <h4>Heron Lagoon</h4>
+                      <p>
+                        Each test becomes a draggable pond-stone. Throw them, let them collide,
+                        and watch them burst with color as their state changes.
+                      </p>
+                    </div>
+                  </div>
+                  <div class="lagoon-frame">
+                    <canvas id="lagoonCanvas" class="lagoon-canvas"></canvas>
+                  </div>
+                  <div class="lagoon-legend">
+                    <span class="chip-count cool">queued</span>
+                    <span class="chip-count warn">running</span>
+                    <span class="chip-count good">passed</span>
+                    <span class="chip-count bad">failed</span>
+                  </div>
+                  <p class="lagoon-note">
+                    Drag any stone to throw it. Selected stones stay ringed, state changes create
+                    ripples, and queued jobs drift until they wake up.
+                  </p>
+                </div>
+              </section>
+
+              <aside class="card inspector-card">
+                <div id="monitorInspector"></div>
+                <div class="summary-actions">
+                  <button id="monitorCopyLogBtn" type="button" class="btn-ghost small-btn">Copy Log</button>
+                  <button id="monitorReloadLogBtn" type="button" class="btn-subtle small-btn">Reload Log</button>
+                </div>
+                <pre id="monitorLogViewer" class="log-viewer" tabindex="0">Select a job to load its log.</pre>
+              </aside>
+            </div>
+          </div>
+        </section>
+
+        <section class="view" data-view-panel="history">
+          <div class="history-layout">
+            <section class="card card-inner">
+              <div class="section-header">
+                <div>
+                  <p class="eyebrow">Run History</p>
+                  <h3>Recent regression outputs</h3>
+                  <p>Browse archived runs, attach one to the live monitor, or steal its config as a starting point.</p>
+                </div>
+              </div>
+              <div id="historyRunsList" class="run-list"></div>
+            </section>
+
+            <div class="stack">
+              <section class="card history-summary-card">
+                <div class="section-header">
+                  <div>
+                    <p class="eyebrow">Selected Run</p>
+                    <h3 id="historyTitle">No run selected</h3>
+                    <p id="historyPath">Pick a run from the left to inspect it in detail.</p>
+                  </div>
+                </div>
+                <div class="monitor-status-row" style="justify-content: flex-start;">
+                  <span id="historyStatusPill" class="pill idle">idle</span>
+                  <span id="historyReasonPill" class="pill idle">idle</span>
+                  <span id="historyUpdatedPill" class="pill idle">no timestamp</span>
+                </div>
+                <div class="metric-ribbon" style="margin-top: 0;">
+                  <div class="metric-card cool">
+                    <strong id="historyMetricTotal">0</strong>
+                    <span>Total</span>
+                  </div>
+                  <div class="metric-card cool">
+                    <strong id="historyMetricScheduled">0</strong>
+                    <span>Scheduled</span>
+                  </div>
+                  <div class="metric-card good">
+                    <strong id="historyMetricPassed">0</strong>
+                    <span>Passed</span>
+                  </div>
+                  <div class="metric-card bad">
+                    <strong id="historyMetricFailed">0</strong>
+                    <span>Failed</span>
+                  </div>
+                  <div class="metric-card warn">
+                    <strong id="historyMetricNotRun">0</strong>
+                    <span>Not run</span>
+                  </div>
+                  <div class="metric-card warn">
+                    <strong id="historyMetricRunning">0</strong>
+                    <span>Running</span>
+                  </div>
+                </div>
+                <div class="summary-actions">
+                  <button id="historyAttachBtn" type="button" class="btn">Attach To Monitor</button>
+                  <button id="historyTemplateBtn" type="button" class="btn-ghost">Use As Template</button>
+                  <button id="historyRefreshBtn" type="button" class="btn-subtle">Refresh Detail</button>
+                </div>
+              </section>
+
+              <div class="history-detail-grid">
+                <section class="card split-card">
+                  <h4>Failure radar</h4>
+                  <div id="historyFailureGroups" class="failure-stack"></div>
+                </section>
+                <section class="card split-card">
+                  <h4>Run notes</h4>
+                  <div id="historyNotes" class="details-stack"></div>
+                </section>
+              </div>
+
+              <div class="two-panel">
+                <section class="card table-card">
+                  <div class="toolbar">
+                    <div>
+                      <h4>Jobs</h4>
+                      <p>Inspect any saved job without switching the current live session.</p>
+                    </div>
+                    <div class="toolbar-tools">
+                      <div class="chip-row" data-filter-scope="history">
+                        <button type="button" class="chip active" data-filter="all">All</button>
+                        <button type="button" class="chip" data-filter="failed">Failed</button>
+                        <button type="button" class="chip" data-filter="running">Running</button>
+                        <button type="button" class="chip" data-filter="passed">Passed</button>
+                        <button type="button" class="chip" data-filter="queued">Queued</button>
+                      </div>
+                      <input id="historySearchInput" type="search" placeholder="Search test, seed, reason, or triage text" />
+                    </div>
+                  </div>
+                  <table>
+                    <thead>
+                      <tr>
+                        <th>Job</th>
+                        <th>Test</th>
+                        <th>Seed</th>
+                        <th>Status</th>
+                        <th>Reason</th>
+                        <th>Duration</th>
+                      </tr>
+                    </thead>
+                    <tbody id="historyJobsTbody"></tbody>
+                  </table>
+                </section>
+
+                <aside class="card inspector-card">
+                  <div id="historyInspector"></div>
+                  <div class="summary-actions">
+                    <button id="historyCopyLogBtn" type="button" class="btn-ghost small-btn">Copy Log</button>
+                    <button id="historyReloadLogBtn" type="button" class="btn-subtle small-btn">Reload Log</button>
+                  </div>
+                  <pre id="historyLogViewer" class="log-viewer" tabindex="0">Select a job to load its log.</pre>
+                </aside>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
     </div>
 
     <script>
-      const POLL_MS = 1000;
-      const testsTable = document.getElementById("testsTable");
-      const globalMessage = document.getElementById("globalMessage");
-      const logViewer = document.getElementById("logViewer");
-      const logMessage = document.getElementById("logMessage");
-      const tabButtons = document.querySelectorAll(".tabBtn");
-      const tabPanels = document.querySelectorAll(".tabPanel");
-      let lastTerminalStatus = null;
-      let currentState = null;
+      const POLL_MS = 1500;
+      const RUNS_REFRESH_MS = 8000;
+      const VIEW_META = {
+        overview: {
+          eyebrow: "Overview",
+          title: "Regression command center",
+          copy: "Stay oriented. Launch the next run, inspect the latest signal, and reopen old sweeps without leaving the deck.",
+        },
+        compose: {
+          eyebrow: "Compose",
+          title: "Build the next regression",
+          copy: "Keep the common path short, leave the advanced knobs available, and make the test matrix the center of the workflow.",
+        },
+        monitor: {
+          eyebrow: "Monitor",
+          title: "Control the active session",
+          copy: "Lead with the failing jobs. Keep controls, live metrics, and the selected job log on one screen.",
+        },
+        history: {
+          eyebrow: "History",
+          title: "Inspect saved regressions",
+          copy: "Treat old runs as first-class records: compare outcomes, reopen artifacts, and reuse configs as templates.",
+        },
+      };
 
-      function setMessage(message) {
-        globalMessage.textContent = message || "";
-        if (message) {
-          setTimeout(() => {
-            if (globalMessage.textContent === message) {
-              globalMessage.textContent = "";
-            }
-          }, 4500);
+      const appState = {
+        view: readStorage("rheonDeckView", "overview"),
+        monitorScene: readStorage("rheonDeckMonitorScene", "operator"),
+        bannerTimer: null,
+        currentState: null,
+        recentRuns: [],
+        historySnapshot: null,
+        selectedHistoryOutput: null,
+        selections: {
+          monitor: null,
+          history: null,
+        },
+        filters: {
+          monitor: "all",
+          history: "all",
+        },
+        search: {
+          monitor: "",
+          history: "",
+        },
+        logs: {
+          monitor: {
+            key: null,
+            state: "idle",
+            text: "Select a job to load its log.",
+          },
+          history: {
+            key: null,
+            state: "idle",
+            text: "Select a job to load its log.",
+          },
+        },
+        notificationsEnabled: readStorage("rheonDeckNotifications", "false") === "true",
+        lastTerminalNotificationKey: null,
+      };
+
+      const elements = {
+        navButtons: Array.from(document.querySelectorAll(".nav-btn")),
+        panels: Array.from(document.querySelectorAll(".view")),
+        headerEyebrow: document.getElementById("headerEyebrow"),
+        headerTitle: document.getElementById("headerTitle"),
+        headerCopy: document.getElementById("headerCopy"),
+        banner: document.getElementById("globalBanner"),
+        sidebarStatus: document.getElementById("sidebarSessionStatus"),
+        sidebarTotal: document.getElementById("sidebarTotal"),
+        sidebarFailed: document.getElementById("sidebarFailed"),
+        sidebarOutputPath: document.getElementById("sidebarOutputPath"),
+        overviewHeroTitle: document.getElementById("overviewHeroTitle"),
+        overviewHeroBody: document.getElementById("overviewHeroBody"),
+        overviewMetricTotal: document.getElementById("overviewMetricTotal"),
+        overviewMetricPassed: document.getElementById("overviewMetricPassed"),
+        overviewMetricFailed: document.getElementById("overviewMetricFailed"),
+        overviewMetricRunning: document.getElementById("overviewMetricRunning"),
+        overviewRecentRuns: document.getElementById("overviewRecentRuns"),
+        overviewTemplates: document.getElementById("overviewTemplates"),
+        overviewFailureRadar: document.getElementById("overviewFailureRadar"),
+        testsTable: document.getElementById("testsTable"),
+        composeBlueprint: document.getElementById("composeBlueprint"),
+        exportYamlOutput: document.getElementById("exportYamlOutput"),
+        monitorTitle: document.getElementById("monitorTitle"),
+        monitorPath: document.getElementById("monitorPath"),
+        monitorModePill: document.getElementById("monitorModePill"),
+        monitorStatusPill: document.getElementById("monitorStatusPill"),
+        monitorReasonPill: document.getElementById("monitorReasonPill"),
+        monitorMetrics: {
+          total: document.getElementById("monitorMetricTotal"),
+          scheduled: document.getElementById("monitorMetricScheduled"),
+          passed: document.getElementById("monitorMetricPassed"),
+          failed: document.getElementById("monitorMetricFailed"),
+          not_run: document.getElementById("monitorMetricNotRun"),
+          running: document.getElementById("monitorMetricRunning"),
+        },
+        monitorRunningTable: document.getElementById("monitorRunningTable"),
+        monitorFailureGroups: document.getElementById("monitorFailureGroups"),
+        monitorJobsTbody: document.getElementById("monitorJobsTbody"),
+        monitorInspector: document.getElementById("monitorInspector"),
+        monitorLogViewer: document.getElementById("monitorLogViewer"),
+        monitorParallelismInput: document.getElementById("monitorParallelismInput"),
+        monitorSceneButtons: Array.from(document.querySelectorAll("[data-monitor-scene]")),
+        monitorScenePanels: Array.from(document.querySelectorAll("[data-monitor-scene-panel]")),
+        lagoonCanvas: document.getElementById("lagoonCanvas"),
+        historyRunsList: document.getElementById("historyRunsList"),
+        historyTitle: document.getElementById("historyTitle"),
+        historyPath: document.getElementById("historyPath"),
+        historyStatusPill: document.getElementById("historyStatusPill"),
+        historyReasonPill: document.getElementById("historyReasonPill"),
+        historyUpdatedPill: document.getElementById("historyUpdatedPill"),
+        historyFailureGroups: document.getElementById("historyFailureGroups"),
+        historyNotes: document.getElementById("historyNotes"),
+        historyJobsTbody: document.getElementById("historyJobsTbody"),
+        historyInspector: document.getElementById("historyInspector"),
+        historyLogViewer: document.getElementById("historyLogViewer"),
+        historyMetrics: {
+          total: document.getElementById("historyMetricTotal"),
+          scheduled: document.getElementById("historyMetricScheduled"),
+          passed: document.getElementById("historyMetricPassed"),
+          failed: document.getElementById("historyMetricFailed"),
+          not_run: document.getElementById("historyMetricNotRun"),
+          running: document.getElementById("historyMetricRunning"),
+        },
+      };
+
+      function readStorage(key, fallback) {
+        try {
+          return localStorage.getItem(key) || fallback;
+        } catch {
+          return fallback;
         }
       }
 
-      function showTab(tabId) {
-        const validTabs = new Set(["configure", "files", "status", "logs"]);
-        const target = validTabs.has(tabId) ? tabId : "configure";
-        tabButtons.forEach((button) => {
-          const isActive = button.dataset.tab === target;
-          button.classList.toggle("active", isActive);
-          button.setAttribute("aria-selected", isActive ? "true" : "false");
-        });
-        tabPanels.forEach((panel) => {
-          const isActive = panel.dataset.tabPanel === target;
-          panel.classList.toggle("active", isActive);
-          panel.hidden = !isActive;
-        });
+      function writeStorage(key, value) {
         try {
-          localStorage.setItem("rheonRegrTab", target);
+          localStorage.setItem(key, value);
         } catch {
           // Ignore storage failures.
         }
       }
 
-      function initTabs() {
-        let savedTab = "configure";
-        try {
-          savedTab = localStorage.getItem("rheonRegrTab") || "configure";
-        } catch {
-          // ignore if localStorage unavailable
+      function escapeHtml(value) {
+        return String(value ?? "")
+          .replaceAll("&", "&amp;")
+          .replaceAll("<", "&lt;")
+          .replaceAll(">", "&gt;")
+          .replaceAll("\"", "&quot;")
+          .replaceAll("'", "&#039;");
+      }
+
+      function sumCounts(tests) {
+        return (tests || []).reduce((total, item) => total + (Number(item.count) || 0), 0);
+      }
+
+      function formatDuration(totalSeconds) {
+        const seconds = Math.max(0, Math.floor(Number(totalSeconds) || 0));
+        const hours = Math.floor(seconds / 3600).toString().padStart(2, "0");
+        const minutes = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
+        const remainder = Math.floor(seconds % 60).toString().padStart(2, "0");
+        return `${hours}:${minutes}:${remainder}`;
+      }
+
+      function formatDateTime(value) {
+        if (!value) {
+          return "No timestamp";
         }
-        showTab(savedTab);
-        tabButtons.forEach((button) => {
-          button.addEventListener("click", () => showTab(button.dataset.tab));
+        try {
+          return new Date(value).toLocaleString();
+        } catch {
+          return String(value);
+        }
+      }
+
+      function pathTail(value) {
+        if (!value) {
+          return "";
+        }
+        const parts = String(value).split("/").filter(Boolean);
+        return parts.length <= 4 ? String(value) : `.../${parts.slice(-4).join("/")}`;
+      }
+
+      function parseOptionalInt(id) {
+        const value = document.getElementById(id).value.trim();
+        if (!value) {
+          return null;
+        }
+        const parsed = parseInt(value, 10);
+        return Number.isFinite(parsed) ? parsed : null;
+      }
+
+      function normalizeStatus(value) {
+        return String(value || "idle").toLowerCase();
+      }
+
+      function summaryWithDefaults(summary) {
+        return {
+          total: Number(summary?.total) || 0,
+          scheduled: Number(summary?.scheduled) || 0,
+          skipped_resume: Number(summary?.skipped_resume) || 0,
+          passed: Number(summary?.passed) || 0,
+          failed: Number(summary?.failed) || 0,
+          not_run: Number(summary?.not_run) || 0,
+          timed_out: Number(summary?.timed_out) || 0,
+          running: Number(summary?.running) || 0,
+        };
+      }
+
+      function normalizedSessionSnapshot(session) {
+        if (!session || !session.output_dir) {
+          return null;
+        }
+        return {
+          output_dir: session.output_dir,
+          created_at: session.created_at || null,
+          updated_at: session.updated_at || null,
+          status: session.status || "idle",
+          status_reason: session.status_reason || "idle",
+          summary: summaryWithDefaults(session.summary),
+          jobs: Array.isArray(session.jobs) ? session.jobs : [],
+          running_jobs: Array.isArray(session.running_jobs) ? session.running_jobs : [],
+          planned_jobs: Array.isArray(session.planned_jobs) ? session.planned_jobs : [],
+          config: session.config || null,
+          mode: session.mode || "idle",
+          last_error: session.last_error || null,
+          controls: session.controls || {},
+        };
+      }
+
+      function isLiveActiveSession() {
+        return Boolean(appState.currentState?.mode === "active" && appState.currentState?.controls?.can_cancel);
+      }
+
+      function chooseInterestingJob(jobs) {
+        if (!Array.isArray(jobs) || jobs.length === 0) {
+          return null;
+        }
+        return (
+          jobs.find((job) => job.status === "failed") ||
+          jobs.find((job) => job.status === "running") ||
+          jobs[0]
+        ).index;
+      }
+
+      function buildMonitorVisualJobs(snapshot) {
+        if (!snapshot) {
+          return [];
+        }
+        const completedByIndex = new Map((snapshot.jobs || []).map((job) => [job.index, job]));
+        const runningByIndex = new Map(
+          (snapshot.running_jobs || []).map((job) => [
+            job.index,
+            {
+              ...job,
+              status: "running",
+              status_reason: "running",
+              duration_seconds: job.elapsed_seconds || 0,
+            },
+          ]),
+        );
+        const plannedJobs = Array.isArray(snapshot.planned_jobs) ? snapshot.planned_jobs : [];
+        if (plannedJobs.length) {
+          return plannedJobs.map((job) => {
+            const completed = completedByIndex.get(job.index);
+            if (completed) {
+              return { ...job, ...completed };
+            }
+            const running = runningByIndex.get(job.index);
+            if (running) {
+              return { ...job, ...running };
+            }
+            return {
+              ...job,
+              status: "queued",
+              status_reason: "queued",
+              duration_seconds: 0,
+            };
+          });
+        }
+        const jobs = [...(snapshot.jobs || [])];
+        runningByIndex.forEach((job, index) => {
+          if (!completedByIndex.has(index)) {
+            jobs.push(job);
+          }
         });
+        return jobs.sort((left, right) => (left.index || 0) - (right.index || 0));
+      }
+
+      function jobsForScope(snapshot, scope) {
+        return scope === "monitor" ? buildMonitorVisualJobs(snapshot) : (snapshot?.jobs || []);
+      }
+
+      function ensureSelection(scope, jobs) {
+        const available = new Set((jobs || []).map((job) => job.index));
+        if (!available.has(appState.selections[scope])) {
+          appState.selections[scope] = chooseInterestingJob(jobs);
+          appState.logs[scope] = {
+            key: null,
+            state: "idle",
+            text: "Select a job to load its log.",
+          };
+        }
+      }
+
+      function findJob(snapshot, index, scope = "history") {
+        return jobsForScope(snapshot, scope).find((job) => job.index === index) || null;
+      }
+
+      function buildFailureGroups(jobs) {
+        const failedJobs = (jobs || []).filter((job) => job.status === "failed");
+        if (!failedJobs.length) {
+          return [];
+        }
+
+        const groups = new Map();
+        failedJobs.forEach((job) => {
+          const asm = String(job.triage_instr_asm || "").trim();
+          const mnemonic = asm ? asm.split(/\s+/)[0].toLowerCase() : "unknown";
+          const mismatch = Array.isArray(job.triage_mismatched_fields) && job.triage_mismatched_fields.length
+            ? job.triage_mismatched_fields.join(", ")
+            : String(job.triage_summary || job.status_reason || "failed");
+          const key = `${mnemonic}|${mismatch}`;
+          const existing = groups.get(key) || {
+            mnemonic,
+            mismatch,
+            count: 0,
+            samples: [],
+          };
+          existing.count += 1;
+          existing.samples.push(job.seed);
+          groups.set(key, existing);
+        });
+
+        return Array.from(groups.values())
+          .sort((left, right) => right.count - left.count)
+          .slice(0, 6);
+      }
+
+      function sanitizeConfigForTemplate(config) {
+        if (!config) {
+          return null;
+        }
+        return {
+          ...config,
+          output_dir: null,
+          resume: null,
+        };
+      }
+
+      const lagoon = {
+        canvas: null,
+        ctx: null,
+        width: 0,
+        height: 0,
+        nodes: new Map(),
+        ripples: [],
+        running: false,
+        raf: null,
+        lastTime: 0,
+        pointer: {
+          active: false,
+          nodeId: null,
+          lastX: 0,
+          lastY: 0,
+          lastTime: 0,
+          moved: false,
+        },
+      };
+
+      function lagoonColorForStatus(status) {
+        switch (normalizeStatus(status)) {
+          case "passed":
+          case "complete":
+            return "#36d99a";
+          case "failed":
+            return "#ff6e66";
+          case "timeout":
+          case "cancelled":
+          case "interrupted":
+            return "#f4c85d";
+          case "running":
+            return "#f4c85d";
+          case "queued":
+          case "idle":
+          default:
+            return "#4fb6ff";
+        }
+      }
+
+      function ensureLagoonCanvas() {
+        if (lagoon.canvas) {
+          return;
+        }
+        lagoon.canvas = elements.lagoonCanvas;
+        if (!lagoon.canvas) {
+          return;
+        }
+        lagoon.ctx = lagoon.canvas.getContext("2d");
+        lagoon.canvas.addEventListener("pointerdown", onLagoonPointerDown);
+        lagoon.canvas.addEventListener("pointermove", onLagoonPointerMove);
+        lagoon.canvas.addEventListener("pointerup", onLagoonPointerUp);
+        lagoon.canvas.addEventListener("pointercancel", onLagoonPointerUp);
+        window.addEventListener("resize", resizeLagoonCanvas);
+        resizeLagoonCanvas();
+      }
+
+      function resizeLagoonCanvas() {
+        ensureLagoonCanvas();
+        if (!lagoon.canvas || !lagoon.ctx) {
+          return;
+        }
+        const rect = lagoon.canvas.getBoundingClientRect();
+        if (!rect.width || !rect.height) {
+          return;
+        }
+        const ratio = window.devicePixelRatio || 1;
+        lagoon.width = rect.width;
+        lagoon.height = rect.height;
+        lagoon.canvas.width = Math.round(rect.width * ratio);
+        lagoon.canvas.height = Math.round(rect.height * ratio);
+        lagoon.ctx.setTransform(ratio, 0, 0, ratio, 0, 0);
+        drawLagoon();
+      }
+
+      function showMonitorScene(scene) {
+        appState.monitorScene = scene === "physics" ? "physics" : "operator";
+        writeStorage("rheonDeckMonitorScene", appState.monitorScene);
+        elements.monitorSceneButtons.forEach((button) => {
+          button.classList.toggle("active", button.dataset.monitorScene === appState.monitorScene);
+        });
+        elements.monitorScenePanels.forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.monitorScenePanel === appState.monitorScene);
+        });
+        if (appState.monitorScene === "physics" && appState.view === "monitor") {
+          requestAnimationFrame(() => {
+            resizeLagoonCanvas();
+            syncLagoon(normalizedSessionSnapshot(appState.currentState));
+          });
+        }
+        updateLagoonActivity();
+      }
+
+      function monitorVisualJobs(snapshot) {
+        return buildMonitorVisualJobs(snapshot).sort((left, right) => (left.index || 0) - (right.index || 0));
+      }
+
+      function syncLagoon(snapshot) {
+        ensureLagoonCanvas();
+        if (!lagoon.canvas) {
+          return;
+        }
+        if (!snapshot) {
+          lagoon.nodes.clear();
+          lagoon.ripples = [];
+          drawLagoon();
+          return;
+        }
+
+        const jobs = monitorVisualJobs(snapshot);
+        const width = lagoon.width || lagoon.canvas.clientWidth || 900;
+        const height = lagoon.height || lagoon.canvas.clientHeight || 520;
+        const baseRadius = Math.max(8, Math.min(22, 24 - jobs.length / 22));
+        const activeIds = new Set();
+
+        jobs.forEach((job, index) => {
+          activeIds.add(job.index);
+          const status = normalizeStatus(job.status || "queued");
+          const existing = lagoon.nodes.get(job.index);
+          const radius = baseRadius + (status === "running" ? 4 : status === "failed" ? 2 : status === "queued" ? -1 : 0);
+          if (!existing) {
+            const columns = Math.max(6, Math.floor((width - 60) / Math.max(radius * 2.8, 28)));
+            const slot = index % columns;
+            const row = Math.floor(index / columns);
+            lagoon.nodes.set(job.index, {
+              id: job.index,
+              seed: job.seed,
+              label: String(job.index),
+              x: 36 + slot * Math.max(radius * 2.6, 26) + (Math.random() - 0.5) * 14,
+              y: 48 + row * Math.max(radius * 2.6, 26) + (Math.random() - 0.5) * 14,
+              vx: (Math.random() - 0.5) * 1.2,
+              vy: (Math.random() - 0.5) * 1.2,
+              radius,
+              targetRadius: radius,
+              status,
+              color: lagoonColorForStatus(status),
+              dragged: false,
+              pulse: 1,
+            });
+            return;
+          }
+
+          if (existing.status !== status) {
+            existing.pulse = 1.35;
+            existing.vx += (Math.random() - 0.5) * 6;
+            existing.vy += (Math.random() - 0.5) * 6;
+            lagoon.ripples.push({
+              x: existing.x,
+              y: existing.y,
+              radius: Math.max(existing.radius * 0.6, 10),
+              alpha: 1,
+              color: lagoonColorForStatus(status),
+              speed: status === "failed" ? 2.9 : 2.2,
+            });
+          }
+
+          existing.seed = job.seed;
+          existing.label = String(job.index);
+          existing.status = status;
+          existing.color = lagoonColorForStatus(status);
+          existing.targetRadius = radius;
+        });
+
+        for (const [id, node] of lagoon.nodes.entries()) {
+          if (!activeIds.has(id)) {
+            lagoon.ripples.push({
+              x: node.x,
+              y: node.y,
+              radius: Math.max(node.radius * 0.6, 10),
+              alpha: 1,
+              color: node.color,
+              speed: 2,
+            });
+            lagoon.nodes.delete(id);
+          }
+        }
+
+        drawLagoon();
+      }
+
+      function updateLagoonActivity() {
+        const shouldRun = appState.view === "monitor" && appState.monitorScene === "physics";
+        if (shouldRun && !lagoon.running) {
+          ensureLagoonCanvas();
+          lagoon.running = true;
+          lagoon.lastTime = 0;
+          lagoon.raf = requestAnimationFrame(stepLagoon);
+          return;
+        }
+        if (!shouldRun && lagoon.running) {
+          lagoon.running = false;
+          if (lagoon.raf) {
+            cancelAnimationFrame(lagoon.raf);
+            lagoon.raf = null;
+          }
+        }
+      }
+
+      function stepLagoon(timestamp) {
+        if (!lagoon.running) {
+          return;
+        }
+        if (!lagoon.lastTime) {
+          lagoon.lastTime = timestamp;
+        }
+        const dt = Math.min(1.8, (timestamp - lagoon.lastTime) / 16.6667);
+        lagoon.lastTime = timestamp;
+        updateLagoonPhysics(dt, timestamp);
+        drawLagoon(timestamp);
+        lagoon.raf = requestAnimationFrame(stepLagoon);
+      }
+
+      function updateLagoonPhysics(dt, timestamp) {
+        const width = lagoon.width || 0;
+        const height = lagoon.height || 0;
+        const centerX = width * 0.5;
+        const centerY = height * 0.52;
+        const nodes = Array.from(lagoon.nodes.values());
+
+        nodes.forEach((node) => {
+          node.radius += (node.targetRadius - node.radius) * 0.12;
+          node.pulse += (1 - node.pulse) * 0.16;
+          if (node.dragged) {
+            return;
+          }
+
+          const status = normalizeStatus(node.status);
+          const currentX = Math.sin(timestamp * 0.0007 + node.seed * 0.0013);
+          const currentY = Math.cos(timestamp * 0.0009 + node.seed * 0.0017);
+          node.vx += (centerX - node.x) * 0.00008 * dt;
+          node.vy += (centerY - node.y) * 0.00008 * dt;
+          node.vx += currentX * 0.025 * dt;
+          node.vy += currentY * 0.022 * dt;
+
+          if (status === "running") {
+            node.vx += Math.sin(timestamp * 0.003 + node.id) * 0.12 * dt;
+            node.vy += Math.cos(timestamp * 0.003 + node.id) * 0.12 * dt;
+            node.pulse = Math.max(node.pulse, 1.08);
+          } else if (status === "failed") {
+            node.vx += (Math.random() - 0.5) * 0.24 * dt;
+            node.vy += (Math.random() - 0.5) * 0.24 * dt;
+          } else if (status === "queued") {
+            node.vy -= 0.01 * dt;
+          }
+
+          node.vx *= 0.993;
+          node.vy *= 0.993;
+          node.x += node.vx * dt;
+          node.y += node.vy * dt;
+
+          const padding = node.radius + 8;
+          if (node.x < padding) {
+            node.x = padding;
+            node.vx *= -0.86;
+          } else if (node.x > width - padding) {
+            node.x = width - padding;
+            node.vx *= -0.86;
+          }
+          if (node.y < padding) {
+            node.y = padding;
+            node.vy *= -0.86;
+          } else if (node.y > height - padding) {
+            node.y = height - padding;
+            node.vy *= -0.86;
+          }
+        });
+
+        for (let outer = 0; outer < nodes.length; outer += 1) {
+          for (let inner = outer + 1; inner < nodes.length; inner += 1) {
+            const left = nodes[outer];
+            const right = nodes[inner];
+            const dx = right.x - left.x;
+            const dy = right.y - left.y;
+            const distance = Math.hypot(dx, dy) || 0.0001;
+            const minDistance = left.radius + right.radius + 2;
+            if (distance >= minDistance) {
+              continue;
+            }
+            const overlap = (minDistance - distance) * 0.5;
+            const nx = dx / distance;
+            const ny = dy / distance;
+            if (!left.dragged) {
+              left.x -= nx * overlap;
+              left.y -= ny * overlap;
+            }
+            if (!right.dragged) {
+              right.x += nx * overlap;
+              right.y += ny * overlap;
+            }
+            if (!left.dragged) {
+              left.vx -= nx * overlap * 0.05;
+              left.vy -= ny * overlap * 0.05;
+            }
+            if (!right.dragged) {
+              right.vx += nx * overlap * 0.05;
+              right.vy += ny * overlap * 0.05;
+            }
+          }
+        }
+
+        lagoon.ripples = lagoon.ripples
+          .map((ripple) => ({
+            ...ripple,
+            radius: ripple.radius + ripple.speed * dt,
+            alpha: ripple.alpha - 0.018 * dt,
+          }))
+          .filter((ripple) => ripple.alpha > 0);
+      }
+
+      function drawLagoon(timestamp = performance.now()) {
+        if (!lagoon.ctx || !lagoon.width || !lagoon.height) {
+          return;
+        }
+
+        const ctx = lagoon.ctx;
+        ctx.clearRect(0, 0, lagoon.width, lagoon.height);
+
+        const gradient = ctx.createLinearGradient(0, 0, 0, lagoon.height);
+        gradient.addColorStop(0, "rgba(9, 26, 44, 0.98)");
+        gradient.addColorStop(1, "rgba(3, 10, 19, 0.98)");
+        ctx.fillStyle = gradient;
+        ctx.fillRect(0, 0, lagoon.width, lagoon.height);
+
+        ctx.strokeStyle = "rgba(79, 182, 255, 0.08)";
+        ctx.lineWidth = 1;
+        for (let index = 0; index < 4; index += 1) {
+          const y = lagoon.height * (0.18 + index * 0.2) + Math.sin(timestamp * 0.0008 + index) * 8;
+          ctx.beginPath();
+          ctx.moveTo(16, y);
+          ctx.bezierCurveTo(
+            lagoon.width * 0.25,
+            y - 18,
+            lagoon.width * 0.7,
+            y + 18,
+            lagoon.width - 16,
+            y - 4,
+          );
+          ctx.stroke();
+        }
+
+        lagoon.ripples.forEach((ripple) => {
+          ctx.save();
+          ctx.globalAlpha = ripple.alpha;
+          ctx.strokeStyle = ripple.color;
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(ripple.x, ripple.y, ripple.radius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.restore();
+        });
+
+        const selectedId = appState.selections.monitor;
+        Array.from(lagoon.nodes.values()).forEach((node) => {
+          const radius = node.radius * node.pulse;
+          const glow = ctx.createRadialGradient(node.x - radius * 0.4, node.y - radius * 0.4, radius * 0.2, node.x, node.y, radius * 1.25);
+          glow.addColorStop(0, "rgba(255,255,255,0.78)");
+          glow.addColorStop(0.3, node.color);
+          glow.addColorStop(1, "rgba(6, 16, 28, 0.96)");
+          ctx.fillStyle = glow;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+          ctx.fill();
+
+          ctx.strokeStyle = selectedId === node.id ? "#ffffff" : "rgba(255, 255, 255, 0.14)";
+          ctx.lineWidth = selectedId === node.id ? 3 : 1;
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, radius, 0, Math.PI * 2);
+          ctx.stroke();
+
+          if (radius > 10) {
+            ctx.fillStyle = "rgba(247, 251, 255, 0.9)";
+            ctx.font = `${Math.max(10, radius * 0.7)}px "Avenir Next", sans-serif`;
+            ctx.textAlign = "center";
+            ctx.textBaseline = "middle";
+            ctx.fillText(node.label, node.x, node.y);
+          }
+        });
+
+        if (!lagoon.nodes.size) {
+          ctx.fillStyle = "rgba(198, 212, 228, 0.76)";
+          ctx.font = '600 18px "Avenir Next", sans-serif';
+          ctx.textAlign = "center";
+          ctx.fillText("No jobs to animate yet", lagoon.width * 0.5, lagoon.height * 0.48);
+          ctx.font = '14px "Avenir Next", sans-serif';
+          ctx.fillStyle = "rgba(144, 164, 188, 0.86)";
+          ctx.fillText("Launch or attach a regression to wake the pond.", lagoon.width * 0.5, lagoon.height * 0.54);
+        }
+      }
+
+      function lagoonPoint(event) {
+        const rect = lagoon.canvas.getBoundingClientRect();
+        return {
+          x: event.clientX - rect.left,
+          y: event.clientY - rect.top,
+        };
+      }
+
+      function pickLagoonNode(x, y) {
+        let nearest = null;
+        let nearestDistance = Infinity;
+        lagoon.nodes.forEach((node) => {
+          const distance = Math.hypot(node.x - x, node.y - y);
+          if (distance <= node.radius + 6 && distance < nearestDistance) {
+            nearest = node;
+            nearestDistance = distance;
+          }
+        });
+        return nearest;
+      }
+
+      function onLagoonPointerDown(event) {
+        if (appState.monitorScene !== "physics") {
+          return;
+        }
+        ensureLagoonCanvas();
+        const point = lagoonPoint(event);
+        const node = pickLagoonNode(point.x, point.y);
+        if (!node) {
+          return;
+        }
+        lagoon.pointer.active = true;
+        lagoon.pointer.nodeId = node.id;
+        lagoon.pointer.lastX = point.x;
+        lagoon.pointer.lastY = point.y;
+        lagoon.pointer.lastTime = performance.now();
+        lagoon.pointer.moved = false;
+        node.dragged = true;
+        node.vx = 0;
+        node.vy = 0;
+        lagoon.canvas.setPointerCapture(event.pointerId);
+      }
+
+      function onLagoonPointerMove(event) {
+        if (!lagoon.pointer.active) {
+          return;
+        }
+        const node = lagoon.nodes.get(lagoon.pointer.nodeId);
+        if (!node) {
+          return;
+        }
+        const point = lagoonPoint(event);
+        lagoon.pointer.moved =
+          lagoon.pointer.moved ||
+          Math.hypot(point.x - lagoon.pointer.lastX, point.y - lagoon.pointer.lastY) > 2;
+        node.x = point.x;
+        node.y = point.y;
+        lagoon.pointer.lastX = point.x;
+        lagoon.pointer.lastY = point.y;
+        lagoon.pointer.lastTime = performance.now();
+      }
+
+      function onLagoonPointerUp(event) {
+        if (!lagoon.pointer.active) {
+          return;
+        }
+        const node = lagoon.nodes.get(lagoon.pointer.nodeId);
+        if (node) {
+          const point = lagoonPoint(event);
+          const elapsed = Math.max(1, performance.now() - lagoon.pointer.lastTime);
+          node.dragged = false;
+          node.vx = (point.x - lagoon.pointer.lastX) / elapsed * 18;
+          node.vy = (point.y - lagoon.pointer.lastY) / elapsed * 18;
+          appState.selections.monitor = node.id;
+          renderMonitor();
+        }
+        lagoon.pointer.active = false;
+        lagoon.pointer.nodeId = null;
+        if (lagoon.canvas?.hasPointerCapture?.(event.pointerId)) {
+          lagoon.canvas.releasePointerCapture(event.pointerId);
+        }
+      }
+
+      function setBanner(message, tone = "info") {
+        clearTimeout(appState.bannerTimer);
+        elements.banner.textContent = message || "";
+        elements.banner.className = "banner";
+        if (!message) {
+          return;
+        }
+        elements.banner.classList.add(tone);
+        appState.bannerTimer = setTimeout(() => {
+          if (elements.banner.textContent === message) {
+            elements.banner.textContent = "";
+            elements.banner.className = "banner";
+          }
+        }, 4200);
+      }
+
+      function updateHeader(view) {
+        const meta = VIEW_META[view] || VIEW_META.overview;
+        elements.headerEyebrow.textContent = meta.eyebrow;
+        elements.headerTitle.textContent = meta.title;
+        elements.headerCopy.textContent = meta.copy;
+      }
+
+      function showView(view) {
+        appState.view = view in VIEW_META ? view : "overview";
+        writeStorage("rheonDeckView", appState.view);
+        elements.navButtons.forEach((button) => {
+          button.classList.toggle("active", button.dataset.view === appState.view);
+        });
+        elements.panels.forEach((panel) => {
+          panel.classList.toggle("active", panel.dataset.viewPanel === appState.view);
+        });
+        updateHeader(appState.view);
+        updateLagoonActivity();
+        if (appState.view === "monitor") {
+          requestAnimationFrame(() => {
+            renderMonitor();
+          });
+        }
+      }
+
+      function statusBadge(value) {
+        const normalized = normalizeStatus(value);
+        return `pill ${normalized}`;
+      }
+
+      function renderStatusChip(element, value, fallback = "idle") {
+        const label = String(value || fallback);
+        element.textContent = label;
+        element.className = statusBadge(label);
+      }
+
+      function renderSidebar() {
+        const snapshot = normalizedSessionSnapshot(appState.currentState);
+        const summary = summaryWithDefaults(snapshot?.summary);
+        renderStatusChip(elements.sidebarStatus, snapshot?.status || "idle");
+        elements.sidebarTotal.textContent = String(summary.total);
+        elements.sidebarFailed.textContent = String(summary.failed);
+        elements.sidebarOutputPath.textContent = snapshot?.output_dir
+          ? pathTail(snapshot.output_dir)
+          : "No run attached.";
+      }
+
+      function renderMetricSet(targets, summary) {
+        const safe = summaryWithDefaults(summary);
+        targets.total.textContent = String(safe.total);
+        targets.scheduled.textContent = String(safe.scheduled);
+        targets.passed.textContent = String(safe.passed);
+        targets.failed.textContent = String(safe.failed);
+        targets.not_run.textContent = String(safe.not_run);
+        targets.running.textContent = String(safe.running);
+      }
+
+      function renderEmptyState(message) {
+        return `<div class="empty-state">${escapeHtml(message)}</div>`;
+      }
+
+      function runsListMarkup(runs, selectedOutput) {
+        if (!runs.length) {
+          return renderEmptyState("No regression outputs have been discovered yet.");
+        }
+        return runs.map((run) => {
+          const summary = summaryWithDefaults(run.summary);
+          return `
+            <article class="run-item ${selectedOutput === run.output_dir ? "selected" : ""}">
+              <div class="run-head">
+                <div>
+                  <strong>${escapeHtml(run.name || pathTail(run.output_dir))}</strong>
+                  <small>${escapeHtml(pathTail(run.output_dir))}</small>
+                </div>
+                <span class="${statusBadge(run.status)}">${escapeHtml(run.status || "idle")}</span>
+              </div>
+              <div class="run-summary">
+                <span class="chip-count cool">${summary.total} total</span>
+                <span class="chip-count good">${summary.passed} passed</span>
+                <span class="chip-count bad">${summary.failed} failed</span>
+                <span class="chip-count warn">${summary.running} running</span>
+              </div>
+              <div class="subtle-note">Updated ${escapeHtml(formatDateTime(run.updated_at || run.created_at))}</div>
+              <div class="run-actions">
+                <button class="btn-subtle small-btn" type="button" data-action="inspect-run" data-output="${escapeHtml(run.output_dir)}">Inspect</button>
+                <button class="btn-subtle small-btn" type="button" data-action="template-run" data-output="${escapeHtml(run.output_dir)}">Use Template</button>
+                <button class="btn-ghost small-btn" type="button" data-action="attach-run" data-output="${escapeHtml(run.output_dir)}">Attach</button>
+              </div>
+            </article>
+          `;
+        }).join("");
+      }
+
+      function renderOverview() {
+        const liveSnapshot = normalizedSessionSnapshot(appState.currentState);
+        const focus = liveSnapshot || appState.historySnapshot;
+        const summary = summaryWithDefaults(focus?.summary);
+
+        if (liveSnapshot) {
+          elements.overviewHeroTitle.textContent = `Attached: ${pathTail(liveSnapshot.output_dir)}`;
+          elements.overviewHeroBody.textContent = `Status ${liveSnapshot.status} with ${summary.failed} failed and ${summary.running} currently running jobs. Open the monitor to control the session and inspect logs.`;
+        } else if (appState.recentRuns.length) {
+          elements.overviewHeroTitle.textContent = `Latest saved run: ${appState.recentRuns[0].name}`;
+          elements.overviewHeroBody.textContent = "Inspect the newest regression output, attach it to the live monitor, or reuse its configuration to launch another sweep.";
+        } else {
+          elements.overviewHeroTitle.textContent = "No live regression attached";
+          elements.overviewHeroBody.textContent = "Compose a fresh run or inspect the latest saved regression to get back to signal fast.";
+        }
+
+        elements.overviewMetricTotal.textContent = String(summary.total);
+        elements.overviewMetricPassed.textContent = String(summary.passed);
+        elements.overviewMetricFailed.textContent = String(summary.failed);
+        elements.overviewMetricRunning.textContent = String(summary.running);
+
+        elements.overviewRecentRuns.innerHTML = runsListMarkup(appState.recentRuns.slice(0, 6), null);
+
+        const templateRuns = appState.recentRuns.filter((run) => run.config).slice(0, 4);
+        elements.overviewTemplates.innerHTML = templateRuns.length
+          ? templateRuns.map((run) => `
+              <article class="template-card">
+                <strong>${escapeHtml(run.name)}</strong>
+                <p>${escapeHtml((run.config.tests || []).map((test) => `${test.name} x${test.count}`).join(", ") || "No tests recorded")}</p>
+                <div class="run-actions" style="margin-top: 12px;">
+                  <button class="btn-subtle small-btn" type="button" data-action="template-run" data-output="${escapeHtml(run.output_dir)}">Load Into Composer</button>
+                </div>
+              </article>
+            `).join("")
+          : renderEmptyState("No reusable configs have been recorded yet. Launch or inspect a run first.");
+
+        const failureGroups = buildFailureGroups(focus?.jobs || []);
+        elements.overviewFailureRadar.innerHTML = failureGroups.length
+          ? failureGroups.map((group) => `
+              <article class="failure-card">
+                <strong>${escapeHtml(group.mnemonic.toUpperCase())}</strong>
+                <p>${escapeHtml(group.mismatch)}</p>
+                <div class="run-summary" style="margin-top: 10px;">
+                  <span class="chip-count bad">${group.count} hits</span>
+                  <span class="chip-count warn">sample seed ${escapeHtml(group.samples[0])}</span>
+                </div>
+              </article>
+            `).join("")
+          : renderEmptyState("No failing jobs are in focus right now.");
+      }
+
+      function addTestRow(name = "", count = 1) {
+        const row = document.createElement("div");
+        row.className = "matrix-row";
+        row.innerHTML = `
+          <input data-kind="name" type="text" value="${escapeHtml(name)}" placeholder="simple" />
+          <input data-kind="count" type="number" min="1" value="${Number(count) || 1}" />
+          <button type="button" class="btn-subtle small-btn" data-action="remove-test">Remove</button>
+        `;
+        elements.testsTable.appendChild(row);
       }
 
       function buildFormConfig() {
         const tests = [];
-        testsTable.querySelectorAll("tr").forEach((row) => {
-          const name = row.querySelector("input[data-kind=name]").value.trim();
-          const count = parseInt(row.querySelector("input[data-kind=count]").value || "0", 10);
+        elements.testsTable.querySelectorAll(".matrix-row").forEach((row) => {
+          const name = row.querySelector("[data-kind=name]").value.trim();
+          const count = parseInt(row.querySelector("[data-kind=count]").value || "0", 10);
           if (name && count > 0) {
             tests.push({ name, count });
           }
@@ -656,361 +2955,924 @@
         };
       }
 
-      function parseOptionalInt(id) {
-        const value = document.getElementById(id).value.trim();
-        if (!value) {
-          return null;
-        }
-        const parsed = parseInt(value, 10);
-        return Number.isFinite(parsed) ? parsed : null;
-      }
-
-      function addTestRow(name = "", count = 1) {
-        const tr = document.createElement("tr");
-        tr.innerHTML = `
-          <td><input data-kind="name" value="${escapeHtml(name)}" title="Test name (e.g. simple, stress)" /></td>
-          <td><input type="number" min="1" data-kind="count" value="${count}" title="How many seeded jobs to run for this test." /></td>
-          <td><button type="button" class="secondary" data-action="remove" title="Remove this test row">remove</button></td>
-        `;
-        tr.querySelector('[data-action="remove"]').addEventListener("click", () => tr.remove());
-        testsTable.appendChild(tr);
-      }
-
-      function escapeHtml(text) {
-        return String(text)
-          .replaceAll("&", "&amp;")
-          .replaceAll("<", "&lt;")
-          .replaceAll(">", "&gt;")
-          .replaceAll("\"", "&quot;")
-          .replaceAll("'", "&#039;");
-      }
-
-      function applyConfigToForm(data) {
-        const regression = data || {};
-        document.getElementById("seedInput").value = regression.seed || 1;
-        document.getElementById("jobsInput").value = regression.jobs || 4;
-        document.getElementById("updateInput").value = regression.update || 2;
-        document.getElementById("parallelismInput").value = regression.jobs || 4;
-        document.getElementById("stagesInput").value = (regression.stages || "run").join ? regression.stages.join(",") : regression.stages || "run";
-        document.getElementById("outputDirInput").value = regression.output_dir || "";
-        document.getElementById("resumeInput").value = regression.resume || "";
-        document.getElementById("verbosityInput").value = regression.verbosity || "";
-        document.getElementById("timeoutInput").value = regression.timeout_sec || "";
-        document.getElementById("maxFailuresInput").value = regression.max_failures || "";
-        document.getElementById("wavesInput").checked = Boolean(regression.waves);
-        document.getElementById("failFastInput").checked = Boolean(regression.fail_fast);
-        testsTable.innerHTML = "";
-        if (Array.isArray(regression.tests) && regression.tests.length) {
-          regression.tests.forEach((item) => addTestRow(item.name || "", item.count || 1));
+      function applyConfigToForm(config) {
+        const payload = sanitizeConfigForTemplate(config || {});
+        document.getElementById("seedInput").value = payload.seed || 1;
+        document.getElementById("jobsInput").value = payload.jobs || 4;
+        document.getElementById("updateInput").value = payload.update || 2;
+        document.getElementById("stagesInput").value = Array.isArray(payload.stages)
+          ? payload.stages.join(",")
+          : payload.stages || "run";
+        document.getElementById("outputDirInput").value = payload.output_dir || "";
+        document.getElementById("resumeInput").value = payload.resume || "";
+        document.getElementById("verbosityInput").value = payload.verbosity || "";
+        document.getElementById("timeoutInput").value = payload.timeout_sec || "";
+        document.getElementById("maxFailuresInput").value = payload.max_failures || "";
+        document.getElementById("wavesInput").checked = Boolean(payload.waves);
+        document.getElementById("failFastInput").checked = Boolean(payload.fail_fast);
+        elements.testsTable.innerHTML = "";
+        if (Array.isArray(payload.tests) && payload.tests.length) {
+          payload.tests.forEach((test) => addTestRow(test.name || "", test.count || 1));
         } else {
-          addTestRow();
+          addTestRow("simple", 20);
         }
+        renderComposeSummary();
+      }
+
+      function resetComposer() {
+        applyConfigToForm({
+          seed: 1,
+          jobs: 4,
+          update: 2,
+          stages: "run",
+          tests: [{ name: "simple", count: 20 }],
+        });
+      }
+
+      function renderComposeSummary() {
+        const config = buildFormConfig();
+        const totalJobs = sumCounts(config.tests);
+        const testsLabel = config.tests.length
+          ? config.tests.map((test) => `${test.name} x${test.count}`).join(", ")
+          : "No tests selected";
+        const stopLabel = config.fail_fast
+          ? "Fail fast"
+          : config.max_failures
+            ? `Stop after ${config.max_failures} failures`
+            : "Run full sweep";
+        elements.composeBlueprint.innerHTML = `
+          <div class="blueprint-item">
+            <span>Job count</span>
+            <strong>${totalJobs || 0} total seeded jobs</strong>
+          </div>
+          <div class="blueprint-item">
+            <span>Execution</span>
+            <strong>${escapeHtml(config.stages)} with ${config.jobs || 0} workers</strong>
+          </div>
+          <div class="blueprint-item">
+            <span>Tests</span>
+            <strong>${escapeHtml(testsLabel)}</strong>
+          </div>
+          <div class="blueprint-item">
+            <span>Stop rules</span>
+            <strong>${escapeHtml(stopLabel)}</strong>
+          </div>
+          <div class="blueprint-item">
+            <span>Artifacts</span>
+            <strong>${config.waves ? "Wave dumps enabled" : "No wave dumps"}</strong>
+          </div>
+          <div class="blueprint-item">
+            <span>Output</span>
+            <strong>${escapeHtml(config.output_dir || "Default timestamped output directory")}</strong>
+          </div>
+        `;
+        document.getElementById("startRunBtn").textContent = totalJobs
+          ? `Launch ${totalJobs} Job${totalJobs === 1 ? "" : "s"}`
+          : "Launch Run";
       }
 
       async function apiJson(method, path, body = null) {
         const params = {
           method,
           headers: {
-            "Content-Type": "application/json"
+            "Content-Type": "application/json",
           },
         };
-        if (body) {
+        if (body !== null) {
           params.body = JSON.stringify(body);
         }
         const response = await fetch(path, params);
-        const data = await response.json().catch(() => ({ error: "invalid json" }));
+        const payload = await response.json().catch(() => ({ error: "invalid json" }));
         if (!response.ok) {
-          const error = data && data.error ? data.error : `HTTP ${response.status}`;
-          throw new Error(error);
+          throw new Error(payload.error || `HTTP ${response.status}`);
         }
-        return data;
+        return payload;
       }
 
-      function formatDuration(totalSeconds) {
-        const seconds = Math.max(0, Math.floor(totalSeconds));
-        const h = Math.floor(seconds / 3600).toString().padStart(2, "0");
-        const m = Math.floor((seconds % 3600) / 60).toString().padStart(2, "0");
-        const s = Math.floor(seconds % 60).toString().padStart(2, "0");
-        return `${h}:${m}:${s}`;
-      }
-
-      function updateStatusPill(element, status) {
-        element.textContent = status || "idle";
-        element.classList.remove("running", "paused", "complete", "interrupted", "cancelled", "fail_fast", "max_failures", "idle");
-        element.classList.add((status || "idle").toLowerCase());
-      }
-
-      function renderJobs(jobs) {
-        const jobsTable = document.getElementById("jobsTable");
-        jobsTable.innerHTML = "";
-        (jobs || []).forEach((job) => {
-          const tr = document.createElement("tr");
-          const status = job.status || "not_run";
-          tr.innerHTML = `
-            <td>${job.index}</td>
-            <td>${escapeHtml(job.test_name || "-")}</td>
-            <td>${job.seed}</td>
-            <td class="${status === "passed" ? "status-ok" : "status-fail"}">${status}</td>
-            <td>${escapeHtml(job.status_reason || "")}</td>
-            <td>${formatDuration(job.duration_seconds || 0)}</td>
-            <td><button class="secondary" data-log="${job.index}">view log</button></td>
-          `;
-          const button = tr.querySelector("button");
-          button.addEventListener("click", () => fetchLog(job.index));
-          jobsTable.appendChild(tr);
-        });
-      }
-
-      function renderRunning(jobs) {
-        const runningTable = document.getElementById("runningTable");
-        runningTable.innerHTML = "";
-        (jobs || []).forEach((item) => {
-          const tr = document.createElement("tr");
-          tr.innerHTML = `
-            <td>${item.index}</td>
-            <td>${escapeHtml(item.test_name || "-")}</td>
-            <td>${item.seed}</td>
-            <td>${formatDuration(item.elapsed_seconds || 0)}</td>
-          `;
-          runningTable.appendChild(tr);
-        });
-      }
-
-      async function fetchLog(index) {
+      async function fetchLog(scope, outputDir, index, force = false) {
+        if (!outputDir || index == null) {
+          return;
+        }
+        const key = `${outputDir}::${index}`;
+        if (!force && appState.logs[scope].key === key) {
+          return;
+        }
+        appState.logs[scope] = {
+          key,
+          state: "loading",
+          text: "Loading log...",
+        };
+        renderLogViewer(scope);
         try {
-          logMessage.textContent = `Loading log for job ${index}`;
-          showTab("logs");
-          const response = await fetch(`/api/job-log?index=${encodeURIComponent(index)}`);
+          const response = await fetch(`/api/job-log?index=${encodeURIComponent(index)}&output_dir=${encodeURIComponent(outputDir)}`);
           if (!response.ok) {
             const payload = await response.json().catch(() => ({}));
             throw new Error(payload.error || "log unavailable");
           }
           const text = await response.text();
-          logViewer.textContent = text;
-          logMessage.textContent = "";
+          if (appState.logs[scope].key === key) {
+            appState.logs[scope] = {
+              key,
+              state: "ready",
+              text,
+            };
+            renderLogViewer(scope);
+          }
         } catch (error) {
-          logViewer.textContent = "";
-          logMessage.textContent = String(error.message || error);
+          if (appState.logs[scope].key === key) {
+            appState.logs[scope] = {
+              key,
+              state: "error",
+              text: String(error.message || error),
+            };
+            renderLogViewer(scope);
+          }
         }
       }
 
-      function renderSummary(summary) {
-        document.getElementById("metricTotal").textContent = summary.total ?? 0;
-        document.getElementById("metricScheduled").textContent = summary.scheduled ?? 0;
-        document.getElementById("metricPassed").textContent = summary.passed ?? 0;
-        document.getElementById("metricFailed").textContent = summary.failed ?? 0;
-        document.getElementById("metricNotRun").textContent = summary.not_run ?? 0;
-        document.getElementById("metricRunning").textContent = summary.running ?? 0;
+      function renderLogViewer(scope) {
+        const target = scope === "monitor" ? elements.monitorLogViewer : elements.historyLogViewer;
+        target.textContent = appState.logs[scope].text;
       }
 
-      function applyState(payload) {
-        currentState = payload || {};
-        const mode = currentState.mode || "idle";
-        const status = currentState.status || "idle";
-        const reason = currentState.status_reason || "";
+      async function copyLog(scope) {
+        const target = scope === "monitor" ? elements.monitorLogViewer : elements.historyLogViewer;
+        const text = appState.logs[scope]?.text || "";
+        if (!text.trim()) {
+          setBanner("No log text is available to copy.", "warn");
+          return;
+        }
 
-        const modeLabel = document.getElementById("runModeLabel");
-        const statusLabel = document.getElementById("runStatusLabel");
-        const statusReason = document.getElementById("runStatusReason");
-        modeLabel.textContent = mode;
-        statusLabel.textContent = status;
-        statusReason.textContent = reason ? `(${reason})` : "";
-        updateStatusPill(modeLabel, mode);
-        updateStatusPill(statusLabel, status);
+        try {
+          if (navigator.clipboard?.writeText) {
+            await navigator.clipboard.writeText(text);
+          } else {
+            target.focus();
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(target);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            const copied = document.execCommand?.("copy");
+            selection?.removeAllRanges();
+            if (!copied) {
+              throw new Error("clipboard unavailable");
+            }
+          }
+          setBanner("Log copied to clipboard.", "success");
+        } catch (_error) {
+          target.focus();
+          setBanner("Automatic copy failed. The log is selectable now; use Cmd+C.", "warn");
+        }
+      }
 
-        const controls = currentState.controls || {};
+      function filteredJobs(snapshot, scope) {
+        const filter = appState.filters[scope];
+        const search = appState.search[scope].trim().toLowerCase();
+        return jobsForScope(snapshot, scope).filter((job) => {
+          if (filter === "failed" && job.status !== "failed") {
+            return false;
+          }
+          if (filter === "running" && job.status !== "running") {
+            return false;
+          }
+          if (filter === "passed" && job.status !== "passed") {
+            return false;
+          }
+          if (filter === "queued" && ["passed", "failed", "running"].includes(job.status)) {
+            return false;
+          }
+          if (!search) {
+            return true;
+          }
+          const haystack = [
+            job.test_name,
+            job.seed,
+            job.status_reason,
+            job.triage_summary,
+            job.triage_instr_asm,
+            job.triage_instr_hex,
+          ].join(" ").toLowerCase();
+          return haystack.includes(search);
+        });
+      }
+
+      function jobTableMarkup(snapshot, scope) {
+        const jobs = filteredJobs(snapshot, scope);
+        ensureSelection(scope, jobs);
+        if (!jobs.length) {
+          return `<tr><td colspan="6"><div class="empty-state">No jobs match the current filter.</div></td></tr>`;
+        }
+        return jobs.map((job) => {
+          const selected = appState.selections[scope] === job.index;
+          const rowStatus = job.status === "passed"
+            ? "passed"
+            : job.status === "failed"
+              ? "failed"
+              : job.status === "running"
+                ? "running"
+                : "other";
+          return `
+            <tr class="${selected ? "selected-row" : ""}" data-scope="${scope}" data-index="${job.index}">
+              <td><span class="job-link">${job.index}</span></td>
+              <td>${escapeHtml(job.test_name || "-")}</td>
+              <td>${escapeHtml(job.seed)}</td>
+              <td class="row-status ${rowStatus}">${escapeHtml(job.status || "not_run")}</td>
+              <td>${escapeHtml(job.status_reason || "-")}</td>
+              <td>${escapeHtml(formatDuration(job.duration_seconds || 0))}</td>
+            </tr>
+          `;
+        }).join("");
+      }
+
+      function renderRunningTable(target, items) {
+        if (!items.length) {
+          target.innerHTML = `<tr><td colspan="4"><div class="empty-state">No jobs are currently running.</div></td></tr>`;
+          return;
+        }
+        target.innerHTML = items.map((item) => `
+          <tr>
+            <td>${escapeHtml(item.index)}</td>
+            <td>${escapeHtml(item.test_name || "-")}</td>
+            <td>${escapeHtml(item.seed)}</td>
+            <td>${escapeHtml(formatDuration(item.elapsed_seconds || 0))}</td>
+          </tr>
+        `).join("");
+      }
+
+      function failureGroupsMarkup(groups) {
+        if (!groups.length) {
+          return renderEmptyState("No failures in the selected run.");
+        }
+        return groups.map((group) => `
+          <article class="failure-card">
+            <strong>${escapeHtml(group.mnemonic.toUpperCase())}</strong>
+            <p>${escapeHtml(group.mismatch)}</p>
+            <div class="run-summary" style="margin-top: 10px;">
+              <span class="chip-count bad">${group.count} hits</span>
+              <span class="chip-count warn">seed ${escapeHtml(group.samples[0])}</span>
+            </div>
+          </article>
+        `).join("");
+      }
+
+      function inspectorMarkup(snapshot, scope) {
+        const selectedIndex = appState.selections[scope];
+        const job = findJob(snapshot, selectedIndex, scope);
+        if (!job) {
+          return renderEmptyState("Select a job row to inspect its status, triage details, and log.");
+        }
+        const mismatchBadges = Array.isArray(job.triage_mismatched_fields) && job.triage_mismatched_fields.length
+          ? job.triage_mismatched_fields.map((field) => `<span class="badge">${escapeHtml(field)}</span>`).join("")
+          : `<span class="badge">${escapeHtml(job.status_reason || "no mismatch data")}</span>`;
+        return `
+          <div class="inspector-header">
+            <div>
+              <h4>${escapeHtml(job.test_name || "Job")} / seed ${escapeHtml(job.seed)}</h4>
+              <p>Job ${escapeHtml(job.index)} in ${escapeHtml(pathTail(snapshot.output_dir || ""))}</p>
+            </div>
+            <span class="${statusBadge(job.status || "idle")}">${escapeHtml(job.status || "idle")}</span>
+          </div>
+          <div class="detail-grid">
+            <div class="detail-item">
+              <span>Reason</span>
+              <strong>${escapeHtml(job.status_reason || "-")}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Duration</span>
+              <strong>${escapeHtml(formatDuration(job.duration_seconds || 0))}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Instruction</span>
+              <strong>${escapeHtml(job.triage_instr_asm || job.triage_instr_hex || "-")}</strong>
+            </div>
+            <div class="detail-item">
+              <span>Program counter</span>
+              <strong>${escapeHtml(job.triage_pc ?? "-")}</strong>
+            </div>
+          </div>
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Mismatch Fields</p>
+            <div class="badge-row">${mismatchBadges}</div>
+          </div>
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Triage Summary</p>
+            <p>${escapeHtml(job.triage_summary || "No triage summary recorded.")}</p>
+          </div>
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Artifacts</p>
+            <p class="mono">${escapeHtml(job.run_dir || "-")}</p>
+            <p class="mono">${escapeHtml(job.log_path || "-")}</p>
+          </div>
+        `;
+      }
+
+      function renderMonitor() {
+        const snapshot = normalizedSessionSnapshot(appState.currentState);
+        const summary = summaryWithDefaults(snapshot?.summary);
+        showMonitorScene(appState.monitorScene);
+        syncLagoon(snapshot);
+        elements.monitorTitle.textContent = snapshot?.output_dir
+          ? pathTail(snapshot.output_dir)
+          : "No run attached";
+        elements.monitorPath.textContent = snapshot?.output_dir
+          ? `Updated ${formatDateTime(snapshot.updated_at || snapshot.created_at)}`
+          : "Attach a saved run or launch a new regression to monitor it here.";
+
+        renderStatusChip(elements.monitorModePill, appState.currentState?.mode || "idle");
+        renderStatusChip(elements.monitorStatusPill, snapshot?.status || "idle");
+        renderStatusChip(elements.monitorReasonPill, snapshot?.status_reason || "idle");
+        renderMetricSet(elements.monitorMetrics, summary);
+        renderRunningTable(elements.monitorRunningTable, snapshot?.running_jobs || []);
+        elements.monitorFailureGroups.innerHTML = failureGroupsMarkup(buildFailureGroups(snapshot?.jobs || []));
+        elements.monitorJobsTbody.innerHTML = jobTableMarkup(snapshot, "monitor");
+        elements.monitorInspector.innerHTML = inspectorMarkup(snapshot, "monitor");
+
+        const controls = appState.currentState?.controls || {};
+        elements.monitorParallelismInput.value = snapshot?.config?.jobs || 1;
         document.getElementById("pauseBtn").disabled = !controls.can_pause;
         document.getElementById("resumeBtn").disabled = !controls.can_resume;
         document.getElementById("cancelBtn").disabled = !controls.can_cancel;
         document.getElementById("setParallelismBtn").disabled = !controls.can_set_parallelism;
         document.getElementById("rerunFailedBtn").disabled = !controls.can_rerun_failed;
 
-        if (currentState.config) {
-          document.getElementById("parallelismInput").value = currentState.config.jobs ?? 1;
+        const selected = findJob(snapshot, appState.selections.monitor, "monitor");
+        if (selected && snapshot?.output_dir && selected.log_path) {
+          void fetchLog("monitor", snapshot.output_dir, selected.index);
+        } else {
+          let text = "Select a job to load its log.";
+          if (selected) {
+            text = selected.status === "queued"
+              ? "Queued jobs do not have logs yet."
+              : selected.status === "running"
+                ? "Waiting for this job to publish its log path."
+                : "No log was recorded for the selected job.";
+          }
+          appState.logs.monitor = {
+            key: null,
+            state: "idle",
+            text,
+          };
+          renderLogViewer("monitor");
+        }
+      }
+
+      function renderHistoryNotes(snapshot) {
+        if (!snapshot) {
+          elements.historyNotes.innerHTML = renderEmptyState("No run selected.");
+          return;
+        }
+        const tests = Array.isArray(snapshot.config?.tests) && snapshot.config.tests.length
+          ? snapshot.config.tests.map((test) => `${test.name} x${test.count}`).join(", ")
+          : "No config recorded";
+        elements.historyNotes.innerHTML = `
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Recorded Tests</p>
+            <p>${escapeHtml(tests)}</p>
+          </div>
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Stages</p>
+            <p>${escapeHtml(Array.isArray(snapshot.config?.stages) ? snapshot.config.stages.join(", ") : snapshot.config?.stages || "run")}</p>
+          </div>
+          <div class="details-block">
+            <p class="eyebrow" style="margin-bottom: 8px;">Output Directory</p>
+            <p class="mono">${escapeHtml(snapshot.output_dir || "-")}</p>
+          </div>
+        `;
+      }
+
+      function renderHistory() {
+        elements.historyRunsList.innerHTML = runsListMarkup(appState.recentRuns, appState.selectedHistoryOutput);
+
+        const snapshot = appState.historySnapshot;
+        if (!snapshot) {
+          elements.historyTitle.textContent = "No run selected";
+          elements.historyPath.textContent = "Pick a run from the left to inspect it in detail.";
+          renderStatusChip(elements.historyStatusPill, "idle");
+          renderStatusChip(elements.historyReasonPill, "idle");
+          renderStatusChip(elements.historyUpdatedPill, "no timestamp");
+          renderMetricSet(elements.historyMetrics, {});
+          elements.historyFailureGroups.innerHTML = renderEmptyState("No run selected.");
+          renderHistoryNotes(null);
+          elements.historyJobsTbody.innerHTML = `<tr><td colspan="6">${renderEmptyState("Select a run to inspect its jobs.")}</td></tr>`;
+          elements.historyInspector.innerHTML = renderEmptyState("Select a run to inspect a job.");
+          appState.logs.history = {
+            key: null,
+            state: "idle",
+            text: "Select a job to load its log.",
+          };
+          renderLogViewer("history");
+          return;
         }
 
-        if (currentState.summary) {
-          renderSummary(currentState.summary);
-        }
-        renderJobs(currentState.jobs || []);
-        renderRunning(currentState.running_jobs || []);
+        elements.historyTitle.textContent = pathTail(snapshot.output_dir);
+        elements.historyPath.textContent = `Created ${formatDateTime(snapshot.created_at)}. Updated ${formatDateTime(snapshot.updated_at)}.`;
+        renderStatusChip(elements.historyStatusPill, snapshot.status || "idle");
+        renderStatusChip(elements.historyReasonPill, snapshot.status_reason || "idle");
+        elements.historyUpdatedPill.textContent = formatDateTime(snapshot.updated_at || snapshot.created_at);
+        elements.historyUpdatedPill.className = "pill idle";
+        renderMetricSet(elements.historyMetrics, snapshot.summary);
+        elements.historyFailureGroups.innerHTML = failureGroupsMarkup(buildFailureGroups(snapshot.jobs || []));
+        renderHistoryNotes(snapshot);
+        elements.historyJobsTbody.innerHTML = jobTableMarkup(snapshot, "history");
+        elements.historyInspector.innerHTML = inspectorMarkup(snapshot, "history");
 
-        const isTerminal = ["complete", "interrupted", "cancelled", "fail_fast", "max_failures"].includes(status);
-        if (Notification.permission === "granted" && isTerminal && lastTerminalStatus !== status) {
-          const total = currentState.summary?.total ?? 0;
-          const failed = currentState.summary?.failed ?? 0;
-          new Notification("Rheon run updated", {
-            body: `Run ${status}: total ${total}, failed ${failed}`,
-          });
+        const selected = findJob(snapshot, appState.selections.history);
+        if (selected && snapshot.output_dir && selected.log_path) {
+          void fetchLog("history", snapshot.output_dir, selected.index);
+        } else {
+          const text = selected
+            ? "No log was recorded for the selected job."
+            : "Select a job to load its log.";
+          appState.logs.history = {
+            key: null,
+            state: "idle",
+            text,
+          };
+          renderLogViewer("history");
         }
-        if (isTerminal) {
-          lastTerminalStatus = status;
-        }
+      }
+
+      function renderAll() {
+        renderSidebar();
+        renderOverview();
+        renderComposeSummary();
+        renderMonitor();
+        renderHistory();
       }
 
       async function refreshState() {
         try {
           const payload = await apiJson("GET", "/api/state");
-          applyState(payload.data || {});
+          appState.currentState = payload.data || null;
+          const snapshot = normalizedSessionSnapshot(appState.currentState);
+          if (
+            snapshot &&
+            appState.selectedHistoryOutput &&
+            snapshot.output_dir === appState.selectedHistoryOutput
+          ) {
+            appState.historySnapshot = snapshot;
+          }
+          renderAll();
+          maybeNotifyTerminal(snapshot);
         } catch (error) {
-          // Keep showing stale data unless there's a parse/network failure.
-          setMessage(String(error.message || error));
+          setBanner(String(error.message || error), "warn");
         }
       }
 
-      function gatherPayloadForRun() {
-        const config = buildFormConfig();
-        if (!config.tests.length) {
-          throw new Error("Add at least one test");
+      async function refreshRuns() {
+        try {
+          const payload = await apiJson("GET", "/api/runs");
+          appState.recentRuns = Array.isArray(payload.data?.runs) ? payload.data.runs : [];
+          if (!appState.selectedHistoryOutput && appState.recentRuns.length) {
+            appState.selectedHistoryOutput = appState.recentRuns[0].output_dir;
+          }
+          if (appState.selectedHistoryOutput) {
+            await loadRunDetail(appState.selectedHistoryOutput, false);
+          } else {
+            renderAll();
+          }
+        } catch (error) {
+          setBanner(String(error.message || error), "warn");
         }
-        config.jobs = parseInt(document.getElementById("jobsInput").value, 10);
-        return config;
       }
 
-      document.getElementById("addTestBtn").addEventListener("click", () => addTestRow());
-      document.getElementById("startBtn").addEventListener("click", async () => {
-        try {
-          const payload = gatherPayloadForRun();
-          await apiJson("POST", "/api/run", payload);
-          showTab("status");
-          setMessage("Run started");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("pauseBtn").addEventListener("click", async () => {
-        try {
-          await apiJson("POST", "/api/pause");
-          setMessage("Pause requested");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("resumeBtn").addEventListener("click", async () => {
-        try {
-          await apiJson("POST", "/api/resume");
-          setMessage("Resume requested");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("cancelBtn").addEventListener("click", async () => {
-        try {
-          await apiJson("POST", "/api/cancel");
-          setMessage("Cancel requested");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("setParallelismBtn").addEventListener("click", async () => {
-        try {
-          await apiJson("POST", "/api/set-parallelism", {
-            parallelism: parseInt(document.getElementById("parallelismInput").value, 10),
-          });
-          setMessage("Parallelism set");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("rerunFailedBtn").addEventListener("click", async () => {
-        try {
-          await apiJson("POST", "/api/rerun-failed");
-          setMessage("Rerun failed jobs started");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("attachBtn").addEventListener("click", async () => {
-        try {
-          const outputDir = document.getElementById("attachOutputInput").value.trim();
-          if (!outputDir) {
-            throw new Error("output directory is required");
-          }
-          await apiJson("POST", "/api/attach", { output_dir: outputDir });
-          showTab("status");
-          setMessage("Attached");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("importYamlBtn").addEventListener("click", async () => {
-        try {
-          const yaml = document.getElementById("importYamlInput").value;
-          if (!yaml.trim()) {
-            throw new Error("paste YAML first");
-          }
-          const payload = await apiJson("POST", "/api/import", { yaml });
-          applyConfigToForm(payload.data.regression || payload.data);
-          showTab("configure");
-          setMessage("YAML imported");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("exportYamlBtn").addEventListener("click", async () => {
-        try {
-          const payload = buildFormConfig();
-          const exported = await apiJson("POST", "/api/export", payload);
-          document.getElementById("exportYamlOutput").value = exported.yaml || "";
-          showTab("files");
-          setMessage("YAML exported");
-        } catch (error) {
-          setMessage(String(error.message || error));
-        }
-      });
-      document.getElementById("notifyEnableBtn").addEventListener("click", async () => {
-        if (!("Notification" in window)) {
-          setMessage("Notifications are not supported");
+      async function loadRunDetail(outputDir, switchView = false) {
+        if (!outputDir) {
+          appState.historySnapshot = null;
+          renderHistory();
           return;
         }
-        const permission = await Notification.requestPermission();
-        setMessage(`Notification permission: ${permission}`);
-      });
-
-      document.getElementById("testsTable").addEventListener("click", (event) => {
-        const target = event.target;
-        if (target && target.dataset && target.dataset.action === "remove") {
-          target.closest("tr").remove();
+        appState.selectedHistoryOutput = outputDir;
+        try {
+          const payload = await apiJson("GET", `/api/run-info?output_dir=${encodeURIComponent(outputDir)}`);
+          appState.historySnapshot = payload.data || null;
+          ensureSelection("history", appState.historySnapshot?.jobs || []);
+          renderHistory();
+          renderOverview();
+          if (switchView) {
+            showView("history");
+          }
+        } catch (error) {
+          setBanner(String(error.message || error), "error");
         }
-      });
+      }
+
+      function maybeNotifyTerminal(snapshot) {
+        if (!appState.notificationsEnabled || !snapshot) {
+          return;
+        }
+        if (!["complete", "interrupted", "cancelled", "fail_fast", "max_failures"].includes(snapshot.status)) {
+          return;
+        }
+        const notificationKey = `${snapshot.output_dir}:${snapshot.status}:${snapshot.summary.failed}`;
+        if (appState.lastTerminalNotificationKey === notificationKey) {
+          return;
+        }
+        appState.lastTerminalNotificationKey = notificationKey;
+        if ("Notification" in window && Notification.permission === "granted") {
+          new Notification("Rheon regression updated", {
+            body: `${snapshot.status}: ${snapshot.summary.failed} failed out of ${snapshot.summary.total}`,
+          });
+        }
+      }
+
+      function attachIsAllowed() {
+        if (isLiveActiveSession()) {
+          setBanner("A live run is active. Stop or let it finish before attaching a different output.", "warn");
+          return false;
+        }
+        return true;
+      }
+
+      async function attachOutput(outputDir) {
+        if (!outputDir) {
+          throw new Error("output directory is required");
+        }
+        if (!attachIsAllowed()) {
+          return;
+        }
+        await apiJson("POST", "/api/attach", { output_dir: outputDir });
+        await refreshState();
+        await refreshRuns();
+        showView("monitor");
+        setBanner(`Attached ${pathTail(outputDir)}`, "success");
+      }
+
+      async function handleStartRun() {
+        const payload = buildFormConfig();
+        if (!payload.tests.length) {
+          throw new Error("Add at least one test row.");
+        }
+        await apiJson("POST", "/api/run", payload);
+        await refreshState();
+        await refreshRuns();
+        showView("monitor");
+        setBanner("Regression started.", "success");
+      }
+
+      async function handleExportYaml() {
+        const payload = buildFormConfig();
+        const response = await apiJson("POST", "/api/export", payload);
+        elements.exportYamlOutput.value = response.yaml || "";
+        setBanner("YAML generated.", "info");
+      }
+
+      async function handleImportYaml() {
+        const yaml = document.getElementById("importYamlInput").value.trim();
+        if (!yaml) {
+          throw new Error("Paste YAML before importing.");
+        }
+        const response = await apiJson("POST", "/api/import", { yaml });
+        applyConfigToForm(response.data?.regression || response.data || {});
+        showView("compose");
+        setBanner("YAML loaded into the composer.", "success");
+      }
+
+      async function handleUseTemplateFromOutput(outputDir) {
+        const existing = appState.recentRuns.find((run) => run.output_dir === outputDir);
+        if (existing?.config) {
+          applyConfigToForm(existing.config);
+          showView("compose");
+          setBanner(`Loaded template from ${existing.name}.`, "success");
+          return;
+        }
+        await loadRunDetail(outputDir, false);
+        if (appState.historySnapshot?.config) {
+          applyConfigToForm(appState.historySnapshot.config);
+          showView("compose");
+          setBanner(`Loaded template from ${pathTail(outputDir)}.`, "success");
+          return;
+        }
+        throw new Error("No reusable config was recorded for that run.");
+      }
+
+      function bindNavigation() {
+        elements.navButtons.forEach((button) => {
+          button.addEventListener("click", () => showView(button.dataset.view));
+        });
+      }
+
+      function bindStaticActions() {
+        elements.monitorSceneButtons.forEach((button) => {
+          button.addEventListener("click", () => {
+            showMonitorScene(button.dataset.monitorScene);
+            if (appState.view === "monitor") {
+              renderMonitor();
+            }
+          });
+        });
+        document.getElementById("sidebarComposeBtn").addEventListener("click", () => showView("compose"));
+        document.getElementById("sidebarMonitorBtn").addEventListener("click", () => showView("monitor"));
+        document.getElementById("sidebarAttachLatestBtn").addEventListener("click", async () => {
+          try {
+            await attachOutput("latest");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("overviewComposeBtn").addEventListener("click", () => showView("compose"));
+        document.getElementById("overviewMonitorBtn").addEventListener("click", () => showView("monitor"));
+        document.getElementById("overviewAttachLatestBtn").addEventListener("click", async () => {
+          try {
+            await attachOutput("latest");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("refreshRunsBtn").addEventListener("click", async () => {
+          await refreshRuns();
+          setBanner("Run archive refreshed.", "info");
+        });
+        document.getElementById("composeResetBtn").addEventListener("click", () => {
+          resetComposer();
+          setBanner("Composer reset.", "info");
+        });
+        document.getElementById("composeUseAttachedBtn").addEventListener("click", () => {
+          if (!appState.currentState?.config) {
+            setBanner("No attached run config is available to reuse.", "warn");
+            return;
+          }
+          applyConfigToForm(appState.currentState.config);
+          setBanner("Attached run loaded into the composer.", "success");
+        });
+        document.getElementById("startRunBtn").addEventListener("click", async () => {
+          try {
+            await handleStartRun();
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("addTestBtn").addEventListener("click", () => {
+          addTestRow();
+          renderComposeSummary();
+        });
+        document.getElementById("attachBtn").addEventListener("click", async () => {
+          try {
+            await attachOutput(document.getElementById("attachOutputInput").value.trim());
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("importYamlBtn").addEventListener("click", async () => {
+          try {
+            await handleImportYaml();
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("exportYamlBtn").addEventListener("click", async () => {
+          try {
+            await handleExportYaml();
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("notifyEnableBtn").addEventListener("click", async () => {
+          if (!("Notification" in window)) {
+            setBanner("Notifications are not supported in this browser.", "warn");
+            return;
+          }
+          const permission = await Notification.requestPermission();
+          appState.notificationsEnabled = permission === "granted";
+          writeStorage("rheonDeckNotifications", String(appState.notificationsEnabled));
+          setBanner(`Notification permission: ${permission}`, permission === "granted" ? "success" : "warn");
+        });
+        document.getElementById("pauseBtn").addEventListener("click", async () => {
+          try {
+            await apiJson("POST", "/api/pause");
+            await refreshState();
+            setBanner("Pause requested.", "info");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("resumeBtn").addEventListener("click", async () => {
+          try {
+            await apiJson("POST", "/api/resume");
+            await refreshState();
+            setBanner("Resume requested.", "info");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("cancelBtn").addEventListener("click", async () => {
+          try {
+            await apiJson("POST", "/api/cancel");
+            await refreshState();
+            setBanner("Cancel requested.", "warn");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("setParallelismBtn").addEventListener("click", async () => {
+          try {
+            const parallelism = parseInt(elements.monitorParallelismInput.value || "0", 10);
+            if (!Number.isFinite(parallelism) || parallelism < 1) {
+              throw new Error("Parallelism must be at least 1.");
+            }
+            await apiJson("POST", "/api/set-parallelism", { parallelism });
+            await refreshState();
+            setBanner(`Parallelism set to ${parallelism}.`, "success");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("rerunFailedBtn").addEventListener("click", async () => {
+          try {
+            await apiJson("POST", "/api/rerun-failed");
+            await refreshState();
+            await refreshRuns();
+            showView("monitor");
+            setBanner("Rerun of failed jobs started.", "success");
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("historyAttachBtn").addEventListener("click", async () => {
+          try {
+            if (!appState.selectedHistoryOutput) {
+              throw new Error("Select a run first.");
+            }
+            await attachOutput(appState.selectedHistoryOutput);
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("historyTemplateBtn").addEventListener("click", async () => {
+          try {
+            if (!appState.selectedHistoryOutput) {
+              throw new Error("Select a run first.");
+            }
+            await handleUseTemplateFromOutput(appState.selectedHistoryOutput);
+          } catch (error) {
+            setBanner(String(error.message || error), "error");
+          }
+        });
+        document.getElementById("historyRefreshBtn").addEventListener("click", async () => {
+          if (!appState.selectedHistoryOutput) {
+            setBanner("Select a run first.", "warn");
+            return;
+          }
+          await loadRunDetail(appState.selectedHistoryOutput, false);
+          setBanner("Run detail refreshed.", "info");
+        });
+        document.getElementById("monitorCopyLogBtn").addEventListener("click", async () => {
+          await copyLog("monitor");
+        });
+        document.getElementById("monitorReloadLogBtn").addEventListener("click", async () => {
+          const snapshot = normalizedSessionSnapshot(appState.currentState);
+          const selected = findJob(snapshot, appState.selections.monitor, "monitor");
+          if (!snapshot?.output_dir || !selected) {
+            setBanner("Select a job first.", "warn");
+            return;
+          }
+          await fetchLog("monitor", snapshot.output_dir, selected.index, true);
+        });
+        document.getElementById("historyCopyLogBtn").addEventListener("click", async () => {
+          await copyLog("history");
+        });
+        document.getElementById("historyReloadLogBtn").addEventListener("click", async () => {
+          const selected = findJob(appState.historySnapshot, appState.selections.history, "history");
+          if (!appState.historySnapshot?.output_dir || !selected) {
+            setBanner("Select a job first.", "warn");
+            return;
+          }
+          await fetchLog("history", appState.historySnapshot.output_dir, selected.index, true);
+        });
+      }
+
+      function bindDynamicEvents() {
+        elements.testsTable.addEventListener("click", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) {
+            return;
+          }
+          if (target.dataset.action === "remove-test") {
+            target.closest(".matrix-row")?.remove();
+            renderComposeSummary();
+          }
+        });
+
+        document.addEventListener("input", (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) {
+            return;
+          }
+          if (
+            target.closest('[data-view-panel="compose"]') ||
+            target.closest("#testsTable")
+          ) {
+            renderComposeSummary();
+          }
+          if (target.id === "monitorSearchInput") {
+            appState.search.monitor = target.value || "";
+            renderMonitor();
+          }
+          if (target.id === "historySearchInput") {
+            appState.search.history = target.value || "";
+            renderHistory();
+          }
+        });
+
+        document.addEventListener("click", async (event) => {
+          const target = event.target;
+          if (!(target instanceof HTMLElement)) {
+            return;
+          }
+
+          const filterButton = target.closest("[data-filter]");
+          if (filterButton instanceof HTMLElement) {
+            const scope = filterButton.parentElement?.dataset.filterScope;
+            const filter = filterButton.dataset.filter;
+            if (scope && filter) {
+              appState.filters[scope] = filter;
+              document
+                .querySelectorAll(`[data-filter-scope="${scope}"] .chip`)
+                .forEach((chip) => chip.classList.toggle("active", chip.dataset.filter === filter));
+              if (scope === "monitor") {
+                renderMonitor();
+              } else {
+                renderHistory();
+              }
+            }
+            return;
+          }
+
+          const runAction = target.closest("[data-action]");
+          if (runAction instanceof HTMLElement) {
+            const action = runAction.dataset.action;
+            const output = runAction.dataset.output;
+            if (action === "inspect-run" && output) {
+              await loadRunDetail(output, true);
+              return;
+            }
+            if (action === "template-run" && output) {
+              try {
+                await handleUseTemplateFromOutput(output);
+              } catch (error) {
+                setBanner(String(error.message || error), "error");
+              }
+              return;
+            }
+            if (action === "attach-run" && output) {
+              try {
+                await attachOutput(output);
+              } catch (error) {
+                setBanner(String(error.message || error), "error");
+              }
+              return;
+            }
+          }
+
+          const monitorRow = target.closest('tr[data-scope="monitor"]');
+          if (monitorRow instanceof HTMLElement) {
+            appState.selections.monitor = parseInt(monitorRow.dataset.index || "", 10);
+            renderMonitor();
+            return;
+          }
+
+          const historyRow = target.closest('tr[data-scope="history"]');
+          if (historyRow instanceof HTMLElement) {
+            appState.selections.history = parseInt(historyRow.dataset.index || "", 10);
+            renderHistory();
+          }
+        });
+      }
 
       async function attachFromQuery() {
         const params = new URLSearchParams(window.location.search);
-        const attachPath = params.get("attach");
-        if (!attachPath) {
+        const attach = params.get("attach");
+        if (!attach) {
           return;
         }
-        let decoded = "";
         try {
-          decoded = decodeURIComponent(attachPath.trim());
+          await attachOutput(decodeURIComponent(attach));
+          showView("monitor");
         } catch (error) {
-          setMessage("Invalid attach parameter");
-          return;
-        }
-        if (!decoded) {
-          return;
-        }
-        document.getElementById("attachOutputInput").value = decoded;
-        try {
-          await apiJson("POST", "/api/attach", {
-            output_dir: decoded,
-          });
-          showTab("status");
-          setMessage("Attached regression from URL");
-        } catch (error) {
-          setMessage(String(error.message || error));
+          setBanner(String(error.message || error), "error");
         }
       }
 
-      function addInitialTestRows() {
-        addTestRow("simple", 20);
+      function initialize() {
+        bindNavigation();
+        bindStaticActions();
+        bindDynamicEvents();
+        resetComposer();
+        showView(appState.view);
+        renderAll();
+        void refreshState();
+        void refreshRuns();
+        void attachFromQuery();
+        setInterval(() => {
+          void refreshState();
+        }, POLL_MS);
+        setInterval(() => {
+          void refreshRuns();
+        }, RUNS_REFRESH_MS);
       }
 
-      initTabs();
-      addInitialTestRows();
-      attachFromQuery();
-      refreshState();
-      setInterval(refreshState, POLL_MS);
+      initialize();
     </script>
   </body>
 </html>
