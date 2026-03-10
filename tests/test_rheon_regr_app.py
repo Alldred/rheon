@@ -110,6 +110,7 @@ def test_snapshot_from_state_falls_back_when_meta_is_missing(tmp_path: Path) -> 
     output_dir = tmp_path / "20260307_120000"
     output_dir.mkdir()
     state = {
+        "revision": 7,
         "created_at": "2026-03-07T12:00:00+00:00",
         "updated_at": "2026-03-07T12:03:00+00:00",
         "jobs": {
@@ -139,12 +140,14 @@ def test_snapshot_from_state_falls_back_when_meta_is_missing(tmp_path: Path) -> 
 
     assert snapshot["status"] == "complete"
     assert snapshot["status_reason"] == "complete"
+    assert snapshot["revision"] == 7
     assert snapshot["summary"]["total"] == 2
     assert snapshot["summary"]["passed"] == 1
     assert snapshot["summary"]["failed"] == 1
     assert snapshot["summary"]["timed_out"] == 1
     assert snapshot["updated_at"] == "2026-03-07T12:03:00+00:00"
     assert snapshot["config"] is None
+    assert snapshot["jobs"][0]["updated_at"] == "2026-03-07T12:01:00+00:00"
 
 
 def test_session_state_uses_meta_config_for_attached_runs(
@@ -158,7 +161,9 @@ def test_session_state_uses_meta_config_for_attached_runs(
             {
                 "created_at": "2026-03-07T13:00:00+00:00",
                 "updated_at": "2026-03-07T13:01:00+00:00",
+                "revision": 3,
                 "meta": {
+                    "revision": 3,
                     "status": "complete",
                     "status_reason": "complete",
                     "total": 4,
@@ -198,6 +203,7 @@ def test_session_state_uses_meta_config_for_attached_runs(
 
     session_state = APP._session_state()  # noqa: SLF001
 
+    assert session_state["revision"] == 3
     assert session_state["config"]["seed"] == 42
     assert session_state["config"]["jobs"] == 2
     assert session_state["config"]["waves"] is True
@@ -205,6 +211,36 @@ def test_session_state_uses_meta_config_for_attached_runs(
     assert session_state["summary"]["passed"] == 4
     assert len(session_state["planned_jobs"]) == 4
     assert session_state["planned_jobs"][0]["test_name"] == "simple"
+
+
+def test_snapshot_from_state_preserves_running_job_started_at(tmp_path: Path) -> None:
+    output_dir = tmp_path / "20260307_133000"
+    output_dir.mkdir()
+    snapshot = APP._snapshot_from_state(  # noqa: SLF001
+        output_dir,
+        {
+            "revision": 11,
+            "created_at": "2026-03-07T13:30:00+00:00",
+            "meta": {
+                "revision": 11,
+                "status": "running",
+                "status_reason": "running",
+                "running_jobs": [
+                    {
+                        "index": 2,
+                        "test_name": "simple",
+                        "seed": 77,
+                        "elapsed_seconds": 5.5,
+                        "started_at": "2026-03-07T13:30:05+00:00",
+                    }
+                ],
+            },
+            "jobs": {},
+        },
+    )
+
+    assert snapshot["revision"] == 11
+    assert snapshot["running_jobs"][0]["started_at"] == "2026-03-07T13:30:05+00:00"
 
 
 def test_list_regression_runs_returns_recent_snapshots(

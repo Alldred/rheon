@@ -84,6 +84,19 @@ Start the app:
 
 Then open the URL printed by the app in your browser.
 
+For fast UI iteration without rebuilding Electron each time, run the backend and
+renderer dev server together:
+
+```bash
+./scripts/rheon_regr_app --host 127.0.0.1 --port 8765
+cd electron
+npm run ui:dev
+```
+
+Then open `http://127.0.0.1:5173`. The Vite dev server proxies `/api/*` calls to
+`http://127.0.0.1:8765` by default. You can override this with
+`VITE_API_PROXY_TARGET`.
+
 Build a standalone artifact bundle (for packaging or distribution):
 
 ```bash

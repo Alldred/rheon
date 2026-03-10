@@ -219,8 +219,16 @@ def build_config_from_yaml(raw_yaml: str) -> RegressionConfig:
 
 
 def _collect_jobs_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
+    raw_jobs = state.get("jobs", {})
+    if isinstance(raw_jobs, dict):
+        job_items = raw_jobs.values()
+    elif isinstance(raw_jobs, list):
+        job_items = raw_jobs
+    else:
+        job_items = []
+
     jobs = []
-    for item in state.get("jobs", {}).values():
+    for item in job_items:
         if not isinstance(item, dict):
             continue
         try:
@@ -247,6 +255,8 @@ def _collect_jobs_from_state(state: dict[str, Any]) -> list[dict[str, Any]]:
                 "triage_pc": item.get("triage_pc"),
                 "triage_instr_hex": item.get("triage_instr_hex"),
                 "triage_instr_asm": item.get("triage_instr_asm"),
+                "triage_mismatched_fields": item.get("triage_mismatched_fields", []),
+                "updated_at": item.get("updated_at"),
             }
         )
     jobs.sort(key=lambda item: int(item["index"]))
@@ -391,6 +401,9 @@ def _snapshot_from_state(
         running_jobs = fallback["running_jobs"]
 
     return {
+        "revision": _int_or_default(
+            state_data.get("revision"), _int_or_default(meta.get("revision"), 0)
+        ),
         "output_dir": str(output_dir),
         "created_at": state_data.get("created_at"),
         "updated_at": meta.get("updated_at")
@@ -448,8 +461,16 @@ def _state_data_for_output_dir(output_dir: Path) -> dict[str, Any]:
 
 def _job_log_text(output_dir: Path, index: int) -> str:
     state_data = _state_data_for_output_dir(output_dir)
+    raw_jobs = state_data.get("jobs", {})
+    if isinstance(raw_jobs, dict):
+        job_items = raw_jobs.values()
+    elif isinstance(raw_jobs, list):
+        job_items = raw_jobs
+    else:
+        job_items = []
+
     matching = []
-    for item in state_data.get("jobs", {}).values():
+    for item in job_items:
         if not isinstance(item, dict):
             continue
         item_index = _try_int(item.get("index"))
@@ -472,27 +493,35 @@ def _list_regression_runs(limit: int | None = None) -> list[dict[str, Any]]:
     if not root.is_dir():
         return []
 
+    try:
+        candidates = list(root.iterdir())
+    except OSError:
+        return []
+
     runs = []
-    for item in root.iterdir():
+    for item in candidates:
         if item.name == "latest" or not item.is_dir():
             continue
         state_path = item / STATE_FILE
-        state_data = _safe_read_state(state_path)
-        if not isinstance(state_data, dict):
+        try:
+            state_data = _safe_read_state(state_path)
+            if not isinstance(state_data, dict):
+                continue
+            snapshot = _snapshot_from_state(item, state_data)
+            runs.append(
+                {
+                    "name": item.name,
+                    "output_dir": snapshot["output_dir"],
+                    "created_at": snapshot["created_at"],
+                    "updated_at": snapshot["updated_at"],
+                    "status": snapshot["status"],
+                    "status_reason": snapshot["status_reason"],
+                    "summary": snapshot["summary"],
+                    "config": snapshot["config"],
+                }
+            )
+        except Exception:  # pragma: no cover - defensive path
             continue
-        snapshot = _snapshot_from_state(item, state_data)
-        runs.append(
-            {
-                "name": item.name,
-                "output_dir": snapshot["output_dir"],
-                "created_at": snapshot["created_at"],
-                "updated_at": snapshot["updated_at"],
-                "status": snapshot["status"],
-                "status_reason": snapshot["status_reason"],
-                "summary": snapshot["summary"],
-                "config": snapshot["config"],
-            }
-        )
 
     runs.sort(
         key=lambda item: ((item.get("updated_at") or ""), item["name"]),
@@ -528,6 +557,7 @@ def _session_state() -> dict[str, Any]:
         if current_session is None:
             return {
                 "mode": "idle",
+                "revision": 0,
                 "status": "idle",
                 "status_reason": "idle",
                 "jobs": [],
@@ -578,6 +608,7 @@ def _session_state() -> dict[str, Any]:
 
     return {
         "mode": session.mode,
+        "revision": snapshot.get("revision", 0),
         "status": snapshot["status"],
         "status_reason": snapshot["status_reason"],
         "output_dir": str(session.output_dir),
@@ -595,8 +626,16 @@ def _session_state() -> dict[str, Any]:
 
 
 def _extract_failed_jobs(state: dict[str, Any]) -> list[tuple[str, int, int]]:
+    raw_jobs = state.get("jobs", {})
+    if isinstance(raw_jobs, dict):
+        job_items = raw_jobs.values()
+    elif isinstance(raw_jobs, list):
+        job_items = raw_jobs
+    else:
+        job_items = []
+
     failed_jobs: list[tuple[str, int, int]] = []
-    for item in state.get("jobs", {}).values():
+    for item in job_items:
         if not isinstance(item, dict):
             continue
         if item.get("status") != "failed":

@@ -357,6 +357,32 @@ def test_run_regression_writes_state_metadata(tmp_path: Path) -> None:
     assert meta.get("passed") == 2
     assert meta.get("failed") == 0
     assert isinstance(meta.get("elapsed_seconds"), float)
+    assert isinstance(state.get("revision"), int)
+    assert state["revision"] >= 1
+    assert meta.get("revision") == state.get("revision")
+    assert all("updated_at" in job for job in state.get("jobs", {}).values())
+
+
+def test_run_regression_status_payload_includes_running_job_started_at(
+    tmp_path: Path,
+) -> None:
+    callbacks: list[dict[str, object]] = []
+
+    def _callback(payload: dict[str, object]) -> None:
+        callbacks.append(payload)
+
+    config = _config(tmp_path, tests=[COMMON.TestSpec("simple", 1)], jobs=1, update=1)
+    COMMON.run_regression(
+        config,
+        console=_make_console(),
+        runner=_make_runner(sleep_sec=1.1),
+        status_callback=_callback,
+    )
+
+    running_payloads = [payload for payload in callbacks if payload.get("running_jobs")]
+    assert running_payloads
+    running_job = running_payloads[0]["running_jobs"][0]
+    assert running_job["started_at"]
 
 
 def test_report_json_includes_instruction_aware_triage(tmp_path: Path) -> None:

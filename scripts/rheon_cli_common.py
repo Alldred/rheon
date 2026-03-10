@@ -704,9 +704,11 @@ def _update_latest_shortcut(target_dir: Path) -> None:
 def _initial_state() -> dict[str, Any]:
     return {
         "version": 1,
+        "revision": 0,
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
         "meta": {
+            "revision": 0,
             "status": "initialized",
             "status_reason": None,
             "parallelism": 0,
@@ -740,6 +742,7 @@ def _load_state(state_path: Path) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise ConfigError(f"State file {state_path} is invalid")
     loaded.setdefault("version", 1)
+    loaded.setdefault("revision", 0)
     loaded.setdefault("created_at", _now_iso())
     loaded.setdefault("updated_at", _now_iso())
     loaded.setdefault("meta", {})
@@ -748,6 +751,7 @@ def _load_state(state_path: Path) -> dict[str, Any]:
     initial_meta = _initial_state()["meta"]
     for key, value in initial_meta.items():
         loaded["meta"].setdefault(key, value)
+    loaded["meta"]["revision"] = int(loaded.get("revision", 0) or 0)
     loaded.setdefault("jobs", {})
     if not isinstance(loaded["jobs"], dict):
         raise ConfigError(f"State file {state_path} has invalid jobs map")
@@ -755,6 +759,11 @@ def _load_state(state_path: Path) -> dict[str, Any]:
 
 
 def _save_state(state_path: Path, state: dict[str, Any]) -> None:
+    revision = int(state.get("revision", 0) or 0) + 1
+    state["revision"] = revision
+    meta = state.setdefault("meta", {})
+    if isinstance(meta, dict):
+        meta["revision"] = revision
     state["updated_at"] = _now_iso()
     _atomic_write_json(state_path, state)
 
@@ -1262,6 +1271,29 @@ def _running_job_entries(
     return rows
 
 
+def _running_job_payload_entries(
+    active_futures: dict[Future[JobResult], RegressionJob],
+    started_at: dict[Future[JobResult], float],
+    started_at_iso: dict[Future[JobResult], str],
+    now: float,
+) -> list[dict[str, Any]]:
+    rows = []
+    for future, job in active_futures.items():
+        started = started_at.get(future, now)
+        elapsed = max(now - started, 0.0)
+        rows.append(
+            {
+                "index": job.index,
+                "test_name": job.test_name,
+                "seed": job.seed,
+                "elapsed_seconds": elapsed,
+                "started_at": started_at_iso.get(future),
+            }
+        )
+    rows.sort(key=lambda item: (-float(item["elapsed_seconds"]), int(item["index"])))
+    return rows
+
+
 def _write_report(
     config: RegressionConfig,
     outcome: RegressionOutcome,
@@ -1431,14 +1463,16 @@ def run_regression(
 
     active_futures: dict[Future[JobResult], RegressionJob] = {}
     active_started_at: dict[Future[JobResult], float] = {}
+    active_started_at_iso: dict[Future[JobResult], str] = {}
     cursor = 0
 
     def emit_status_payload(
         *, force: bool = False, status: str = "running"
     ) -> dict[str, Any]:
-        running_rows = _running_job_entries(
+        running_payload = _running_job_payload_entries(
             active_futures,
             active_started_at,
+            active_started_at_iso,
             monotonic(),
         )
         return {
@@ -1455,15 +1489,7 @@ def run_regression(
             "fail_fast_triggered": fail_fast_triggered,
             "max_failures_triggered": max_failures_triggered,
             "running": running,
-            "running_jobs": [
-                {
-                    "index": job.index,
-                    "test_name": job.test_name,
-                    "seed": job.seed,
-                    "elapsed_seconds": elapsed,
-                }
-                for job, elapsed in running_rows
-            ],
+            "running_jobs": running_payload,
             "jobs": [
                 {
                     "index": result.job.index,
@@ -1504,11 +1530,13 @@ def run_regression(
                 "test_name": item["test_name"],
                 "seed": item["seed"],
                 "elapsed_seconds": item["elapsed_seconds"],
+                "started_at": item.get("started_at"),
             }
             for item in payload["running_jobs"]
         ]
         state["meta"].update(
             {
+                "revision": state.get("revision", 0),
                 "status": status,
                 "status_reason": status_reason,
                 "jobs_requested": config.jobs,
@@ -1568,6 +1596,7 @@ def run_regression(
         )
         active_futures[future] = job
         active_started_at[future] = monotonic()
+        active_started_at_iso[future] = _now_iso()
         return True
 
     def consume_completed(done: set[Future[JobResult]]) -> bool:
@@ -1578,6 +1607,7 @@ def run_regression(
             running -= 1
             active_futures.pop(future, None)
             active_started_at.pop(future, None)
+            active_started_at_iso.pop(future, None)
             try:
                 result = future.result()
             except Exception:
