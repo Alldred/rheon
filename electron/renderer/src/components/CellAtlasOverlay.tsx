@@ -5,7 +5,6 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildFailureClusters, normalizeStatus, statusTone } from "../lib/regression";
-import { buildCellAtlasTargets, cellAtlasPalette, type CellAtlasTarget } from "../lib/cellAtlas";
 import type { JobRecord, Summary } from "../types";
 
 interface CellAtlasOverlayProps {
@@ -17,191 +16,300 @@ interface CellAtlasOverlayProps {
   onClose: () => void;
 }
 
-interface SimNode extends CellAtlasTarget {
-  vx: number;
-  vy: number;
-  currentRadius: number;
-  targetX: number;
-  targetY: number;
-  targetRadius: number;
+interface DriftNode {
+  id: number;
+  label: string;
+  testName: string;
+  seed: number;
+  status: string;
+  phase: number;
+  speed: number;
+  orbitX: number;
+  orbitY: number;
+  wobble: number;
+  baseRadius: number;
+  centerX: number;
+  centerY: number;
+  x: number;
+  y: number;
+  trail: Array<{ x: number; y: number }>;
 }
 
 interface HoverState {
   x: number;
   y: number;
-  node: SimNode;
+  node: DriftNode;
 }
 
-function drawBlob(
+interface Star {
+  x: number;
+  y: number;
+  size: number;
+  twinkle: number;
+}
+
+interface StatusPalette {
+  core: string;
+  halo: string;
+  trail: string;
+  ring: string;
+  text: string;
+}
+
+function hashString(value: string): number {
+  let hash = 2166136261;
+  for (let index = 0; index < value.length; index += 1) {
+    hash ^= value.charCodeAt(index);
+    hash +=
+      (hash << 1) + (hash << 4) + (hash << 7) + (hash << 8) + (hash << 24);
+  }
+  return hash >>> 0;
+}
+
+function laneForStatus(status: string): number {
+  switch (normalizeStatus(status)) {
+    case "queued":
+      return 0;
+    case "running":
+      return 1;
+    case "passed":
+    case "complete":
+      return 2;
+    case "failed":
+    case "timeout":
+    case "cancelled":
+    case "interrupted":
+      return 3;
+    default:
+      return 1;
+  }
+}
+
+function paletteForStatus(status: string): StatusPalette {
+  switch (normalizeStatus(status)) {
+    case "running":
+      return {
+        core: "rgba(255, 221, 128, 0.98)",
+        halo: "rgba(255, 186, 76, 0.34)",
+        trail: "rgba(255, 202, 109, 0.34)",
+        ring: "rgba(255, 244, 202, 0.72)",
+        text: "#fff7dc",
+      };
+    case "passed":
+    case "complete":
+      return {
+        core: "rgba(129, 245, 204, 0.96)",
+        halo: "rgba(86, 221, 176, 0.30)",
+        trail: "rgba(114, 234, 189, 0.28)",
+        ring: "rgba(210, 255, 240, 0.72)",
+        text: "#eafff6",
+      };
+    case "failed":
+    case "timeout":
+    case "cancelled":
+    case "interrupted":
+      return {
+        core: "rgba(255, 148, 129, 0.98)",
+        halo: "rgba(255, 112, 93, 0.36)",
+        trail: "rgba(255, 119, 98, 0.33)",
+        ring: "rgba(255, 218, 210, 0.74)",
+        text: "#fff1ed",
+      };
+    case "queued":
+    default:
+      return {
+        core: "rgba(162, 196, 226, 0.92)",
+        halo: "rgba(120, 166, 205, 0.25)",
+        trail: "rgba(124, 175, 219, 0.22)",
+        ring: "rgba(218, 234, 246, 0.68)",
+        text: "#edf7ff",
+      };
+  }
+}
+
+function buildStars(count: number): Star[] {
+  const stars: Star[] = [];
+  let seed = 0xdecafbad;
+  for (let index = 0; index < count; index += 1) {
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const x = (seed & 0xffff) / 0xffff;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const y = (seed & 0xffff) / 0xffff;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const twinkle = ((seed & 0xffff) / 0xffff) * Math.PI * 2;
+    seed = (seed * 1664525 + 1013904223) >>> 0;
+    const size = 0.4 + ((seed & 0xffff) / 0xffff) * 1.6;
+    stars.push({ x, y, size, twinkle });
+  }
+  return stars;
+}
+
+function buildDriftNodes(
+  jobs: JobRecord[],
+  width: number,
+  height: number,
+  previous: Map<number, DriftNode>,
+): Map<number, DriftNode> {
+  const bandLeft = width * 0.08;
+  const bandWidth = width * 0.84;
+  const bandTop = height * 0.16;
+  const bandHeight = height * 0.72;
+
+  const next = new Map<number, DriftNode>();
+
+  jobs.forEach((job, ordinal) => {
+    const key = `${job.test_name || "job"}-${job.index}-${job.seed}`;
+    const hash = hashString(key);
+    const lane = laneForStatus(job.status || "queued");
+    const laneBase = bandLeft + (lane / 3) * bandWidth;
+    const laneSpread = Math.max(56, bandWidth * 0.09);
+    const jitterX = (((hash >>> 3) & 0xffff) / 0xffff - 0.5) * laneSpread;
+    const jitterY = (((hash >>> 9) & 0xffff) / 0xffff - 0.5) * bandHeight * 0.8;
+    const centerX = laneBase + jitterX;
+    const centerY = bandTop + bandHeight * 0.5 + jitterY;
+    const motion = normalizeStatus(job.status) === "running" ? 1.45 : 1;
+    const radiusBoost = normalizeStatus(job.status) === "running" ? 2.5 : 0;
+
+    const existing = previous.get(job.index);
+
+    next.set(job.index, {
+      id: job.index,
+      label: String(job.index),
+      testName: String(job.test_name || "job"),
+      seed: job.seed,
+      status: normalizeStatus(job.status),
+      phase: (((hash >>> 1) & 0xffff) / 0xffff) * Math.PI * 2,
+      speed: (0.14 + (((hash >>> 16) & 0xff) / 0xff) * 0.52) * motion,
+      orbitX: 26 + (((hash >>> 8) & 0xff) / 0xff) * 150,
+      orbitY: 16 + (((hash >>> 24) & 0xff) / 0xff) * 82,
+      wobble: 8 + (((hash >>> 4) & 0xff) / 0xff) * 14,
+      baseRadius: 5 + (((hash >>> 12) & 0xff) / 0xff) * 7 + radiusBoost,
+      centerX,
+      centerY,
+      x: existing?.x ?? centerX + (ordinal % 6) * 8,
+      y: existing?.y ?? centerY + (ordinal % 4) * 8,
+      trail: existing?.trail ?? [],
+    });
+  });
+
+  return next;
+}
+
+function drawBackdrop(
   context: CanvasRenderingContext2D,
-  node: SimNode,
-  frameMs: number,
-  selected: boolean,
+  width: number,
+  height: number,
+  time: number,
+  stars: Star[],
 ) {
-  const palette = cellAtlasPalette(node.status);
-  const points = 18;
-  const wobbleBase = normalizeStatus(node.status) === "running" ? 0.13 : 0.08;
-  const wobble = node.currentRadius * wobbleBase;
+  const bg = context.createLinearGradient(0, 0, width, height);
+  bg.addColorStop(0, "rgba(2, 8, 20, 0.98)");
+  bg.addColorStop(0.52, "rgba(5, 22, 48, 0.98)");
+  bg.addColorStop(1, "rgba(2, 12, 30, 0.99)");
+  context.fillStyle = bg;
+  context.fillRect(0, 0, width, height);
 
-  const gradient = context.createRadialGradient(
-    node.x - node.currentRadius * 0.3,
-    node.y - node.currentRadius * 0.36,
-    2,
-    node.x,
-    node.y,
-    node.currentRadius * 1.22,
+  const hazeA = context.createRadialGradient(
+    width * 0.22,
+    height * 0.36,
+    12,
+    width * 0.22,
+    height * 0.36,
+    width * 0.5,
   );
-  gradient.addColorStop(0, palette.fillA);
-  gradient.addColorStop(1, palette.fillB);
+  hazeA.addColorStop(0, "rgba(91, 129, 214, 0.23)");
+  hazeA.addColorStop(1, "rgba(91, 129, 214, 0)");
+  context.fillStyle = hazeA;
+  context.fillRect(0, 0, width, height);
 
-  context.beginPath();
-  for (let point = 0; point <= points; point += 1) {
-    const t = (point / points) * Math.PI * 2;
-    const offset =
-      Math.sin(t * 2 + frameMs * 0.0014 + node.phase) * wobble * 0.45 +
-      Math.sin(t * 5 - frameMs * 0.001 + node.phase * 0.8) * wobble * 0.3 +
-      Math.cos(t * 3 + node.phase * 1.5) * wobble * 0.2;
-    const radius = node.currentRadius + offset;
-    const x = node.x + Math.cos(t) * radius;
-    const y = node.y + Math.sin(t) * radius;
-    if (point === 0) {
-      context.moveTo(x, y);
-    } else {
-      context.lineTo(x, y);
+  const hazeB = context.createRadialGradient(
+    width * 0.78,
+    height * 0.62,
+    12,
+    width * 0.78,
+    height * 0.62,
+    width * 0.46,
+  );
+  hazeB.addColorStop(0, "rgba(43, 178, 173, 0.18)");
+  hazeB.addColorStop(1, "rgba(43, 178, 173, 0)");
+  context.fillStyle = hazeB;
+  context.fillRect(0, 0, width, height);
+
+  stars.forEach((star) => {
+    const flicker = 0.42 + (Math.sin(time * 0.0006 + star.twinkle) + 1) * 0.34;
+    context.globalAlpha = flicker;
+    context.fillStyle = "#f6fcff";
+    context.beginPath();
+    context.arc(star.x * width, star.y * height, star.size, 0, Math.PI * 2);
+    context.fill();
+  });
+  context.globalAlpha = 1;
+
+  context.strokeStyle = "rgba(194, 217, 238, 0.09)";
+  context.lineWidth = 1;
+  [0.12, 0.38, 0.62, 0.88].forEach((position) => {
+    const x = width * position;
+    context.beginPath();
+    context.moveTo(x, 24);
+    context.lineTo(x, height - 24);
+    context.stroke();
+  });
+
+  context.fillStyle = "rgba(208, 223, 237, 0.6)";
+  context.font = '600 11px "Avenir Next", "Trebuchet MS", sans-serif';
+  context.textAlign = "center";
+  context.fillText("queued", width * 0.12, 22);
+  context.fillText("running", width * 0.38, 22);
+  context.fillText("passed", width * 0.62, 22);
+  context.fillText("failed", width * 0.88, 22);
+}
+
+function drawNode(
+  context: CanvasRenderingContext2D,
+  node: DriftNode,
+  selected: boolean,
+  time: number,
+) {
+  const palette = paletteForStatus(node.status);
+
+  if (node.trail.length >= 2) {
+    context.lineWidth = selected ? 2.1 : 1.4;
+    for (let index = 1; index < node.trail.length; index += 1) {
+      const prev = node.trail[index - 1];
+      const curr = node.trail[index];
+      const alpha = (index / node.trail.length) * (selected ? 0.52 : 0.34);
+      context.strokeStyle = palette.trail.replace(/0\.[0-9]+\)/, `${alpha.toFixed(2)})`);
+      context.beginPath();
+      context.moveTo(prev.x, prev.y);
+      context.lineTo(curr.x, curr.y);
+      context.stroke();
     }
   }
-  context.closePath();
 
-  context.shadowColor = palette.glow;
-  context.shadowBlur = selected ? 24 : 18;
-  context.fillStyle = gradient;
+  const pulse = 1 + Math.sin(time * 0.004 + node.phase * 1.7) * 0.14;
+  const radius = node.baseRadius * (selected ? 1.26 : 1) * pulse;
+
+  context.shadowColor = palette.halo;
+  context.shadowBlur = selected ? 28 : 18;
+  context.fillStyle = palette.core;
+  context.beginPath();
+  context.arc(node.x, node.y, radius, 0, Math.PI * 2);
   context.fill();
   context.shadowBlur = 0;
-  context.lineWidth = selected ? 2.6 : 1.4;
-  context.strokeStyle = selected ? "#fff4ea" : palette.outline;
+
+  context.strokeStyle = palette.ring;
+  context.lineWidth = selected ? 2.4 : 1.2;
+  context.beginPath();
+  context.arc(node.x, node.y, radius + (selected ? 4 : 2), 0, Math.PI * 2);
   context.stroke();
 
-  if (node.currentRadius >= 16) {
+  if (selected || radius > 8.5) {
     context.fillStyle = palette.text;
-    context.font = `600 ${Math.max(11, Math.floor(node.currentRadius * 0.52))}px "SF Pro Display", sans-serif`;
+    context.font = '600 11px "Avenir Next", "Trebuchet MS", sans-serif';
     context.textAlign = "center";
     context.textBaseline = "middle";
     context.fillText(node.label, node.x, node.y);
   }
-}
-
-function layoutSimNodes(
-  nodes: SimNode[],
-  width: number,
-  height: number,
-  frameMs: number,
-) {
-  const iterations = 3;
-  const left = 46;
-  const right = Math.max(width - 46, 80);
-  const top = 42;
-  const bottom = Math.max(height - 42, 80);
-
-  for (const node of nodes) {
-    const spring = normalizeStatus(node.status) === "running" ? 0.03 : 0.02;
-    const driftX = Math.sin(frameMs * 0.0008 + node.phase) * 0.08;
-    const driftY = Math.cos(frameMs * 0.001 + node.phase * 1.2) * 0.08;
-    node.vx = (node.vx + (node.targetX - node.x) * spring + driftX) * 0.9;
-    node.vy = (node.vy + (node.targetY - node.y) * spring + driftY) * 0.9;
-    node.x += node.vx;
-    node.y += node.vy;
-    node.currentRadius += (node.targetRadius - node.currentRadius) * 0.12;
-  }
-
-  for (let step = 0; step < iterations; step += 1) {
-    for (let index = 0; index < nodes.length; index += 1) {
-      for (let peerIndex = index + 1; peerIndex < nodes.length; peerIndex += 1) {
-        const leftNode = nodes[index];
-        const rightNode = nodes[peerIndex];
-        const dx = rightNode.x - leftNode.x;
-        const dy = rightNode.y - leftNode.y;
-        const distance = Math.hypot(dx, dy) || 0.001;
-        const minDistance = leftNode.currentRadius + rightNode.currentRadius - 3;
-        if (distance >= minDistance) {
-          continue;
-        }
-        const overlap = (minDistance - distance) * 0.5;
-        const nx = dx / distance;
-        const ny = dy / distance;
-        leftNode.x -= nx * overlap;
-        leftNode.y -= ny * overlap;
-        rightNode.x += nx * overlap;
-        rightNode.y += ny * overlap;
-      }
-    }
-  }
-
-  for (const node of nodes) {
-    node.x = Math.min(right - node.currentRadius, Math.max(left + node.currentRadius, node.x));
-    node.y = Math.min(bottom - node.currentRadius, Math.max(top + node.currentRadius, node.y));
-  }
-}
-
-function drawAtlas(
-  canvas: HTMLCanvasElement,
-  nodes: SimNode[],
-  selectedJobIndex: number | null,
-  frameMs: number,
-) {
-  const context = canvas.getContext("2d");
-  if (!context) {
-    return;
-  }
-  const ratio = window.devicePixelRatio || 1;
-  const width = canvas.width;
-  const height = canvas.height;
-  context.setTransform(1, 0, 0, 1, 0, 0);
-  context.clearRect(0, 0, width, height);
-  context.scale(ratio, ratio);
-  const cssWidth = width / ratio;
-  const cssHeight = height / ratio;
-
-  const bg = context.createLinearGradient(0, 0, cssWidth, cssHeight);
-  bg.addColorStop(0, "rgba(5, 18, 34, 0.98)");
-  bg.addColorStop(0.44, "rgba(8, 31, 58, 0.98)");
-  bg.addColorStop(1, "rgba(7, 22, 42, 0.98)");
-  context.fillStyle = bg;
-  context.fillRect(0, 0, cssWidth, cssHeight);
-
-  const zoneWashes = [
-    { x: cssWidth * 0.12, color: "rgba(141, 168, 186, 0.10)", label: "queued bank" },
-    { x: cssWidth * 0.38, color: "rgba(255, 210, 92, 0.08)", label: "running current" },
-    { x: cssWidth * 0.66, color: "rgba(72, 220, 180, 0.08)", label: "passed wash" },
-    { x: cssWidth * 0.86, color: "rgba(255, 111, 90, 0.10)", label: "failure colonies" },
-  ];
-  zoneWashes.forEach((zone) => {
-    const wash = context.createRadialGradient(zone.x, cssHeight * 0.42, 24, zone.x, cssHeight * 0.42, cssHeight * 0.66);
-    wash.addColorStop(0, zone.color);
-    wash.addColorStop(1, "rgba(0, 0, 0, 0)");
-    context.fillStyle = wash;
-    context.fillRect(0, 0, cssWidth, cssHeight);
-  });
-
-  context.strokeStyle = "rgba(162, 199, 221, 0.08)";
-  context.lineWidth = 1;
-  [0.2, 0.5, 0.8].forEach((fraction) => {
-    const x = cssWidth * fraction;
-    context.beginPath();
-    context.moveTo(x, 22);
-    context.lineTo(x, cssHeight - 22);
-    context.stroke();
-  });
-
-  context.fillStyle = "rgba(197, 216, 231, 0.72)";
-  context.font = '600 12px "SF Pro Display", sans-serif';
-  context.textAlign = "left";
-  zoneWashes.forEach((zone) => {
-    context.fillText(zone.label, zone.x - 34, 24);
-  });
-
-  nodes.forEach((node) => {
-    drawBlob(context, node, frameMs, node.id === selectedJobIndex);
-  });
 }
 
 export function CellAtlasOverlay({
@@ -214,11 +322,16 @@ export function CellAtlasOverlay({
 }: CellAtlasOverlayProps) {
   const overlayRef = useRef<HTMLDivElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const nodesRef = useRef<Map<number, SimNode>>(new Map());
-  const latestNodesRef = useRef<SimNode[]>([]);
+  const nodesRef = useRef<Map<number, DriftNode>>(new Map());
+  const latestNodesRef = useRef<DriftNode[]>([]);
   const animationRef = useRef<number | null>(null);
   const [hover, setHover] = useState<HoverState | null>(null);
   const failureClusters = useMemo(() => buildFailureClusters(jobs), [jobs]);
+  const stars = useMemo(() => buildStars(170), []);
+  const runningCount = useMemo(
+    () => jobs.filter((job) => normalizeStatus(job.status) === "running").length,
+    [jobs],
+  );
 
   useEffect(() => {
     const handler = (event: KeyboardEvent) => {
@@ -237,7 +350,7 @@ export function CellAtlasOverlay({
     }
     requestAnimationFrame(() => {
       overlay.requestFullscreen?.().catch(() => {
-        // Fallback to the fixed overlay if the browser blocks fullscreen.
+        // Keep overlay active when fullscreen API is denied.
       });
     });
   }, []);
@@ -275,28 +388,50 @@ export function CellAtlasOverlay({
       return undefined;
     }
 
-    const render = (frameMs: number) => {
-      const targets = buildCellAtlasTargets(jobs, canvas.clientWidth, canvas.clientHeight);
-      const nextMap = new Map<number, SimNode>();
-      targets.forEach((target, ordinal) => {
-        const existing = nodesRef.current.get(target.id);
-        nextMap.set(target.id, {
-          ...target,
-          targetX: target.x,
-          targetY: target.y,
-          targetRadius: target.radius,
-          x: existing?.x ?? 42 + (ordinal % 6) * 18,
-          y: existing?.y ?? 90 + ordinal * 12,
-          vx: existing?.vx ?? 0,
-          vy: existing?.vy ?? 0,
-          currentRadius: existing?.currentRadius ?? 8,
-        });
+    const render = (time: number) => {
+      const context = canvas.getContext("2d");
+      if (!context) {
+        animationRef.current = window.requestAnimationFrame(render);
+        return;
+      }
+
+      const ratio = window.devicePixelRatio || 1;
+      const width = canvas.width / ratio;
+      const height = canvas.height / ratio;
+
+      const nextNodes = buildDriftNodes(jobs, width, height, nodesRef.current);
+      nodesRef.current = nextNodes;
+      const nodes = [...nextNodes.values()];
+
+      context.setTransform(1, 0, 0, 1, 0, 0);
+      context.clearRect(0, 0, canvas.width, canvas.height);
+      context.scale(ratio, ratio);
+
+      drawBackdrop(context, width, height, time, stars);
+
+      nodes.forEach((node) => {
+        const angle = time * 0.001 * node.speed + node.phase;
+        const driftX = Math.sin(time * 0.00043 + node.phase * 2.4) * node.wobble;
+        const driftY = Math.cos(time * 0.00037 + node.phase * 1.8) * node.wobble * 0.8;
+        node.x = node.centerX + Math.cos(angle) * node.orbitX + driftX;
+        node.y = node.centerY + Math.sin(angle * 0.86) * node.orbitY + driftY;
+
+        node.x = Math.min(width - 20, Math.max(20, node.x));
+        node.y = Math.min(height - 20, Math.max(20, node.y));
+
+        node.trail.push({ x: node.x, y: node.y });
+        const maxTrail = normalizeStatus(node.status) === "running" ? 20 : 14;
+        while (node.trail.length > maxTrail) {
+          node.trail.shift();
+        }
       });
-      nodesRef.current = nextMap;
-      const nodes = [...nextMap.values()];
-      layoutSimNodes(nodes, canvas.clientWidth, canvas.clientHeight, frameMs);
+
       latestNodesRef.current = nodes;
-      drawAtlas(canvas, nodes, selectedJobIndex, frameMs);
+
+      nodes.forEach((node) => {
+        drawNode(context, node, node.id === selectedJobIndex, time);
+      });
+
       animationRef.current = window.requestAnimationFrame(render);
     };
 
@@ -306,14 +441,15 @@ export function CellAtlasOverlay({
         window.cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [jobs, selectedJobIndex]);
+  }, [jobs, selectedJobIndex, stars]);
 
   const hitTest = (x: number, y: number) => {
     for (let index = latestNodesRef.current.length - 1; index >= 0; index -= 1) {
       const node = latestNodesRef.current[index];
       const dx = x - node.x;
       const dy = y - node.y;
-      if (Math.hypot(dx, dy) <= node.currentRadius + 4) {
+      const radius = node.baseRadius + 9;
+      if (Math.hypot(dx, dy) <= radius) {
         return node;
       }
     }
@@ -347,15 +483,10 @@ export function CellAtlasOverlay({
   };
 
   return (
-    <div ref={overlayRef} className="atlas-overlay" role="dialog" aria-modal="true">
+    <div ref={overlayRef} className="atlas-overlay atlas-overlay--screensaver" role="dialog" aria-modal="true">
       <div className="atlas-overlay__chrome">
         <div className="atlas-overlay__title">
-          <span className="eyebrow">Fullscreen Lens</span>
-          <h2>Cell Atlas</h2>
-          <p>
-            Queued jobs gather in the bank, running jobs swell in the current,
-            passed jobs settle into the wash, and failures cluster by triage key.
-          </p>
+          <h2>Night Drift</h2>
         </div>
 
         <div className="atlas-overlay__actions">
@@ -374,7 +505,7 @@ export function CellAtlasOverlay({
           <span>planned</span>
         </div>
         <div className="atlas-stat">
-          <strong>{summary.running}</strong>
+          <strong>{runningCount}</strong>
           <span>running</span>
         </div>
         <div className="atlas-stat">

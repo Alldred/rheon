@@ -1716,6 +1716,13 @@ code {
     linear-gradient(135deg, rgba(3, 12, 23, 0.98), rgba(6, 22, 40, 0.98));
 }
 
+.atlas-overlay--screensaver {
+  background:
+    radial-gradient(circle at 12% 18%, rgba(116, 140, 226, 0.2), transparent 26%),
+    radial-gradient(circle at 86% 74%, rgba(56, 174, 171, 0.16), transparent 26%),
+    linear-gradient(130deg, rgba(1, 6, 16, 0.98), rgba(3, 14, 33, 0.99));
+}
+
 .atlas-overlay__chrome,
 .atlas-overlay__hud,
 .atlas-overlay__legend {
@@ -1732,8 +1739,10 @@ code {
 
 .atlas-overlay__title h2 {
   margin: 6px 0 4px;
-  font-family: "Iowan Old Style", "Georgia", serif;
+  font-family: "Avenir Next Condensed", "Gill Sans", "Trebuchet MS", sans-serif;
   font-size: 34px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
 }
 
 .atlas-overlay__title p {
@@ -1760,8 +1769,10 @@ code {
   min-width: 110px;
   padding: 12px 14px;
   border-radius: 18px;
-  background: rgba(5, 18, 32, 0.86);
-  border: 1px solid rgba(173, 207, 221, 0.14);
+  background:
+    linear-gradient(180deg, rgba(9, 27, 50, 0.84), rgba(4, 16, 30, 0.9));
+  border: 1px solid rgba(173, 207, 221, 0.2);
+  backdrop-filter: blur(5px);
 }
 
 .atlas-stat strong {
@@ -1786,9 +1797,11 @@ code {
   min-height: 0;
   border-radius: 28px;
   overflow: hidden;
-  border: 1px solid rgba(173, 207, 221, 0.16);
+  border: 1px solid rgba(173, 207, 221, 0.24);
   background: rgba(4, 17, 31, 0.96);
-  box-shadow: 0 32px 80px rgba(0, 0, 0, 0.3);
+  box-shadow:
+    0 32px 80px rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgba(186, 220, 255, 0.08);
 }
 
 .atlas-overlay__canvas {

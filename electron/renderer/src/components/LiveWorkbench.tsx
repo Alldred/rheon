@@ -72,7 +72,7 @@ export function LiveWorkbench({
           </div>
           <div className="toolbar toolbar--tight">
             <button type="button" className="btn btn--secondary" onClick={onOpenAtlas}>
-              Open Cell Atlas Fullscreen
+              Open Night Drift
             </button>
             <span className={`status-dot status-dot--${statusTone(session?.status)}`}>
               {session?.status || "idle"}
