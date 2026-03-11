@@ -17,6 +17,7 @@ import {
   cancelRun,
   exportYaml,
   getJobLog,
+  getTestSuites,
   getRunInfo,
   getRuns,
   getSessionState,
@@ -210,6 +211,12 @@ export default function App() {
     queryKey: ["runs"],
     queryFn: getRuns,
     refetchInterval: 12000,
+  });
+
+  const testSuitesQuery = useQuery({
+    queryKey: ["test-suites"],
+    queryFn: getTestSuites,
+    staleTime: 300_000,
   });
 
   const archiveSnapshotQuery = useQuery({
@@ -638,7 +645,7 @@ export default function App() {
 
       <div className="app-tabs" role="tablist" aria-label="Deck sections">
         {([
-          ["run", "Run Setup"],
+          ["run", "Setup"],
           ["monitor", "Monitor"],
           ["archive", "Archive"],
         ] as const).map(([tab, label]) => (
@@ -680,6 +687,7 @@ export default function App() {
                 notificationPermission={notificationPermission}
                 onChangeTab={setDrawerTab}
                 onChangeField={updateDraftField}
+                availableTestNames={testSuitesQuery.data ?? []}
                 onAddTestRow={() =>
                   setDraft((current) => ({
                     ...current,

@@ -90,4 +90,40 @@ describe("BottomDrawer", () => {
       screen.queryByText(/available but not yet enabled/i),
     ).not.toBeInTheDocument();
   });
+
+  it("renders suggested test names for name autocomplete", () => {
+    const { container } = render(
+      <BottomDrawer
+        open
+        tab="advanced"
+        draft={draft}
+        availableTestNames={["simple", "ldst", "hazard"]}
+        selectedArchiveRun={null}
+        archiveSnapshot={undefined}
+        archiveJobs={[]}
+        selectedArchiveJobIndex={null}
+        yamlImport=""
+        yamlExport=""
+        notificationPermission="granted"
+        onChangeTab={vi.fn()}
+        onChangeField={vi.fn()}
+        onAddTestRow={vi.fn()}
+        onRemoveTestRow={vi.fn()}
+        onUpdateTestRow={vi.fn()}
+        onSelectArchiveJob={vi.fn()}
+        onAttachArchive={vi.fn()}
+        onUseArchiveTemplate={vi.fn()}
+        onImportYamlChange={vi.fn()}
+        onImportYaml={vi.fn()}
+        onExportYaml={vi.fn()}
+        onRequestNotifications={vi.fn()}
+      />,
+    );
+
+    const options = container.querySelectorAll("option");
+    expect(options).toHaveLength(3);
+    expect(options[0]).toHaveAttribute("value", "simple");
+    expect(options[1]).toHaveAttribute("value", "ldst");
+    expect(options[2]).toHaveAttribute("value", "hazard");
+  });
 });

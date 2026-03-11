@@ -7,6 +7,7 @@ from __future__ import annotations
 import importlib.util
 import json
 import sys
+import types
 from pathlib import Path
 
 import pytest
@@ -323,3 +324,17 @@ def test_job_log_text_reads_log_from_specific_output_dir(tmp_path: Path) -> None
 
     with pytest.raises(KeyError):
         APP._job_log_text(output_dir, 2)  # noqa: SLF001
+
+
+def test_collect_test_suite_names_reads_from_tibbar_module(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    fake_tibbar = types.ModuleType("tibbar")
+    fake_tibbar.__path__ = []  # type: ignore[attr-defined]
+    monkeypatch.setitem(sys.modules, "tibbar", fake_tibbar)
+    monkeypatch.setitem(
+        fake_tibbar.__dict__,
+        "get_suite_names",
+        lambda: ("simple", "ldst", "simple", "  "),
+    )
+    assert APP._collect_test_suite_names() == ["ldst", "simple"]  # noqa: SLF001

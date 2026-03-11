@@ -116,6 +116,10 @@ export interface ApiResponse<T> {
   data: T;
 }
 
+export interface TestSuiteResponse {
+  test_suites: string[];
+}
+
 export interface RunsResponse {
   runs: RunRecord[];
 }

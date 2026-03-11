@@ -13,6 +13,7 @@ interface BottomDrawerProps {
   tabs?: DrawerTab[];
   embedded?: boolean;
   draft: RunDraft;
+  availableTestNames?: string[];
   selectedArchiveRun: RunRecord | null;
   archiveSnapshot: SessionSnapshot | undefined;
   archiveJobs: JobRecord[];
@@ -126,6 +127,7 @@ export function BottomDrawer({
   tabs = ["advanced", "archive", "yaml"],
   embedded = false,
   draft,
+  availableTestNames = [],
   selectedArchiveRun,
   archiveSnapshot: _archiveSnapshot,
   archiveJobs,
@@ -182,14 +184,22 @@ export function BottomDrawer({
               </div>
               <div className="matrix-editor">
                 {draft.tests.map((test, index) => (
-                  <div key={`${index}-${test.name}`} className="matrix-row">
-                    <input
-                      aria-label={`Test name ${index + 1}`}
-                      value={test.name}
-                      onChange={(event) =>
-                        onUpdateTestRow(index, "name", event.target.value)
-                      }
-                    />
+                  <div key={index} className="matrix-row">
+                    <div className="matrix-row__name">
+                      <input
+                        aria-label={`Test name ${index + 1}`}
+                        list={`setup-test-suggestions-${index}`}
+                        value={test.name}
+                        onChange={(event) =>
+                          onUpdateTestRow(index, "name", event.target.value)
+                        }
+                      />
+                      <datalist id={`setup-test-suggestions-${index}`}>
+                        {availableTestNames.map((name) => (
+                          <option key={`${name}-${index}`} value={name} />
+                        ))}
+                      </datalist>
+                    </div>
                     <input
                       aria-label={`Test count ${index + 1}`}
                       inputMode="numeric"

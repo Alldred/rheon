@@ -6,6 +6,7 @@
 import type {
   ApiResponse,
   RegressionConfigPayload,
+  TestSuiteResponse,
   RunRecord,
   RunsResponse,
   SessionSnapshot,
@@ -64,6 +65,11 @@ export async function getSessionState(): Promise<SessionSnapshot> {
 export async function getRuns(): Promise<RunRecord[]> {
   const payload = await apiJson<ApiResponse<RunsResponse>>("GET", "/api/runs");
   return payload.data.runs;
+}
+
+export async function getTestSuites(): Promise<string[]> {
+  const payload = await apiJson<ApiResponse<TestSuiteResponse>>("GET", "/api/test-suites");
+  return payload.data.test_suites;
 }
 
 export async function getRunInfo(outputDir: string): Promise<SessionSnapshot> {

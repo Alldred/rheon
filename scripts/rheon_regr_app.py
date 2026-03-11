@@ -530,6 +530,18 @@ def _list_regression_runs(limit: int | None = None) -> list[dict[str, Any]]:
     return runs[:limit] if limit is not None else runs
 
 
+def _collect_test_suite_names() -> list[str]:
+    try:
+        from tibbar import get_suite_names
+    except Exception:
+        return []
+    names = get_suite_names()
+    if not isinstance(names, (list, tuple)):
+        return []
+    suites = [str(name).strip() for name in names]
+    return sorted({name for name in suites if name})
+
+
 def _planned_jobs_payload(config: RegressionConfig | None) -> list[dict[str, Any]]:
     if config is None:
         return []
@@ -858,6 +870,14 @@ class _RequestHandler(BaseHTTPRequestHandler):
                 self,
                 200,
                 {"ok": True, "data": _snapshot_from_state(output_dir, state_data)},
+            )
+            return
+
+        if parsed.path == "/api/test-suites":
+            _write_json(
+                self,
+                200,
+                {"ok": True, "data": {"test_suites": _collect_test_suite_names()}},
             )
             return
 

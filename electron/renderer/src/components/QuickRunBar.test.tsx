@@ -74,7 +74,7 @@ describe("QuickRunBar", () => {
 
     expect(onStartRun).toHaveBeenCalledTimes(1);
     expect(onAttachLatest).toHaveBeenCalledTimes(1);
-    expect(screen.queryByRole("button", { name: "Run Setup" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Setup" })).not.toBeInTheDocument();
     expect(screen.getByText(/20 planned/i)).toBeInTheDocument();
   });
 
