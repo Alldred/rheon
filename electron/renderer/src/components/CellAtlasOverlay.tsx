@@ -4,7 +4,12 @@
  */
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { buildFailureClusters, normalizeStatus, statusTone } from "../lib/regression";
+import {
+  buildFailureClusters,
+  failureClusterKeysForJob,
+  normalizeStatus,
+  statusTone,
+} from "../lib/regression";
 import type { JobRecord, Summary } from "../types";
 
 interface CellAtlasOverlayProps {
@@ -22,17 +27,18 @@ interface DriftNode {
   testName: string;
   seed: number;
   status: string;
+  clusterKey: string | null;
   phase: number;
   speed: number;
   orbitX: number;
   orbitY: number;
   wobble: number;
   baseRadius: number;
+  focus: number;
   centerX: number;
   centerY: number;
   x: number;
   y: number;
-  trail: Array<{ x: number; y: number }>;
 }
 
 interface HoverState {
@@ -49,10 +55,8 @@ interface Star {
 }
 
 interface StatusPalette {
-  core: string;
-  halo: string;
-  trail: string;
-  ring: string;
+  coreRgb: string;
+  haloRgb: string;
   text: string;
 }
 
@@ -66,42 +70,19 @@ function hashString(value: string): number {
   return hash >>> 0;
 }
 
-function laneForStatus(status: string): number {
-  switch (normalizeStatus(status)) {
-    case "queued":
-      return 0;
-    case "running":
-      return 1;
-    case "passed":
-    case "complete":
-      return 2;
-    case "failed":
-    case "timeout":
-    case "cancelled":
-    case "interrupted":
-      return 3;
-    default:
-      return 1;
-  }
-}
-
 function paletteForStatus(status: string): StatusPalette {
   switch (normalizeStatus(status)) {
     case "running":
       return {
-        core: "rgba(255, 221, 128, 0.98)",
-        halo: "rgba(255, 186, 76, 0.34)",
-        trail: "rgba(255, 202, 109, 0.34)",
-        ring: "rgba(255, 244, 202, 0.72)",
+        coreRgb: "255, 221, 128",
+        haloRgb: "255, 186, 76",
         text: "#fff7dc",
       };
     case "passed":
     case "complete":
       return {
-        core: "rgba(129, 245, 204, 0.96)",
-        halo: "rgba(86, 221, 176, 0.30)",
-        trail: "rgba(114, 234, 189, 0.28)",
-        ring: "rgba(210, 255, 240, 0.72)",
+        coreRgb: "129, 245, 204",
+        haloRgb: "86, 221, 176",
         text: "#eafff6",
       };
     case "failed":
@@ -109,19 +90,15 @@ function paletteForStatus(status: string): StatusPalette {
     case "cancelled":
     case "interrupted":
       return {
-        core: "rgba(255, 148, 129, 0.98)",
-        halo: "rgba(255, 112, 93, 0.36)",
-        trail: "rgba(255, 119, 98, 0.33)",
-        ring: "rgba(255, 218, 210, 0.74)",
+        coreRgb: "255, 148, 129",
+        haloRgb: "255, 112, 93",
         text: "#fff1ed",
       };
     case "queued":
     default:
       return {
-        core: "rgba(162, 196, 226, 0.92)",
-        halo: "rgba(120, 166, 205, 0.25)",
-        trail: "rgba(124, 175, 219, 0.22)",
-        ring: "rgba(218, 234, 246, 0.68)",
+        coreRgb: "162, 196, 226",
+        haloRgb: "120, 166, 205",
         text: "#edf7ff",
       };
   }
@@ -146,29 +123,90 @@ function buildStars(count: number): Star[] {
 
 function buildDriftNodes(
   jobs: JobRecord[],
+  failureClusters: ReturnType<typeof buildFailureClusters>,
   width: number,
   height: number,
   previous: Map<number, DriftNode>,
 ): Map<number, DriftNode> {
-  const bandLeft = width * 0.08;
-  const bandWidth = width * 0.84;
-  const bandTop = height * 0.16;
-  const bandHeight = height * 0.72;
+  const marginX = width * 0.08;
+  const marginY = height * 0.1;
+  const spreadWidth = width - marginX * 2;
+  const spreadHeight = height - marginY * 2;
+
+  const clusterAnchors = new Map<string, { x: number; y: number }>();
+  const golden = 2.399963229728653;
+  const maxClusterRadius = Math.min(width, height) * 0.28;
+  failureClusters.forEach((cluster, index) => {
+    const angle = index * golden;
+    const radius = Math.min(maxClusterRadius, 70 + Math.sqrt(index + 1) * 70);
+    const centerX = width * 0.62 + Math.cos(angle) * radius;
+    const centerY = height * 0.52 + Math.sin(angle) * radius * 0.86;
+    clusterAnchors.set(cluster.key, {
+      x: Math.min(width - marginX, Math.max(marginX, centerX)),
+      y: Math.min(height - marginY, Math.max(marginY, centerY)),
+    });
+  });
 
   const next = new Map<number, DriftNode>();
 
   jobs.forEach((job, ordinal) => {
     const key = `${job.test_name || "job"}-${job.index}-${job.seed}`;
     const hash = hashString(key);
-    const lane = laneForStatus(job.status || "queued");
-    const laneBase = bandLeft + (lane / 3) * bandWidth;
-    const laneSpread = Math.max(56, bandWidth * 0.09);
-    const jitterX = (((hash >>> 3) & 0xffff) / 0xffff - 0.5) * laneSpread;
-    const jitterY = (((hash >>> 9) & 0xffff) / 0xffff - 0.5) * bandHeight * 0.8;
-    const centerX = laneBase + jitterX;
-    const centerY = bandTop + bandHeight * 0.5 + jitterY;
-    const motion = normalizeStatus(job.status) === "running" ? 1.45 : 1;
-    const radiusBoost = normalizeStatus(job.status) === "running" ? 2.5 : 0;
+    const status = normalizeStatus(job.status);
+    const baseX = marginX + (((hash >>> 3) & 0xffff) / 0xffff) * spreadWidth;
+    const baseY = marginY + (((hash >>> 19) & 0xffff) / 0xffff) * spreadHeight;
+
+    let centerX = baseX;
+    let centerY = baseY;
+    let focus = 0.38;
+    let motion = 0.8;
+    let orbitX = 10 + (((hash >>> 8) & 0xff) / 0xff) * 64;
+    let orbitY = 8 + (((hash >>> 24) & 0xff) / 0xff) * 52;
+    let wobble = 4 + (((hash >>> 4) & 0xff) / 0xff) * 10;
+    let baseRadius = 8 + (((hash >>> 12) & 0xff) / 0xff) * 14;
+    let clusterKey: string | null = null;
+
+    if (
+      status === "failed" ||
+      status === "timeout" ||
+      status === "cancelled" ||
+      status === "interrupted"
+    ) {
+      const clusterKeys = failureClusterKeysForJob(job);
+      clusterKey = clusterKeys.find((entry) => clusterAnchors.has(entry)) ?? clusterKeys[0] ?? null;
+      const anchor = clusterAnchors.get(clusterKey);
+      const jitterX = (((hash >>> 10) & 0xffff) / 0xffff - 0.5) * 84;
+      const jitterY = (((hash >>> 26) & 0xffff) / 0xffff - 0.5) * 74;
+      if (anchor) {
+        centerX = anchor.x + jitterX;
+        centerY = anchor.y + jitterY;
+      }
+      focus = 0.96;
+      motion = 1.2;
+      orbitX = 8 + (((hash >>> 8) & 0xff) / 0xff) * 38;
+      orbitY = 6 + (((hash >>> 24) & 0xff) / 0xff) * 32;
+      wobble = 5 + (((hash >>> 4) & 0xff) / 0xff) * 9;
+      baseRadius = 9 + (((hash >>> 12) & 0xff) / 0xff) * 8;
+    } else if (status === "running") {
+      const jitterX = (((hash >>> 3) & 0xffff) / 0xffff - 0.5) * width * 0.28;
+      const jitterY = (((hash >>> 9) & 0xffff) / 0xffff - 0.5) * height * 0.22;
+      centerX = width * 0.5 + jitterX;
+      centerY = height * 0.5 + jitterY;
+      focus = 1;
+      motion = 1.45;
+      orbitX = 22 + (((hash >>> 8) & 0xff) / 0xff) * 78;
+      orbitY = 16 + (((hash >>> 24) & 0xff) / 0xff) * 58;
+      wobble = 7 + (((hash >>> 4) & 0xff) / 0xff) * 14;
+      baseRadius = 10 + (((hash >>> 12) & 0xff) / 0xff) * 10;
+    } else if (status === "passed" || status === "complete") {
+      focus = 0.32;
+      motion = 0.72;
+      baseRadius = 10 + (((hash >>> 12) & 0xff) / 0xff) * 16;
+    } else {
+      focus = 0.28;
+      motion = 0.66;
+      baseRadius = 10 + (((hash >>> 12) & 0xff) / 0xff) * 14;
+    }
 
     const existing = previous.get(job.index);
 
@@ -177,18 +215,19 @@ function buildDriftNodes(
       label: String(job.index),
       testName: String(job.test_name || "job"),
       seed: job.seed,
-      status: normalizeStatus(job.status),
+      status,
+      clusterKey,
       phase: (((hash >>> 1) & 0xffff) / 0xffff) * Math.PI * 2,
       speed: (0.14 + (((hash >>> 16) & 0xff) / 0xff) * 0.52) * motion,
-      orbitX: 26 + (((hash >>> 8) & 0xff) / 0xff) * 150,
-      orbitY: 16 + (((hash >>> 24) & 0xff) / 0xff) * 82,
-      wobble: 8 + (((hash >>> 4) & 0xff) / 0xff) * 14,
-      baseRadius: 5 + (((hash >>> 12) & 0xff) / 0xff) * 7 + radiusBoost,
+      orbitX,
+      orbitY,
+      wobble,
+      baseRadius,
+      focus,
       centerX,
       centerY,
-      x: existing?.x ?? centerX + (ordinal % 6) * 8,
-      y: existing?.y ?? centerY + (ordinal % 4) * 8,
-      trail: existing?.trail ?? [],
+      x: existing?.x ?? centerX + (ordinal % 7) * 7,
+      y: existing?.y ?? centerY + (ordinal % 5) * 7,
     });
   });
 
@@ -244,24 +283,6 @@ function drawBackdrop(
     context.fill();
   });
   context.globalAlpha = 1;
-
-  context.strokeStyle = "rgba(194, 217, 238, 0.09)";
-  context.lineWidth = 1;
-  [0.12, 0.38, 0.62, 0.88].forEach((position) => {
-    const x = width * position;
-    context.beginPath();
-    context.moveTo(x, 24);
-    context.lineTo(x, height - 24);
-    context.stroke();
-  });
-
-  context.fillStyle = "rgba(208, 223, 237, 0.6)";
-  context.font = '600 11px "Avenir Next", "Trebuchet MS", sans-serif';
-  context.textAlign = "center";
-  context.fillText("queued", width * 0.12, 22);
-  context.fillText("running", width * 0.38, 22);
-  context.fillText("passed", width * 0.62, 22);
-  context.fillText("failed", width * 0.88, 22);
 }
 
 function drawNode(
@@ -271,39 +292,46 @@ function drawNode(
   time: number,
 ) {
   const palette = paletteForStatus(node.status);
-
-  if (node.trail.length >= 2) {
-    context.lineWidth = selected ? 2.1 : 1.4;
-    for (let index = 1; index < node.trail.length; index += 1) {
-      const prev = node.trail[index - 1];
-      const curr = node.trail[index];
-      const alpha = (index / node.trail.length) * (selected ? 0.52 : 0.34);
-      context.strokeStyle = palette.trail.replace(/0\.[0-9]+\)/, `${alpha.toFixed(2)})`);
-      context.beginPath();
-      context.moveTo(prev.x, prev.y);
-      context.lineTo(curr.x, curr.y);
-      context.stroke();
-    }
-  }
-
   const pulse = 1 + Math.sin(time * 0.004 + node.phase * 1.7) * 0.14;
-  const radius = node.baseRadius * (selected ? 1.26 : 1) * pulse;
+  const focus = selected ? 1.12 : node.focus;
+  const radius = node.baseRadius * (selected ? 1.25 : 1) * pulse;
+  const haloRadius = radius * (focus >= 0.9 ? 4.2 : 6.5);
+  const haloAlpha = Math.min(0.72, 0.12 + focus * 0.44);
+  const coreAlpha = Math.min(1, 0.35 + focus * 0.68);
 
-  context.shadowColor = palette.halo;
-  context.shadowBlur = selected ? 28 : 18;
-  context.fillStyle = palette.core;
+  const halo = context.createRadialGradient(
+    node.x,
+    node.y,
+    radius * 0.25,
+    node.x,
+    node.y,
+    haloRadius,
+  );
+  halo.addColorStop(0, `rgba(${palette.haloRgb}, ${haloAlpha.toFixed(2)})`);
+  halo.addColorStop(0.5, `rgba(${palette.haloRgb}, ${(haloAlpha * 0.5).toFixed(2)})`);
+  halo.addColorStop(1, `rgba(${palette.haloRgb}, 0)`);
+  context.fillStyle = halo;
+  context.beginPath();
+  context.arc(node.x, node.y, haloRadius, 0, Math.PI * 2);
+  context.fill();
+
+  context.shadowColor = `rgba(${palette.haloRgb}, ${Math.min(0.76, focus * 0.76).toFixed(2)})`;
+  context.shadowBlur = focus >= 0.9 ? 26 : 34;
+  context.fillStyle = `rgba(${palette.coreRgb}, ${coreAlpha.toFixed(2)})`;
   context.beginPath();
   context.arc(node.x, node.y, radius, 0, Math.PI * 2);
   context.fill();
   context.shadowBlur = 0;
 
-  context.strokeStyle = palette.ring;
-  context.lineWidth = selected ? 2.4 : 1.2;
-  context.beginPath();
-  context.arc(node.x, node.y, radius + (selected ? 4 : 2), 0, Math.PI * 2);
-  context.stroke();
+  if (focus >= 0.9) {
+    context.strokeStyle = `rgba(${palette.coreRgb}, ${selected ? "0.92" : "0.64"})`;
+    context.lineWidth = selected ? 1.9 : 1.2;
+    context.beginPath();
+    context.arc(node.x, node.y, radius + 1.5, 0, Math.PI * 2);
+    context.stroke();
+  }
 
-  if (selected || radius > 8.5) {
+  if (selected || focus >= 0.95) {
     context.fillStyle = palette.text;
     context.font = '600 11px "Avenir Next", "Trebuchet MS", sans-serif';
     context.textAlign = "center";
@@ -399,7 +427,13 @@ export function CellAtlasOverlay({
       const width = canvas.width / ratio;
       const height = canvas.height / ratio;
 
-      const nextNodes = buildDriftNodes(jobs, width, height, nodesRef.current);
+      const nextNodes = buildDriftNodes(
+        jobs,
+        failureClusters,
+        width,
+        height,
+        nodesRef.current,
+      );
       nodesRef.current = nextNodes;
       const nodes = [...nextNodes.values()];
 
@@ -418,12 +452,6 @@ export function CellAtlasOverlay({
 
         node.x = Math.min(width - 20, Math.max(20, node.x));
         node.y = Math.min(height - 20, Math.max(20, node.y));
-
-        node.trail.push({ x: node.x, y: node.y });
-        const maxTrail = normalizeStatus(node.status) === "running" ? 20 : 14;
-        while (node.trail.length > maxTrail) {
-          node.trail.shift();
-        }
       });
 
       latestNodesRef.current = nodes;
@@ -441,14 +469,14 @@ export function CellAtlasOverlay({
         window.cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [jobs, selectedJobIndex, stars]);
+  }, [failureClusters, jobs, selectedJobIndex, stars]);
 
   const hitTest = (x: number, y: number) => {
     for (let index = latestNodesRef.current.length - 1; index >= 0; index -= 1) {
       const node = latestNodesRef.current[index];
       const dx = x - node.x;
       const dy = y - node.y;
-      const radius = node.baseRadius + 9;
+      const radius = node.baseRadius + (node.focus >= 0.9 ? 12 : 16);
       if (Math.hypot(dx, dy) <= radius) {
         return node;
       }
@@ -487,6 +515,7 @@ export function CellAtlasOverlay({
       <div className="atlas-overlay__chrome">
         <div className="atlas-overlay__title">
           <h2>Night Drift</h2>
+          <p>Ambient bokeh for queued and passed, focused light on running and failed.</p>
         </div>
 
         <div className="atlas-overlay__actions">
@@ -544,10 +573,10 @@ export function CellAtlasOverlay({
       </div>
 
       <div className="atlas-overlay__legend">
-        <span className="legend-chip legend-chip--queued">queued</span>
-        <span className="legend-chip legend-chip--running">running</span>
-        <span className="legend-chip legend-chip--passed">passed</span>
-        <span className="legend-chip legend-chip--failed">failed</span>
+        <span className="legend-chip legend-chip--queued">queued bokeh</span>
+        <span className="legend-chip legend-chip--running">running focus</span>
+        <span className="legend-chip legend-chip--passed">passed bokeh</span>
+        <span className="legend-chip legend-chip--failed">failed clusters</span>
       </div>
     </div>
   );
