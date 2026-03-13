@@ -210,7 +210,7 @@ module rheon_core #(
     .rs1                (e_rs1_r),
     .rs2                (e_rs2_r),
     .rdata1             (e_rdata1),
-    .rdata2             (e_rdata2),
+    .rdata2             (e_rs2_val),
     .imm                (e_imm_r),
     .pc                 (e_pc_r),
     .alu_op             (e_alu_op_r),
