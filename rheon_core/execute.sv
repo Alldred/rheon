@@ -75,7 +75,9 @@ module execute #(
 
   assign branch_target = pc + imm;
   assign ldst_addr     = alu_result[ADDR_W-1:0];
-  assign store_data    = op_b;
+  // Store write data comes from rs2 value (with forwarding applied upstream),
+  // not ALU operand B, which may be immediate for address generation.
+  assign store_data    = rdata2;
 
   // Branch condition
   always_comb begin
