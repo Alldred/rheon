@@ -136,7 +136,17 @@ class PipelineCommitMonitor(BaseMonitor):
                 if is_load:
                     load_addr_val = int(dut.c_load_addr.value)
                     load_data_val = int(dut.c_load_data.value)
-                    load_strb_val = 0xFF  # full doubleword
+                    # Architecturally compared load strobe is width-based (not lane-shifted):
+                    # B/LBU=0x01, H/LHU=0x03, W/LWU=0x0F, D=0xFF.
+                    load_size = int(dut.c_load_store_funct3.value) & 0b11
+                    if load_size == 0:
+                        load_strb_val = 0x01
+                    elif load_size == 1:
+                        load_strb_val = 0x03
+                    elif load_size == 2:
+                        load_strb_val = 0x0F
+                    else:
+                        load_strb_val = 0xFF
 
                 tx = CommitTx(
                     pc=commit_pc,
