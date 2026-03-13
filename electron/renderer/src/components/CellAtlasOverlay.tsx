@@ -741,6 +741,9 @@ function drawFailureGroupGlow(
   nodes: DriftNode[],
   _time: number,
 ) {
+  // Disabled per UX request: no background blob behind failed clusters.
+  return;
+
   const groups = new Map<string, DriftNode[]>();
   nodes.forEach((node) => {
     if (node.toStatus !== "failed" || !node.clusterKey) {
@@ -1105,6 +1108,19 @@ export function CellAtlasOverlay({
       nodes.forEach((node) => {
         forces.set(node.id, { x: 0, y: 0 });
       });
+      const gravityMass = new Map<string, number>();
+      nodes.forEach((node) => {
+        let key: string | null = null;
+        if (node.toStatus === "passed") {
+          key = "passed";
+        } else if (node.toStatus === "failed" && node.clusterKey) {
+          key = `failed:${node.clusterKey}`;
+        }
+        if (!key) {
+          return;
+        }
+        gravityMass.set(key, (gravityMass.get(key) ?? 0) + 1);
+      });
 
       for (let left = 0; left < nodes.length; left += 1) {
         for (let right = left + 1; right < nodes.length; right += 1) {
@@ -1135,9 +1151,14 @@ export function CellAtlasOverlay({
 
           if (bothFailed) {
             if (sameFailedCluster) {
+              const clusterMass = gravityMass.get(`failed:${a.clusterKey}`) ?? 1;
+              const attractionScale = Math.min(2.4, 1 + (clusterMass - 1) * 0.14);
               const targetDistance = 122;
               if (distance > targetDistance) {
-                magnitude = ((distance - targetDistance) / targetDistance) * 0.08;
+                magnitude =
+                  ((distance - targetDistance) / targetDistance) *
+                  0.08 *
+                  attractionScale;
               } else {
                 magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
               }
@@ -1155,8 +1176,16 @@ export function CellAtlasOverlay({
               }
             } else {
               const targetDistance = 140;
+              const groupMass = aGroup === "passed" ? gravityMass.get("passed") ?? 1 : 1;
+              const attractionScale =
+                aGroup === "passed"
+                  ? Math.min(2.2, 1 + (groupMass - 1) * 0.12)
+                  : 1;
               if (distance > targetDistance) {
-                magnitude = ((distance - targetDistance) / targetDistance) * 0.06;
+                magnitude =
+                  ((distance - targetDistance) / targetDistance) *
+                  0.06 *
+                  attractionScale;
               } else {
                 magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
               }
@@ -1166,11 +1195,17 @@ export function CellAtlasOverlay({
             const failedPassedPair =
               (aGroup === "failed" && bGroup === "passed") ||
               (aGroup === "passed" && bGroup === "failed");
-            const repelRange = queuedInPair ? 246 : failedPassedPair ? 236 : 176;
+            const repelRange = queuedInPair ? 246 : failedPassedPair ? 272 : 176;
             if (distance < repelRange) {
               magnitude =
                 -((repelRange - distance) / repelRange) *
-                (queuedInPair ? 0.48 : failedPassedPair ? 0.42 : 0.2);
+                (queuedInPair ? 0.48 : failedPassedPair ? 0.52 : 0.2);
+            }
+            if (failedPassedPair) {
+              const longRange = 520;
+              if (distance < longRange) {
+                magnitude += -((longRange - distance) / longRange) * 0.085;
+              }
             }
           }
 
@@ -1216,6 +1251,7 @@ export function CellAtlasOverlay({
         if (group.length < 2) {
           return;
         }
+        const gravityScale = Math.min(2.6, 1 + (group.length - 1) * 0.14);
         const cx = group.reduce((sum, node) => sum + node.x, 0) / group.length;
         const cy = group.reduce((sum, node) => sum + node.y, 0) / group.length;
         group.forEach((node) => {
@@ -1224,7 +1260,7 @@ export function CellAtlasOverlay({
           const distance = Math.hypot(dx, dy) || 1;
           const nx = dx / distance;
           const ny = dy / distance;
-          const step = Math.min(0.3, distance * 0.0021);
+          const step = Math.min(0.44, distance * 0.0029 * gravityScale);
           node.x = clamp(node.x + nx * step, minX, maxX);
           node.y = clamp(node.y + ny * step, minY, maxY);
           node.centerX = clamp(node.centerX + nx * step * 0.7, minX, maxX);
@@ -1248,20 +1284,28 @@ export function CellAtlasOverlay({
           const dx = failedCx - passedCx;
           const dy = failedCy - passedCy;
           const distance = Math.hypot(dx, dy) || 1;
-          const desired = 240;
+          const desired = Math.min(width, height) * 0.42;
           if (distance >= desired) {
             return;
           }
-          const push = Math.min(0.9, (desired - distance) * 0.01);
+          const push = Math.min(1.05, (desired - distance) * 0.0062);
           const nx = dx / distance;
           const ny = dy / distance;
           passedGroup.forEach((node) => {
             node.x = clamp(node.x - nx * push * 0.55, minX, maxX);
             node.y = clamp(node.y - ny * push * 0.55, minY, maxY);
+            node.centerX = clamp(node.centerX - nx * push * 0.72, minX, maxX);
+            node.centerY = clamp(node.centerY - ny * push * 0.72, minY, maxY);
+            node.toCenterX = clamp(node.toCenterX - nx * push * 0.48, minX, maxX);
+            node.toCenterY = clamp(node.toCenterY - ny * push * 0.48, minY, maxY);
           });
           failedGroup.forEach((node) => {
             node.x = clamp(node.x + nx * push * 0.85, minX, maxX);
             node.y = clamp(node.y + ny * push * 0.85, minY, maxY);
+            node.centerX = clamp(node.centerX + nx * push * 1.02, minX, maxX);
+            node.centerY = clamp(node.centerY + ny * push * 1.02, minY, maxY);
+            node.toCenterX = clamp(node.toCenterX + nx * push * 0.68, minX, maxX);
+            node.toCenterY = clamp(node.toCenterY + ny * push * 0.68, minY, maxY);
           });
         });
       }

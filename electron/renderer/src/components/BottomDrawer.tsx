@@ -6,6 +6,7 @@
 import type { ReactNode } from "react";
 import { formatDateTime, formatDuration, normalizeStatus, statusTone } from "../lib/regression";
 import type { DrawerTab, JobRecord, RunDraft, RunRecord, SessionSnapshot } from "../types";
+import { NumberStepperInput } from "./NumberStepperInput";
 
 interface BottomDrawerProps {
   open: boolean;
@@ -200,13 +201,10 @@ export function BottomDrawer({
                         ))}
                       </datalist>
                     </div>
-                    <input
+                    <NumberStepperInput
                       aria-label={`Test count ${index + 1}`}
-                      inputMode="numeric"
                       value={String(test.count)}
-                      onChange={(event) =>
-                        onUpdateTestRow(index, "count", event.target.value)
-                      }
+                      onChange={(value) => onUpdateTestRow(index, "count", value)}
                     />
                     <button
                       type="button"
@@ -252,18 +250,18 @@ export function BottomDrawer({
                 </label>
                 <label className="field">
                   <span>Timeout (s)</span>
-                  <input
-                    inputMode="numeric"
+                  <NumberStepperInput
+                    ariaLabel="Timeout (s)"
                     value={draft.timeout_sec}
-                    onChange={(event) => onChangeField("timeout_sec", event.target.value)}
+                    onChange={(value) => onChangeField("timeout_sec", value)}
                   />
                 </label>
                 <label className="field">
                   <span>Max failures</span>
-                  <input
-                    inputMode="numeric"
+                  <NumberStepperInput
+                    ariaLabel="Max failures"
                     value={draft.max_failures}
-                    onChange={(event) => onChangeField("max_failures", event.target.value)}
+                    onChange={(value) => onChangeField("max_failures", value)}
                   />
                 </label>
                 <label className="toggle-field">

@@ -4,6 +4,7 @@
  */
 
 import type { BannerState, RunDraft, RunRecord } from "../types";
+import { NumberStepperInput } from "./NumberStepperInput";
 
 type DeckTab = "run" | "monitor" | "archive";
 
@@ -80,31 +81,28 @@ export function QuickRunBar({
 
           <label className="field field--compact">
             <span>Seed</span>
-            <input
+            <NumberStepperInput
               aria-label="Seed"
-              inputMode="numeric"
               value={draft.seed}
-              onChange={(event) => onChangeField("seed", event.target.value)}
+              onChange={(value) => onChangeField("seed", value)}
             />
           </label>
 
           <label className="field field--compact">
             <span>Jobs</span>
-            <input
+            <NumberStepperInput
               aria-label="Parallel jobs"
-              inputMode="numeric"
               value={draft.jobs}
-              onChange={(event) => onChangeField("jobs", event.target.value)}
+              onChange={(value) => onChangeField("jobs", value)}
             />
           </label>
 
           <label className="field field--compact">
             <span>Refresh</span>
-            <input
+            <NumberStepperInput
               aria-label="Dashboard refresh"
-              inputMode="numeric"
               value={draft.update}
-              onChange={(event) => onChangeField("update", event.target.value)}
+              onChange={(value) => onChangeField("update", value)}
             />
           </label>
 

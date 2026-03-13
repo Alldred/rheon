@@ -449,7 +449,8 @@ export default function App() {
 
   const attachMutation = useMutation({
     mutationFn: (outputDir: string) => attachRun(outputDir),
-    onSuccess: (_data, outputDir) => {
+    onSuccess: (data, outputDir) => {
+      queryClient.setQueryData(["session-state"], data);
       if (outputDir !== "latest") {
         setSelectedArchiveDir(outputDir);
         setSelectedArchiveJobIndex(null);
