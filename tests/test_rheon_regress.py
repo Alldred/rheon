@@ -6,7 +6,9 @@ from __future__ import annotations
 
 import importlib.util
 import json
+import os
 import sys
+import threading
 import time
 from concurrent.futures import Future
 from io import StringIO
@@ -278,7 +280,6 @@ def test_resume_skips_only_matching_pass_jobs(tmp_path: Path) -> None:
 def test_extract_triage_from_ansi_log(tmp_path: Path) -> None:
     log_path = tmp_path / "sim.log"
     log_path.write_text(_mismatch_log_text(ansi=True), encoding="utf-8")
-
     summary, pc, instr_hex, instr_asm, mismatched = COMMON._extract_triage_from_log(
         log_path
     )  # noqa: SLF001
@@ -291,6 +292,97 @@ def test_extract_triage_from_ansi_log(tmp_path: Path) -> None:
     assert instr_asm == "jal x0, 88"
     assert "asm='jal x0, 88'" in summary
     assert "next_pc" in mismatched
+
+
+def test_regression_file_payload_round_trip() -> None:
+    config = COMMON.RegressionConfig(
+        tests=[COMMON.TestSpec("simple", 2), COMMON.TestSpec("alt", 1)],
+        seed=7,
+        jobs=4,
+        update=5,
+        stages=("run",),
+        output_dir=Path("/tmp/test_output"),
+        verbosity="debug",
+        waves=True,
+        resume=None,
+        timeout_sec=90,
+        fail_fast=True,
+        max_failures=2,
+        report_json=Path("/tmp/report.json"),
+    )
+    payload = COMMON.regression_file_payload(
+        config, tests=[COMMON.TestSpec("simple", 1)]
+    )
+    assert payload["version"] == 1
+    assert payload["regression"]["seed"] == 7
+    assert payload["regression"]["jobs"] == 4
+    assert payload["regression"]["tests"] == [{"name": "simple", "count": 1}]
+    assert payload["regression"]["output_dir"] == "/tmp/test_output"
+
+    yaml_text = COMMON.regression_yaml_text(
+        config, tests=[COMMON.TestSpec("simple", 1)]
+    )
+    loaded = COMMON._load_yaml_text(yaml_text)
+    assert loaded.regression.seed == 7
+    assert loaded.regression.jobs == 4
+    assert loaded.version == 1
+    assert [item.name for item in loaded.regression.tests] == ["simple"]
+
+
+def test_run_regression_writes_state_metadata(tmp_path: Path) -> None:
+    callbacks: list[dict[str, object]] = []
+
+    def _callback(payload: dict[str, object]) -> None:
+        callbacks.append(payload)
+
+    config = _config(tmp_path, tests=[COMMON.TestSpec("simple", 2)], jobs=1, update=1)
+    outcome = COMMON.run_regression(
+        config,
+        console=_make_console(),
+        runner=_make_runner(),
+        status_callback=_callback,
+    )
+
+    assert outcome.total == 2
+    assert outcome.passed == 2
+    assert callbacks
+    assert callbacks[-1]["status"] == "complete"
+    assert callbacks[-1]["status_reason"] == "complete"
+
+    state = COMMON._load_state(tmp_path / COMMON.STATE_FILE_NAME)
+    meta = state.get("meta", {})
+    assert meta.get("status") == "complete"
+    assert meta.get("status_reason") == "complete"
+    assert meta.get("total") == 2
+    assert meta.get("passed") == 2
+    assert meta.get("failed") == 0
+    assert isinstance(meta.get("elapsed_seconds"), float)
+    assert isinstance(state.get("revision"), int)
+    assert state["revision"] >= 1
+    assert meta.get("revision") == state.get("revision")
+    assert all("updated_at" in job for job in state.get("jobs", {}).values())
+
+
+def test_run_regression_status_payload_includes_running_job_started_at(
+    tmp_path: Path,
+) -> None:
+    callbacks: list[dict[str, object]] = []
+
+    def _callback(payload: dict[str, object]) -> None:
+        callbacks.append(payload)
+
+    config = _config(tmp_path, tests=[COMMON.TestSpec("simple", 1)], jobs=1, update=1)
+    COMMON.run_regression(
+        config,
+        console=_make_console(),
+        runner=_make_runner(sleep_sec=1.1),
+        status_callback=_callback,
+    )
+
+    running_payloads = [payload for payload in callbacks if payload.get("running_jobs")]
+    assert running_payloads
+    running_job = running_payloads[0]["running_jobs"][0]
+    assert running_job["started_at"]
 
 
 def test_report_json_includes_instruction_aware_triage(tmp_path: Path) -> None:
@@ -350,6 +442,96 @@ def test_build_job_rerun_command_excludes_run_dir() -> None:
     assert "--run-dir" not in rerun
     assert "--test simple" in rerun
     assert "--seed 42" in rerun
+
+
+def test_run_job_default_uses_current_python_for_python_entrypoints(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    command_root = tmp_path / "bin"
+    command_root.mkdir()
+    entrypoint = command_root / "rheon_run"
+    entrypoint.write_text(
+        "#!/usr/bin/env python3\nprint('stub')\n",
+        encoding="utf-8",
+    )
+
+    captured: dict[str, object] = {}
+
+    def _fake_spawn(command, **kwargs):
+        captured["command"] = list(command)
+        return 0, False, 0.01
+
+    monkeypatch.setattr(COMMON, "commands_dir", lambda: command_root)
+    monkeypatch.setattr(COMMON, "_spawn_and_wait", _fake_spawn)
+
+    output_dir = tmp_path / "out"
+    config = _config(output_dir, stages=("run",))
+    result = COMMON._run_job_default(  # noqa: SLF001
+        job=COMMON.RegressionJob(index=1, test_name="simple", seed=42),
+        config=config,
+        output_dir=output_dir,
+        stop_event=threading.Event(),
+    )
+
+    assert result.returncode == 0
+    assert captured["command"] == [
+        sys.executable,
+        str(entrypoint),
+        "--test",
+        "simple",
+        "--seed",
+        "42",
+        "--run-dir",
+        str(result.run_dir),
+    ]
+
+
+def test_run_checked_prepends_runtime_bins_to_path(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    fake_python = tmp_path / "venv" / "bin" / "python"
+    fake_python.parent.mkdir(parents=True)
+    fake_python.write_text("", encoding="utf-8")
+
+    command_root = tmp_path / "commands"
+    command_root.mkdir()
+
+    captured: dict[str, object] = {}
+
+    def _fake_run(command, *, cwd, env, check):
+        captured["command"] = list(command)
+        captured["cwd"] = cwd
+        captured["env"] = dict(env)
+        captured["check"] = check
+        return None
+
+    monkeypatch.setattr(COMMON.sys, "executable", str(fake_python))
+    monkeypatch.setattr(COMMON, "commands_dir", lambda: command_root)
+    monkeypatch.setattr(COMMON.subprocess, "run", _fake_run)
+
+    COMMON.run_checked(["echo", "hello"], cwd=tmp_path, env={"PATH": "/usr/bin"})
+
+    path_entries = captured["env"]["PATH"].split(os.pathsep)
+    assert path_entries[0] == str(fake_python.parent)
+    assert str(command_root) in path_entries
+    assert "/usr/bin" in path_entries
+
+
+def test_run_simulation_raises_clear_error_when_cocotb_config_missing(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elf_path = tmp_path / "test.elf"
+    elf_path.write_text("stub", encoding="utf-8")
+
+    monkeypatch.setattr(COMMON.shutil, "which", lambda _name, path=None: None)
+
+    with pytest.raises(COMMON.ConfigError, match="cocotb-config"):
+        COMMON.run_simulation(
+            elf_path=elf_path,
+            seed="42",
+            verbosity=None,
+            waves=False,
+        )
 
 
 def test_running_job_entries_sorted_by_longest_elapsed() -> None:

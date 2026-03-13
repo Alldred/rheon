@@ -1,0 +1,70 @@
+{
+  "name": "rheon-electron",
+  "version": "0.1.0",
+  "description": "Rheon regression desktop app",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "dev": "NODE_ENV=development electron .",
+    "ui:dev": "vite --config renderer/vite.config.ts",
+    "ui:build": "vite build --config renderer/vite.config.ts",
+    "ui:typecheck": "tsc --project renderer/tsconfig.json --noEmit",
+    "ui:test": "vitest run --config renderer/vite.config.ts",
+    "build": "npm run ui:build && electron-builder",
+    "build:mac": "npm run ui:build && electron-builder --mac"
+  },
+  "author": "Stuart Alldred",
+  "license": "MIT",
+  "devDependencies": {
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.3.0",
+    "@types/react": "^19.0.10",
+    "@types/react-dom": "^19.0.4",
+    "@vitejs/plugin-react": "^4.4.1",
+    "electron": "^28.0.0",
+    "electron-builder": "^24.13.3",
+    "jsdom": "^26.0.0",
+    "typescript": "^5.8.2",
+    "vite": "^6.2.0",
+    "vitest": "^3.0.8"
+  },
+  "dependencies": {
+    "@tanstack/react-query": "^5.68.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "build": {
+    "appId": "com.rheon.regression.app",
+    "productName": "Rheon Regr",
+    "mac": {
+      "category": "public.app-category.developer-tools",
+      "target": [
+        {
+          "target": "dir",
+          "arch": [
+            "arm64"
+          ]
+        }
+      ],
+      "icon": "../assets/rheon_regr_app.icns"
+    },
+    "files": [
+      "main.js",
+      "preload.js",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "../assets/rheon_regr_app.icns",
+        "to": "assets/rheon_regr_app.icns"
+      },
+      {
+        "from": "source_root.txt",
+        "to": "source_root.txt"
+      }
+    ],
+    "directories": {
+      "buildResources": "."
+    }
+  }
+}

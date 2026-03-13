@@ -250,6 +250,7 @@ def test_help_includes_new_flags_and_latest() -> None:
     assert "--fail-fast" in help_text
     assert "--max-failures" in help_text
     assert "--report-json" in help_text
+    assert "--app-url" in help_text
     assert "--resume latest" in help_text
 
 
@@ -277,6 +278,21 @@ def test_asm_mnemonic_uses_opcode_only() -> None:
     assert REGR_CLI._asm_mnemonic("slli x0, x1, 0x3") == "slli"  # noqa: SLF001
     assert REGR_CLI._asm_mnemonic("  JAL x0, 88 ") == "jal"  # noqa: SLF001
     assert REGR_CLI._asm_mnemonic(None) == "unknown"  # noqa: SLF001
+
+
+def test_app_status_url_encodes_output_dir() -> None:
+    output = Path("/tmp/run with spaces")
+    assert (
+        REGR_CLI._app_status_url("http://127.0.0.1:8765", output)
+        == "http://127.0.0.1:8765/?attach=%2Ftmp%2Frun%20with%20spaces"
+    )
+
+
+def test_build_app_hint_returns_status_and_launch() -> None:
+    output = Path("/tmp/run with spaces")
+    status_url, launch_cmd = REGR_CLI._build_app_hint("http://0.0.0.0:9000", output)
+    assert status_url == "http://0.0.0.0:9000/?attach=%2Ftmp%2Frun%20with%20spaces"
+    assert "rheon_regr_app --host 0.0.0.0 --port 9000" in launch_cmd
 
 
 def test_build_failure_triage_rows_counts_and_fastest() -> None:

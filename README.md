@@ -51,14 +51,101 @@ make run ELF=path/to/program.elf
    ./bin/rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json
    ```
    - Status refresh interval defaults to `2s`; override with `--update <seconds>`.
-   - Parallel worker count defaults to CPU cores minus one; override with `--jobs <N>`.
-   - `--resume` accepts either an explicit regression directory path or `latest`.
-   - `runs/regressions/latest` is updated to the most recent regression output directory.
-   - Optional stop controls: `--timeout-sec`, `--fail-fast`, and `--max-failures`.
-   - Failed-job triage includes mismatch instruction context (`pc`, instruction word, disassembly, mismatched fields).
-   - Optional JSON report output: `--report-json <path>`.
-   - Each regression creates `runs/regressions/<timestamp>/` and each job writes logs to `<job_dir>/sim.log`.
-   - Example YAML file: `examples/regression.example.yaml`.
+- Parallel worker count defaults to CPU cores minus one; override with `--jobs <N>`.
+- `--resume` accepts either an explicit regression directory path or `latest`.
+- `runs/regressions/latest` is updated to the most recent regression output directory.
+- Optional stop controls: `--timeout-sec`, `--fail-fast`, and `--max-failures`.
+- Failed-job triage includes mismatch instruction context (`pc`, instruction word, disassembly, mismatched fields).
+- Optional JSON report output: `--report-json <path>`.
+- Web app status link is always printed as a full clickable URL after a run.
+- Optional custom URL: `--app-url <url>` or `RHEON_REGR_APP_URL` (defaults to `http://127.0.0.1:8765`).
+- If the app is not already running, `rheon_regr` prints the command to start it for that run.
+- Each regression creates `runs/regressions/<timestamp>/` and each job writes logs to `<job_dir>/sim.log`.
+- Example YAML file: `examples/regression.example.yaml`.
+
+### Browser Regression App
+
+There is a lightweight browser app for interactive regression control and live job
+monitoring with:
+
+- test and job selection (`tests` plus count)
+- seed and stage options
+- controls for pause / resume / cancel
+- adjustable parallelism during execution
+- rerun failed jobs
+- import and export in `rheon_regr` YAML format
+
+Start the app:
+
+```bash
+./scripts/rheon_regr_app --host 127.0.0.1 --port 8765
+./scripts/rheon_regr_app --attach runs/regressions/20260306_120000
+```
+
+Then open the URL printed by the app in your browser.
+
+For fast UI iteration without rebuilding Electron each time, run the backend and
+renderer dev server together:
+
+```bash
+./scripts/rheon_regr_app --host 127.0.0.1 --port 8765
+cd electron
+npm run ui:dev
+```
+
+Then open `http://127.0.0.1:5173`. The Vite dev server proxies `/api/*` calls to
+`http://127.0.0.1:8765` by default. You can override this with
+`VITE_API_PROXY_TARGET`.
+
+Build a standalone artifact bundle (for packaging or distribution):
+
+```bash
+./build.sh
+./build.sh --clean  # wipe staged build artifacts first
+```
+
+### macOS One-Click App
+
+`./build.sh` also creates a macOS app bundle at
+`build/rheon_regr_app/Rheon Regr.app` (on Darwin systems):
+
+```bash
+open build/rheon_regr_app/Rheon\ Regr.app
+```
+
+The app starts the server automatically and opens the UI. You can also start with an
+existing output directory:
+
+```bash
+./bin/rheon_regr_app_mac --attach runs/regressions/20260306_120000
+```
+
+The app exposes a simple shutdown path so quitting the app (or closing its process) also
+stops the local server it started:
+
+```bash
+./bin/rheon_regr_app_mac --stop
+```
+
+To install, copy the built app into Applications:
+
+```bash
+cp -R build/rheon_regr_app/Rheon\ Regr.app /Applications/
+```
+
+Or use the build helper directly:
+
+```bash
+./build.sh --install
+./build.sh --install /path/to/your/apps
+```
+
+The installed app is a launcher for the current Rheon checkout and its `.venv`, so build it after
+running `uv sync`. If the repo moves, rebuild the app from the new checkout location. Provide your
+logo at `assets/rheon_regr_app.icns` (preferred) or `assets/rheon_regr_app.png` before running
+`./build.sh`.
+
+## Legacy
 
 **Legacy:** `./scripts/run_test.sh` (no args or `--seed N`) generates with default generator and runs; `./scripts/run_test.sh path/to/program.elf` runs with that ELF only.
 

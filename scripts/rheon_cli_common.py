@@ -11,6 +11,7 @@ import os
 import random
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -200,6 +201,49 @@ class RegressionOutcome:
     executed_results: list[JobResult]
 
 
+class RegressionRunController:
+    """Mutable controls for an in-flight regression run."""
+
+    def __init__(self, *, parallelism: int) -> None:
+        self._stop_event = threading.Event()
+        self._paused_event = threading.Event()
+        self._paused_event.clear()
+        self._parallelism = max(int(parallelism), 1)
+        self._parallelism_lock = threading.Lock()
+
+    @property
+    def stop_event(self) -> threading.Event:
+        return self._stop_event
+
+    @property
+    def is_paused(self) -> bool:
+        return self._paused_event.is_set()
+
+    @property
+    def is_cancelled(self) -> bool:
+        return self._stop_event.is_set()
+
+    @property
+    def parallelism(self) -> int:
+        with self._parallelism_lock:
+            return self._parallelism
+
+    def set_parallelism(self, jobs: int) -> int:
+        value = max(int(jobs), 1)
+        with self._parallelism_lock:
+            self._parallelism = value
+            return self._parallelism
+
+    def pause(self) -> None:
+        self._paused_event.set()
+
+    def resume(self) -> None:
+        self._paused_event.clear()
+
+    def cancel(self) -> None:
+        self._stop_event.set()
+
+
 def repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
 
@@ -213,6 +257,44 @@ def commands_dir() -> Path:
     if (bin_dir / "rheon_run").exists():
         return bin_dir
     return scripts_dir()
+
+
+def _command_entrypoint(name: str) -> list[str]:
+    command_path = commands_dir() / name
+    try:
+        first_line = command_path.read_text(encoding="utf-8").splitlines()[0]
+    except (OSError, IndexError, UnicodeDecodeError):
+        first_line = ""
+    if first_line.startswith("#!") and "python" in first_line.lower():
+        return [sys.executable, str(command_path)]
+    return [str(command_path)]
+
+
+def _augment_runtime_env(env: dict[str, str] | None = None) -> dict[str, str]:
+    runtime_env = os.environ.copy()
+    if env is not None:
+        runtime_env.update(env)
+
+    current_python_bin = Path(sys.executable).resolve().parent
+    extra_entries = [str(current_python_bin)]
+
+    repo_python_bin = repo_root() / ".venv" / "bin"
+    if repo_python_bin.exists():
+        extra_entries.append(str(repo_python_bin.resolve()))
+
+    command_root = commands_dir()
+    if command_root.exists():
+        extra_entries.append(str(command_root.resolve()))
+
+    existing_entries = [
+        entry for entry in runtime_env.get("PATH", "").split(os.pathsep) if entry
+    ]
+    deduped_entries: list[str] = []
+    for entry in [*extra_entries, *existing_entries]:
+        if entry and entry not in deduped_entries:
+            deduped_entries.append(entry)
+    runtime_env["PATH"] = os.pathsep.join(deduped_entries)
+    return runtime_env
 
 
 def regressions_root() -> Path:
@@ -304,6 +386,61 @@ def _load_yaml(path: Path) -> RegressionFileModel:
         raise ConfigError(
             f"Regression YAML schema validation failed: {_format_validation_error(exc)}"
         ) from exc
+
+
+def _load_yaml_text(raw_text: str) -> RegressionFileModel:
+    try:
+        loaded = yaml.safe_load(raw_text)
+    except yaml.YAMLError as exc:
+        raise ConfigError("Unable to parse regression YAML text") from exc
+
+    if loaded is None:
+        return RegressionFileModel()
+    if not isinstance(loaded, dict):
+        raise ConfigError("Regression YAML must contain a mapping")
+    try:
+        return RegressionFileModel.model_validate(loaded)
+    except ValidationError as exc:
+        raise ConfigError(
+            f"Regression YAML schema validation failed: {_format_validation_error(exc)}"
+        ) from exc
+
+
+def regression_file_payload(
+    config: RegressionConfig,
+    *,
+    tests: list[TestSpec] | None = None,
+) -> dict[str, Any]:
+    selected_tests = tests if tests is not None else config.tests
+    return {
+        "version": REPORT_VERSION,
+        "regression": {
+            "seed": config.seed,
+            "jobs": config.jobs,
+            "update": config.update,
+            "stages": list(config.stages),
+            "output_dir": str(config.output_dir) if config.output_dir else None,
+            "verbosity": config.verbosity,
+            "waves": config.waves,
+            "timeout_sec": config.timeout_sec,
+            "fail_fast": config.fail_fast,
+            "max_failures": config.max_failures,
+            "resume": str(config.resume) if config.resume else None,
+            "report_json": str(config.report_json) if config.report_json else None,
+            "tests": [
+                {"name": item.name, "count": item.count} for item in selected_tests
+            ],
+        },
+    }
+
+
+def regression_yaml_text(
+    config: RegressionConfig, *, tests: list[TestSpec] | None = None
+) -> str:
+    return "---\n" + yaml.safe_dump(
+        regression_file_payload(config, tests=tests),
+        default_flow_style=False,
+    )
 
 
 def _coerce_int(value: Any, *, field: str, min_value: int | None = None) -> int:
@@ -567,8 +704,30 @@ def _update_latest_shortcut(target_dir: Path) -> None:
 def _initial_state() -> dict[str, Any]:
     return {
         "version": 1,
+        "revision": 0,
         "created_at": _now_iso(),
         "updated_at": _now_iso(),
+        "meta": {
+            "revision": 0,
+            "status": "initialized",
+            "status_reason": None,
+            "parallelism": 0,
+            "jobs_requested": 0,
+            "total": 0,
+            "scheduled": 0,
+            "skipped_resume": 0,
+            "passed": 0,
+            "failed": 0,
+            "not_run": 0,
+            "timed_out": 0,
+            "running_jobs": [],
+            "output_dir": None,
+            "is_paused": False,
+            "is_cancelled": False,
+            "elapsed_seconds": 0.0,
+            "fail_fast_triggered": False,
+            "max_failures_triggered": False,
+        },
         "jobs": {},
     }
 
@@ -583,8 +742,16 @@ def _load_state(state_path: Path) -> dict[str, Any]:
     if not isinstance(loaded, dict):
         raise ConfigError(f"State file {state_path} is invalid")
     loaded.setdefault("version", 1)
+    loaded.setdefault("revision", 0)
     loaded.setdefault("created_at", _now_iso())
     loaded.setdefault("updated_at", _now_iso())
+    loaded.setdefault("meta", {})
+    if not isinstance(loaded["meta"], dict):
+        loaded["meta"] = {}
+    initial_meta = _initial_state()["meta"]
+    for key, value in initial_meta.items():
+        loaded["meta"].setdefault(key, value)
+    loaded["meta"]["revision"] = int(loaded.get("revision", 0) or 0)
     loaded.setdefault("jobs", {})
     if not isinstance(loaded["jobs"], dict):
         raise ConfigError(f"State file {state_path} has invalid jobs map")
@@ -592,6 +759,11 @@ def _load_state(state_path: Path) -> dict[str, Any]:
 
 
 def _save_state(state_path: Path, state: dict[str, Any]) -> None:
+    revision = int(state.get("revision", 0) or 0) + 1
+    state["revision"] = revision
+    meta = state.setdefault("meta", {})
+    if isinstance(meta, dict):
+        meta["revision"] = revision
     state["updated_at"] = _now_iso()
     _atomic_write_json(state_path, state)
 
@@ -629,10 +801,11 @@ def _spawn_and_wait(
     timeout_sec: int | None,
     env: dict[str, str] | None = None,
 ) -> tuple[int, bool, float]:
+    runtime_env = _augment_runtime_env(env)
     process = subprocess.Popen(
         list(command),
         cwd=cwd,
-        env=env,
+        env=runtime_env,
         stdout=log_handle,
         stderr=subprocess.STDOUT,
         text=True,
@@ -849,7 +1022,6 @@ def _run_job_default(
     run_dir.mkdir(parents=True, exist_ok=True)
     log_path = run_dir / "sim.log"
 
-    command_root = commands_dir()
     rerun_text = build_job_rerun_command(job, config)
 
     with log_path.open("w", encoding="utf-8") as log_handle:
@@ -859,7 +1031,7 @@ def _run_job_default(
 
         if config.stages == RUN_STAGES:
             cmd = [
-                str(command_root / "rheon_run"),
+                *_command_entrypoint("rheon_run"),
                 "--test",
                 job.test_name,
                 "--seed",
@@ -892,7 +1064,7 @@ def _run_job_default(
 
         total_elapsed = 0.0
         gen_cmd = [
-            str(command_root / "rheon_gen"),
+            *_command_entrypoint("rheon_gen"),
             "--test",
             job.test_name,
             "--seed",
@@ -936,7 +1108,7 @@ def _run_job_default(
             )
 
         sim_cmd = [
-            str(command_root / "rheon_sim"),
+            *_command_entrypoint("rheon_sim"),
             "--test",
             str(sim_elf),
             "--seed",
@@ -1099,6 +1271,29 @@ def _running_job_entries(
     return rows
 
 
+def _running_job_payload_entries(
+    active_futures: dict[Future[JobResult], RegressionJob],
+    started_at: dict[Future[JobResult], float],
+    started_at_iso: dict[Future[JobResult], str],
+    now: float,
+) -> list[dict[str, Any]]:
+    rows = []
+    for future, job in active_futures.items():
+        started = started_at.get(future, now)
+        elapsed = max(now - started, 0.0)
+        rows.append(
+            {
+                "index": job.index,
+                "test_name": job.test_name,
+                "seed": job.seed,
+                "elapsed_seconds": elapsed,
+                "started_at": started_at_iso.get(future),
+            }
+        )
+    rows.sort(key=lambda item: (-float(item["elapsed_seconds"]), int(item["index"])))
+    return rows
+
+
 def _write_report(
     config: RegressionConfig,
     outcome: RegressionOutcome,
@@ -1188,12 +1383,15 @@ def run_regression(
     *,
     console: Console | None = None,
     runner: Callable[..., JobResult] | None = None,
+    control: RegressionRunController | None = None,
+    status_callback: Callable[[dict[str, Any]], None] | None = None,
+    jobs_override: list[RegressionJob] | None = None,
     monotonic: Callable[[], float] = time.monotonic,
 ) -> RegressionOutcome:
     from rich.console import Console
     from rich.live import Live
 
-    jobs = expand_regression_jobs(config.tests, config.seed)
+    jobs = jobs_override or expand_regression_jobs(config.tests, config.seed)
     if config.resume is not None:
         output_dir = config.resume.resolve()
     elif config.output_dir is not None:
@@ -1211,23 +1409,32 @@ def run_regression(
         console.print(f"[yellow]Warning:[/yellow] {exc}")
 
     state_path = output_dir / STATE_FILE_NAME
-    state = _load_state(state_path) if config.resume is not None else _initial_state()
+    effective_control = control or RegressionRunController(parallelism=config.jobs)
+
+    state = (
+        _load_state(state_path)
+        if config.resume is not None and jobs_override is None
+        else _initial_state()
+    )
 
     jobs_to_run: list[RegressionJob] = []
     skipped_jobs: list[RegressionJob] = []
-    for job in jobs:
-        key = _job_key(job)
-        fingerprint = _job_fingerprint(job, config)
-        record = state.get("jobs", {}).get(key)
-        if (
-            record
-            and isinstance(record, dict)
-            and record.get("status") == "passed"
-            and record.get("fingerprint") == fingerprint
-        ):
-            skipped_jobs.append(job)
-            continue
-        jobs_to_run.append(job)
+    if jobs_override is None:
+        for job in jobs:
+            key = _job_key(job)
+            fingerprint = _job_fingerprint(job, config)
+            record = state.get("jobs", {}).get(key)
+            if (
+                record
+                and isinstance(record, dict)
+                and record.get("status") == "passed"
+                and record.get("fingerprint") == fingerprint
+            ):
+                skipped_jobs.append(job)
+                continue
+            jobs_to_run.append(job)
+    else:
+        jobs_to_run = list(jobs)
 
     job_runner = runner or _run_job_default
 
@@ -1248,17 +1455,131 @@ def run_regression(
     recent_failures: list[JobResult] = []
     executed_results: list[JobResult] = []
 
-    stop_event = threading.Event()
+    stop_event = effective_control.stop_event
     start = monotonic()
     next_update = start + config.update
+    status_reason = "running"
+    interrupted = False
 
     active_futures: dict[Future[JobResult], RegressionJob] = {}
     active_started_at: dict[Future[JobResult], float] = {}
+    active_started_at_iso: dict[Future[JobResult], str] = {}
     cursor = 0
+
+    def emit_status_payload(
+        *, force: bool = False, status: str = "running"
+    ) -> dict[str, Any]:
+        running_payload = _running_job_payload_entries(
+            active_futures,
+            active_started_at,
+            active_started_at_iso,
+            monotonic(),
+        )
+        return {
+            "status": status,
+            "status_reason": status_reason,
+            "total": total,
+            "scheduled": scheduled,
+            "skipped_resume": skipped_resume,
+            "passed": passed,
+            "failed": failed,
+            "not_run": pending,
+            "timed_out": timed_out,
+            "interrupted": interrupted,
+            "fail_fast_triggered": fail_fast_triggered,
+            "max_failures_triggered": max_failures_triggered,
+            "running": running,
+            "running_jobs": running_payload,
+            "jobs": [
+                {
+                    "index": result.job.index,
+                    "test_name": result.job.test_name,
+                    "seed": result.job.seed,
+                    "status": "passed" if result.returncode == 0 else "failed",
+                    "status_reason": result.status_reason,
+                    "duration_seconds": result.duration_seconds,
+                    "triage_summary": result.triage_summary,
+                    "triage_pc": result.triage_pc,
+                    "triage_instr_hex": result.triage_instr_hex,
+                    "triage_instr_asm": result.triage_instr_asm,
+                    "triage_mismatched_fields": result.triage_mismatched_fields,
+                    "log_path": str(result.log_path),
+                    "run_dir": str(result.run_dir),
+                    "rerun_command": result.rerun_command,
+                }
+                for result in executed_results
+            ],
+            "output_dir": str(output_dir),
+            "parallelism": effective_control.parallelism,
+            "force": force,
+            "evented_at": _now_iso(),
+            "elapsed_seconds": max(monotonic() - start, 0.0),
+            "is_paused": effective_control.is_paused,
+            "is_cancelled": effective_control.is_cancelled,
+        }
+
+    def emit_status(*, force: bool = False, status: str = "running") -> None:
+        if status_callback is not None:
+            status_callback(emit_status_payload(force=force, status=status))
+
+    def update_state_snapshot(status: str) -> None:
+        payload = emit_status_payload(force=False, status=status)
+        running_jobs = [
+            {
+                "index": item["index"],
+                "test_name": item["test_name"],
+                "seed": item["seed"],
+                "elapsed_seconds": item["elapsed_seconds"],
+                "started_at": item.get("started_at"),
+            }
+            for item in payload["running_jobs"]
+        ]
+        state["meta"].update(
+            {
+                "revision": state.get("revision", 0),
+                "status": status,
+                "status_reason": status_reason,
+                "jobs_requested": config.jobs,
+                "total": total,
+                "scheduled": scheduled,
+                "skipped_resume": skipped_resume,
+                "passed": passed,
+                "failed": failed,
+                "not_run": payload["not_run"],
+                "timed_out": timed_out,
+                "output_dir": str(output_dir),
+                "seed": config.seed,
+                "tests": [
+                    {"name": test.name, "count": test.count} for test in config.tests
+                ],
+                "stages": list(config.stages),
+                "verbosity": config.verbosity,
+                "waves": config.waves,
+                "timeout_sec": config.timeout_sec,
+                "fail_fast": config.fail_fast,
+                "max_failures": config.max_failures,
+                "interrupt_requested": effective_control.is_cancelled,
+                "paused_requested": effective_control.is_paused,
+                "parallelism": effective_control.parallelism,
+                "running_jobs": running_jobs,
+                "fail_fast_triggered": fail_fast_triggered,
+                "max_failures_triggered": max_failures_triggered,
+                "interrupted": interrupted,
+                "elapsed_seconds": payload["elapsed_seconds"],
+                "updated_at": _now_iso(),
+            }
+        )
+        _save_state(state_path, state)
 
     def submit_one(executor: ThreadPoolExecutor) -> bool:
         nonlocal cursor, pending, running
-        if stop_launching:
+        if (
+            stop_launching
+            or effective_control.is_cancelled
+            or effective_control.is_paused
+        ):
+            return False
+        if running >= effective_control.parallelism:
             return False
         if cursor >= scheduled:
             return False
@@ -1275,6 +1596,7 @@ def run_regression(
         )
         active_futures[future] = job
         active_started_at[future] = monotonic()
+        active_started_at_iso[future] = _now_iso()
         return True
 
     def consume_completed(done: set[Future[JobResult]]) -> bool:
@@ -1285,6 +1607,7 @@ def run_regression(
             running -= 1
             active_futures.pop(future, None)
             active_started_at.pop(future, None)
+            active_started_at_iso.pop(future, None)
             try:
                 result = future.result()
             except Exception:
@@ -1323,6 +1646,11 @@ def run_regression(
     def refresh_status(live: Any, now: float, *, force: bool = False) -> None:
         nonlocal next_update
         if force or now >= next_update:
+            state_status = (
+                "paused"
+                if effective_control.is_paused
+                else ("cancelled" if interrupted else "running")
+            )
             live.update(
                 _status_dashboard(
                     total=total,
@@ -1341,10 +1669,50 @@ def run_regression(
                 refresh=True,
             )
             next_update = now + config.update
+            emit_status(force=True)
+            update_state_snapshot(state_status)
+        else:
+            emit_status(force=force, status=payload_status())
+            update_state_snapshot(
+                "paused"
+                if effective_control.is_paused
+                else ("cancelled" if interrupted else "running")
+            )
+
+    def payload_status() -> str:
+        if effective_control.is_cancelled:
+            return "cancelled"
+        if interrupted:
+            return "interrupted"
+        if fail_fast_triggered:
+            return "fail_fast"
+        if max_failures_triggered:
+            return "max_failures"
+        if effective_control.is_paused:
+            return "paused"
+        return "running"
+
+    def top_up_slots(executor: ThreadPoolExecutor) -> None:
+        while (
+            not stop_launching
+            and not effective_control.is_cancelled
+            and not effective_control.is_paused
+            and running < effective_control.parallelism
+            and submit_one(executor)
+        ):
+            pass
+
+    state["meta"].update(
+        {
+            "status_reason": status_reason,
+            "status": "running",
+        }
+    )
+    update_state_snapshot(payload_status())
+    emit_status(force=True, status="running")
 
     with ThreadPoolExecutor(max_workers=config.jobs) as executor:
-        while running < config.jobs and submit_one(executor):
-            pass
+        top_up_slots(executor)
 
         with Live(
             _status_dashboard(
@@ -1365,7 +1733,39 @@ def run_regression(
             refresh_per_second=8,
         ) as live:
             try:
-                while active_futures:
+                while active_futures or pending > 0:
+                    if effective_control.is_cancelled:
+                        stop_launching = True
+                        stop_event.set()
+
+                    top_up_slots(executor)
+
+                    if effective_control.is_paused:
+                        if active_futures:
+                            done, _ = wait(
+                                active_futures,
+                                timeout=0.2,
+                                return_when=FIRST_COMPLETED,
+                            )
+                            if done:
+                                had_failure = consume_completed(done)
+                                if config.fail_fast and failed > 0:
+                                    stop_launching = True
+                                    fail_fast_triggered = True
+                                if (
+                                    config.max_failures is not None
+                                    and failed >= config.max_failures
+                                ):
+                                    stop_launching = True
+                                    max_failures_triggered = True
+                                refresh_status(live, monotonic(), force=had_failure)
+                            else:
+                                refresh_status(live, monotonic(), force=False)
+                        else:
+                            refresh_status(live, monotonic(), force=False)
+                            time.sleep(0.2)
+                        continue
+
                     now = monotonic()
                     timeout = max(next_update - now, 0)
                     done, _ = wait(
@@ -1384,14 +1784,11 @@ def run_regression(
                         ):
                             stop_launching = True
                             max_failures_triggered = True
-                        while (
-                            not stop_launching
-                            and running < config.jobs
-                            and submit_one(executor)
-                        ):
-                            pass
 
                     refresh_status(live, monotonic(), force=had_failure)
+
+                    if not active_futures and stop_launching:
+                        break
 
             except KeyboardInterrupt:
                 interrupted = True
@@ -1407,6 +1804,30 @@ def run_regression(
             refresh_status(live, monotonic(), force=True)
 
     duration = monotonic() - start
+    final_status_reason = "complete"
+    if effective_control.is_cancelled and not interrupted:
+        final_status_reason = "cancelled"
+    elif interrupted:
+        final_status_reason = "interrupted"
+
+    if fail_fast_triggered:
+        final_status_reason = "fail_fast"
+    if max_failures_triggered:
+        final_status_reason = "max_failures"
+
+    status_reason = final_status_reason
+    final_state_status = (
+        "cancelled"
+        if final_status_reason == "cancelled"
+        else "interrupted"
+        if final_status_reason == "interrupted"
+        else "complete"
+    )
+    update_state_snapshot(final_state_status)
+    emit_status(force=True, status=final_state_status)
+    state["meta"]["status_reason"] = final_status_reason
+    _save_state(state_path, state)
+
     outcome = RegressionOutcome(
         total=total,
         scheduled=scheduled,
@@ -1415,7 +1836,7 @@ def run_regression(
         failed=failed,
         not_run=pending,
         timed_out=timed_out,
-        interrupted=interrupted,
+        interrupted=interrupted or final_status_reason in {"cancelled", "interrupted"},
         fail_fast_triggered=fail_fast_triggered,
         max_failures_triggered=max_failures_triggered,
         duration_seconds=duration,
@@ -1434,8 +1855,9 @@ def run_checked(
     cwd: Path,
     env: dict[str, str] | None = None,
 ) -> None:
+    runtime_env = _augment_runtime_env(env)
     try:
-        subprocess.run(list(command), cwd=cwd, env=env, check=True)
+        subprocess.run(list(command), cwd=cwd, env=runtime_env, check=True)
     except subprocess.CalledProcessError as exc:
         cmd = " ".join(shlex.quote(part) for part in command)
         raise ConfigError(f"Command failed ({exc.returncode}): {cmd}") from exc
@@ -1512,7 +1934,7 @@ def run_simulation(
     cocotb_results = run_dir / "results.xml"
     waves_file = run_dir / "dump.vcd"
 
-    env = os.environ.copy()
+    env = _augment_runtime_env()
     env["COCOTB_RESULTS_FILE"] = str(cocotb_results)
     if validated_verbosity:
         env["RHEON_VERBOSITY"] = validated_verbosity
@@ -1538,6 +1960,12 @@ def run_simulation(
         print(f"Verbosity: {validated_verbosity}", file=sys.stderr)
     if waves:
         print(f"Waves: enabled (WAVES=1), target: {waves_file}", file=sys.stderr)
+
+    if shutil.which("cocotb-config", path=env.get("PATH")) is None:
+        raise ConfigError(
+            "cocotb-config was not found on PATH. Run `uv sync` in the Rheon repo "
+            "or launch the app from a synced checkout so the project .venv is available."
+        )
 
     result = subprocess.run(make_args, cwd=root, env=env, check=False)
 

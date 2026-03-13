@@ -5,12 +5,15 @@
 # Usage:
 #   ./scripts/rheon_clean
 #
-# Deletes runs/ (all generated run dirs) and sim_build/ (Verilator/cocotb build).
+# Deletes runs/ (all generated run dirs), sim_build/ (Verilator/cocotb build),
+# and build outputs created by ./build.sh.
 
 set -euo pipefail
 RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 RUNS_BASE="${RHEON_ROOT}/runs"
 SIM_BUILD="${RHEON_ROOT}/sim_build"
+BUILD_DIR="${RHEON_ROOT}/build"
+LEGACY_BUILD_DIR="${RHEON_ROOT}/.build"
 
 if [[ -d "$RUNS_BASE" ]]; then
   rm -rf "$RUNS_BASE"
@@ -19,4 +22,12 @@ fi
 if [[ -d "$SIM_BUILD" ]]; then
   rm -rf "$SIM_BUILD"
   echo "Removed $SIM_BUILD"
+fi
+if [[ -d "$BUILD_DIR" ]]; then
+  rm -rf "$BUILD_DIR"
+  echo "Removed $BUILD_DIR"
+fi
+if [[ -d "$LEGACY_BUILD_DIR" ]]; then
+  rm -rf "$LEGACY_BUILD_DIR"
+  echo "Removed $LEGACY_BUILD_DIR"
 fi
