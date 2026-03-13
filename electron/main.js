@@ -22,6 +22,25 @@ let serverInfo = null;
 let pendingAttachPath = parseCliArgs(process.argv).attachPath;
 let isQuitting = false;
 
+function resolveDockIconPath() {
+  const candidates = [
+    path.resolve(__dirname, '..', 'assets', 'rheon_regr_app.png'),
+    path.join(process.resourcesPath, 'assets', 'rheon_regr_app.png'),
+    path.join(process.resourcesPath, 'rheon_regr_app.png'),
+  ];
+  return candidates.find((candidate) => fs.existsSync(candidate)) || null;
+}
+
+function applyDockIcon() {
+  if (process.platform !== 'darwin' || !app.dock) {
+    return;
+  }
+  const iconPath = resolveDockIconPath();
+  if (iconPath) {
+    app.dock.setIcon(iconPath);
+  }
+}
+
 function parseCliArgs(argv) {
   const result = {
     attachPath: null,
@@ -483,5 +502,6 @@ app.on('open-file', (event, filePath) => {
 
 app.whenReady().then(async () => {
   buildMenu();
+  applyDockIcon();
   await loadAppWindow();
 });

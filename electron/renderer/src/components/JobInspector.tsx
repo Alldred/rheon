@@ -16,6 +16,8 @@ interface JobInspectorProps {
   logError: string | null;
   onReloadLog: () => void;
   onCopyLog: () => void;
+  logMaximized?: boolean;
+  onToggleLogMaximized?: () => void;
   headerAction?: ReactNode;
   layoutMode?: "default" | "wide";
 }
@@ -45,6 +47,8 @@ export function JobInspector({
   logError,
   onReloadLog,
   onCopyLog,
+  logMaximized,
+  onToggleLogMaximized,
   headerAction,
   layoutMode = "default",
 }: JobInspectorProps) {
@@ -53,6 +57,7 @@ export function JobInspector({
   const deferredSearch = useDeferredValue(search);
   const [showMatchesOnly, setShowMatchesOnly] = useState(false);
   const [selectedLine, setSelectedLine] = useState<number | null>(null);
+  const [localLogMaximized, setLocalLogMaximized] = useState(false);
   const viewerRef = useRef<HTMLDivElement | null>(null);
   const lineRefs = useRef(new Map<number, HTMLDivElement>());
 
@@ -150,103 +155,147 @@ export function JobInspector({
     setSelectedLine(next);
   };
 
+  const isLogMaximized = logMaximized ?? localLogMaximized;
+  const toggleLogMaximized = () => {
+    if (onToggleLogMaximized) {
+      onToggleLogMaximized();
+    } else {
+      setLocalLogMaximized((current) => !current);
+    }
+  };
+
   return (
-    <aside className={`inspector${layoutMode === "wide" ? " inspector--wide" : ""}`}>
-      <section
-        className={`panel inspector-card${
-          source === "archive" && detailsCollapsed ? " inspector-card--details-collapsed" : ""
-        }`}
-      >
-        <div className="panel__header">
-          <div className="panel__title-row">
-            {headerAction}
-            <div>
-              <h2>{job ? `${job.test_name || "job"} / seed ${job.seed}` : "Selected job"}</h2>
+    <aside
+      className={`inspector${layoutMode === "wide" ? " inspector--wide" : ""}${
+        isLogMaximized ? " inspector--log-max" : ""
+      }`}
+    >
+      {!isLogMaximized ? (
+        <section
+          className={`panel inspector-card${
+            source === "archive" && detailsCollapsed ? " inspector-card--details-collapsed" : ""
+          }`}
+        >
+          <div className="panel__header">
+            <div className="panel__title-row">
+              {headerAction}
+              <div>
+                <h2>{job ? `${job.test_name || "job"} / seed ${job.seed}` : "Selected job"}</h2>
+              </div>
+            </div>
+            <div className="toolbar toolbar--tight">
+              {source === "archive" ? (
+                <button
+                  type="button"
+                  className="chip-button"
+                  onClick={() => setDetailsCollapsed((current) => !current)}
+                >
+                  {detailsCollapsed ? "Show details" : "Hide details"}
+                </button>
+              ) : null}
+              <span className={`status-dot status-dot--${statusTone(status)}`}>{status}</span>
             </div>
           </div>
-          <div className="toolbar toolbar--tight">
-            {source === "archive" ? (
-              <button
-                type="button"
-                className="chip-button"
-                onClick={() => setDetailsCollapsed((current) => !current)}
-              >
-                {detailsCollapsed ? "Show details" : "Hide details"}
-              </button>
-            ) : null}
-            <span className={`status-dot status-dot--${statusTone(status)}`}>{status}</span>
-          </div>
-        </div>
 
-        {!detailsCollapsed ? (
-          <>
-            {job ? (
-              <div className="detail-grid">
-                {detailItems.map((item) => (
-                  <DetailCard key={item.label} label={item.label} value={item.value} />
-                ))}
-              </div>
-            ) : (
-              <div className="empty-state-card">
-                Pick a job from the monitor or archive table to see its details and log.
-              </div>
-            )}
-
-            {job?.triage_summary ? (
-              <div className="panel__subsection">
-                <span className="subheading">Triage summary</span>
-                <p className="inspector-copy">{job.triage_summary}</p>
-              </div>
-            ) : null}
-
-            {(job?.triage_mismatched_fields || []).length > 0 ? (
-              <div className="panel__subsection">
-                <span className="subheading">Mismatch fields</span>
-                <div className="pill-row">
-                  {job?.triage_mismatched_fields?.map((entry) => (
-                    <span key={entry} className="pill pill--failure">
-                      {entry}
-                    </span>
+          {!detailsCollapsed ? (
+            <>
+              {job ? (
+                <div className="detail-grid">
+                  {detailItems.map((item) => (
+                    <DetailCard key={item.label} label={item.label} value={item.value} />
                   ))}
                 </div>
-              </div>
-            ) : null}
-
-            {artifactLabels.length > 0 ? (
-              <div className="panel__subsection">
-                <span className="subheading">Artifacts</span>
-                <div className="artifact-list">
-                  {artifactLabels.map((artifact) => (
-                    <code key={artifact.full} className="artifact-path" title={artifact.full}>
-                      {artifact.label}
-                    </code>
-                  ))}
+              ) : (
+                <div className="empty-state-card">
+                  Pick a job from the monitor or archive table to see its details and log.
                 </div>
-              </div>
-            ) : null}
+              )}
 
-            {source === "active" ? (
-              <div className="panel__subsection">
-                <span className="subheading">Session</span>
-                <div className="meta-list meta-list--tight">
-                  <div>
-                    <dt>Output</dt>
-                    <dd title={snapshot?.output_dir || undefined}>{pathTail(snapshot?.output_dir)}</dd>
-                  </div>
-                  <div>
-                    <dt>Updated</dt>
-                    <dd>{formatDateTime(snapshot?.updated_at)}</dd>
+              {job?.triage_summary ? (
+                <div className="panel__subsection">
+                  <span className="subheading">Triage summary</span>
+                  <p className="inspector-copy">{job.triage_summary}</p>
+                </div>
+              ) : null}
+
+              {(job?.triage_mismatched_fields || []).length > 0 ? (
+                <div className="panel__subsection">
+                  <span className="subheading">Mismatch fields</span>
+                  <div className="pill-row">
+                    {job?.triage_mismatched_fields?.map((entry) => (
+                      <span key={entry} className="pill pill--failure">
+                        {entry}
+                      </span>
+                    ))}
                   </div>
                 </div>
-              </div>
-            ) : null}
-          </>
-        ) : null}
-      </section>
+              ) : null}
+
+              {artifactLabels.length > 0 ? (
+                <div className="panel__subsection">
+                  <span className="subheading">Artifacts</span>
+                  <div className="artifact-list">
+                    {artifactLabels.map((artifact) => (
+                      <code key={artifact.full} className="artifact-path" title={artifact.full}>
+                        {artifact.label}
+                      </code>
+                    ))}
+                  </div>
+                </div>
+              ) : null}
+
+              {source === "active" ? (
+                <div className="panel__subsection">
+                  <span className="subheading">Session</span>
+                  <div className="meta-list meta-list--tight">
+                    <div>
+                      <dt>Output</dt>
+                      <dd title={snapshot?.output_dir || undefined}>{pathTail(snapshot?.output_dir)}</dd>
+                    </div>
+                    <div>
+                      <dt>Updated</dt>
+                      <dd>{formatDateTime(snapshot?.updated_at)}</dd>
+                    </div>
+                  </div>
+                </div>
+              ) : null}
+            </>
+          ) : null}
+        </section>
+      ) : null}
 
       <section className="panel inspector-card inspector-card--stretch">
         <div className="panel__header panel__header--stack-mobile log-panel__header">
-          <div>
+          <div className="panel__title-row">
+            <button
+              type="button"
+              className={`icon-button${isLogMaximized ? " is-active" : ""}`}
+              aria-label={isLogMaximized ? "Restore panel" : "Maximize log"}
+              title={isLogMaximized ? "Restore panel" : "Maximize log"}
+              onClick={toggleLogMaximized}
+            >
+              <svg viewBox="0 0 16 16" aria-hidden="true">
+                {isLogMaximized ? (
+                  <path
+                    d="M5 2H2v3M11 2h3v3M2 11v3h3M14 11v3h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                ) : (
+                  <path
+                    d="M6 2H2v4M10 2h4v4M2 10v4h4M14 10v4h-4"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.6"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                )}
+              </svg>
+            </button>
             <h3>Log</h3>
           </div>
           <div className="toolbar toolbar--tight log-panel__controls">

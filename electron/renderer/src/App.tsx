@@ -180,6 +180,7 @@ export default function App() {
   const [drawerTab, setDrawerTab] = useState<DrawerTab>(() => readInitialDrawerTab());
   const [density, setDensity] = useState<DensityMode>(() => readInitialDensity());
   const [banner, setBanner] = useState<BannerState | null>(null);
+  const [bannerExiting, setBannerExiting] = useState(false);
   const [selectedActiveJobIndex, setSelectedActiveJobIndex] = useState<number | null>(null);
   const [selectedArchiveDir, setSelectedArchiveDir] = useState<string | null>(null);
   const [selectedArchiveJobIndex, setSelectedArchiveJobIndex] = useState<number | null>(null);
@@ -188,6 +189,7 @@ export default function App() {
     readInitialMonitorInspectorWidth(),
   );
   const [monitorMaximizedPane, setMonitorMaximizedPane] = useState<MonitorPane | null>(null);
+  const [monitorLogMaximized, setMonitorLogMaximized] = useState(false);
   const [yamlImportText, setYamlImportText] = useState("");
   const [yamlExportText, setYamlExportText] = useState("");
   const [quickAttachLatestState, setQuickAttachLatestState] = useState<"idle" | "pending" | "done">(
@@ -199,7 +201,16 @@ export default function App() {
     typeof Notification === "undefined" ? "unsupported" : Notification.permission,
   );
   const notificationKeyRef = useRef<string | null>(null);
+  const previousTabRef = useRef<AppTab>(activeTab);
+  const [tabSlideDirection, setTabSlideDirection] = useState<"left" | "right">("right");
+  const activeSelectionClearedRef = useRef(false);
   const monitorWorkspaceRef = useRef<HTMLDivElement | null>(null);
+  const activeTabIndex = activeTab === "run" ? 0 : activeTab === "monitor" ? 1 : 2;
+
+  const setActiveSelection = (index: number | null) => {
+    activeSelectionClearedRef.current = index === null;
+    setSelectedActiveJobIndex(index);
+  };
 
   const sessionQuery = useQuery({
     queryKey: ["session-state"],
@@ -287,6 +298,15 @@ export default function App() {
   }, [activeTab]);
 
   useEffect(() => {
+    const order: Record<AppTab, number> = { run: 0, monitor: 1, archive: 2 };
+    const previous = previousTabRef.current;
+    if (previous !== activeTab) {
+      setTabSlideDirection(order[activeTab] > order[previous] ? "left" : "right");
+      previousTabRef.current = activeTab;
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
     writeStorage(
       MONITOR_INSPECTOR_WIDTH_STORAGE_KEY,
       String(Math.round(monitorInspectorWidth)),
@@ -295,12 +315,20 @@ export default function App() {
 
   useEffect(() => {
     if (!banner) {
+      setBannerExiting(false);
       return;
     }
-    const timer = window.setTimeout(() => {
+    setBannerExiting(false);
+    const exitTimer = window.setTimeout(() => {
+      setBannerExiting(true);
+    }, 2100);
+    const clearTimer = window.setTimeout(() => {
       setBanner(null);
-    }, 2800);
-    return () => window.clearTimeout(timer);
+    }, 2600);
+    return () => {
+      window.clearTimeout(exitTimer);
+      window.clearTimeout(clearTimer);
+    };
   }, [banner]);
 
   useEffect(() => {
@@ -335,6 +363,9 @@ export default function App() {
   }, [runsQuery.data, selectedArchiveDir, selectedArchiveJobIndex]);
 
   useEffect(() => {
+    if (selectedActiveJobIndex === null && activeSelectionClearedRef.current) {
+      return;
+    }
     const next = activeJobs.some((job) => job.index === selectedActiveJobIndex)
       ? selectedActiveJobIndex
       : chooseInterestingJob(activeJobs);
@@ -589,6 +620,7 @@ export default function App() {
   const focusActiveSeed = (seed: number) => {
     const match = activeJobs.find((job) => job.seed === seed);
     if (match) {
+      activeSelectionClearedRef.current = false;
       setSelectedActiveJobIndex(match.index);
       setLens("table");
     }
@@ -626,24 +658,22 @@ export default function App() {
     window.addEventListener("mouseup", handleMouseUp);
   };
 
+  const effectiveMonitorMaximizedPane = monitorLogMaximized
+    ? "inspector"
+    : monitorMaximizedPane;
+
   return (
     <div className="app-shell">
-      {activeTab === "run" ? (
-        <QuickRunBar
-          activeTab={activeTab}
-          draft={draft}
-          runs={runsQuery.data || []}
-          busy={activeBusy}
-          banner={banner}
-          onChangeField={updateDraftField}
-          onApplyTemplate={handleApplyTemplate}
-          onStartRun={() => startMutation.mutate()}
-          onAttachLatest={handleQuickAttachLatest}
-          attachLatestState={quickAttachLatestState}
-        />
-      ) : null}
-
-      <div className="app-tabs" role="tablist" aria-label="Deck sections">
+      <div
+        className={`app-tabs app-tabs--slide-${tabSlideDirection}`}
+        role="tablist"
+        aria-label="Deck sections"
+        style={
+          {
+            "--active-index": activeTabIndex,
+          } as CSSProperties
+        }
+      >
         {([
           ["run", "Setup"],
           ["monitor", "Monitor"],
@@ -663,13 +693,36 @@ export default function App() {
       </div>
 
       {activeTab !== "run" && banner ? (
-        <div className={`banner banner--${banner.tone} app-banner`} role="status">
+        <div
+          className={`banner banner--${banner.tone} app-banner${
+            bannerExiting ? " app-banner--exiting" : ""
+          }`}
+          role="status"
+        >
           {banner.message}
         </div>
       ) : null}
 
       {activeTab === "run" ? (
-        <main className="screen-shell">
+        <QuickRunBar
+          activeTab={activeTab}
+          draft={draft}
+          runs={runsQuery.data || []}
+          busy={activeBusy}
+          banner={banner}
+          onChangeField={updateDraftField}
+          onApplyTemplate={handleApplyTemplate}
+          onStartRun={() => startMutation.mutate()}
+          onAttachLatest={handleQuickAttachLatest}
+          attachLatestState={quickAttachLatestState}
+        />
+      ) : null}
+
+      {activeTab === "run" ? (
+        <main
+          key={`view-${activeTab}`}
+          className={`screen-shell screen-shell--slide-in-${tabSlideDirection}`}
+        >
           <div className="screen-layout screen-layout--setup">
             <section className="screen-main">
               <BottomDrawer
@@ -741,32 +794,32 @@ export default function App() {
       ) : null}
 
       {activeTab === "monitor" ? (
-        <main className="screen-shell">
+        <main
+          key={`view-${activeTab}`}
+          className={`screen-shell screen-shell--slide-in-${tabSlideDirection}`}
+        >
           <div
             ref={monitorWorkspaceRef}
             className={`workspace workspace--monitor${
-              monitorMaximizedPane ? " workspace--maximized" : ""
+              effectiveMonitorMaximizedPane ? " workspace--maximized" : ""
             }`}
             style={
-              monitorMaximizedPane
+              effectiveMonitorMaximizedPane
                 ? undefined
                 : ({
                     "--monitor-inspector-width": `${monitorInspectorWidth}px`,
                   } as CSSProperties)
             }
           >
-            {(monitorMaximizedPane === null || monitorMaximizedPane === "main") ? (
+            {(effectiveMonitorMaximizedPane === null || effectiveMonitorMaximizedPane === "main") ? (
               <section className="workspace-pane">
                 <div className="workspace-pane__body">
                   <LiveWorkbench
                     session={sessionQuery.data}
                     jobs={activeJobs}
                     selectedJobIndex={selectedActiveJobIndex}
-                    density={density}
                     parallelismDraft={parallelismDraft}
-                    onSelectJob={setSelectedActiveJobIndex}
-                    onFocusSeed={focusActiveSeed}
-                    onDensityChange={setDensity}
+                    onSelectJob={setActiveSelection}
                     onChangeParallelismDraft={setParallelismDraft}
                     onSetParallelism={() => setParallelismMutation.mutate()}
                     onPause={() => pauseMutation.mutate()}
@@ -776,16 +829,17 @@ export default function App() {
                     onOpenAtlas={() => setLens("bloom")}
                     headerAction={
                       <PaneToggleButton
-                        expanded={monitorMaximizedPane === "main"}
+                        expanded={effectiveMonitorMaximizedPane === "main"}
                         label={
-                          monitorMaximizedPane === "main"
+                          effectiveMonitorMaximizedPane === "main"
                             ? "Restore main panel"
                             : "Maximize main panel"
                         }
                         onClick={() =>
-                          setMonitorMaximizedPane((current) =>
-                            current === "main" ? null : "main",
-                          )
+                          setMonitorMaximizedPane((current) => {
+                            setMonitorLogMaximized(false);
+                            return current === "main" ? null : "main";
+                          })
                         }
                       />
                     }
@@ -794,7 +848,7 @@ export default function App() {
               </section>
             ) : null}
 
-            {monitorMaximizedPane === null ? (
+            {effectiveMonitorMaximizedPane === null ? (
               <div
                 className="workspace-resizer"
                 role="separator"
@@ -804,7 +858,7 @@ export default function App() {
               />
             ) : null}
 
-            {(monitorMaximizedPane === null || monitorMaximizedPane === "inspector") ? (
+            {(effectiveMonitorMaximizedPane === null || effectiveMonitorMaximizedPane === "inspector") ? (
               <section className="workspace-pane">
                 <div className="workspace-pane__body">
                   <JobInspector
@@ -828,22 +882,31 @@ export default function App() {
                     onCopyLog={() => {
                       void handleCopyLog();
                     }}
+                    logMaximized={monitorLogMaximized}
+                    onToggleLogMaximized={() => {
+                      setMonitorLogMaximized((current) => {
+                        const next = !current;
+                        setMonitorMaximizedPane(next ? "inspector" : null);
+                        return next;
+                      });
+                    }}
                     headerAction={
                       <PaneToggleButton
-                        expanded={monitorMaximizedPane === "inspector"}
+                        expanded={effectiveMonitorMaximizedPane === "inspector"}
                         label={
-                          monitorMaximizedPane === "inspector"
+                          effectiveMonitorMaximizedPane === "inspector"
                             ? "Restore inspector panel"
                             : "Maximize inspector panel"
                         }
                         onClick={() =>
-                          setMonitorMaximizedPane((current) =>
-                            current === "inspector" ? null : "inspector",
-                          )
+                          setMonitorMaximizedPane((current) => {
+                            setMonitorLogMaximized(false);
+                            return current === "inspector" ? null : "inspector";
+                          })
                         }
                       />
                     }
-                    layoutMode={monitorMaximizedPane === "inspector" ? "wide" : "default"}
+                    layoutMode={effectiveMonitorMaximizedPane === "inspector" ? "wide" : "default"}
                   />
                 </div>
               </section>
@@ -853,7 +916,10 @@ export default function App() {
       ) : null}
 
       {activeTab === "archive" ? (
-        <main className="screen-shell">
+        <main
+          key={`view-${activeTab}`}
+          className={`screen-shell screen-shell--slide-in-${tabSlideDirection}`}
+        >
           <ArchiveDeck
             runs={runsQuery.data || []}
             runsLoading={runsQuery.isLoading}
@@ -893,7 +959,7 @@ export default function App() {
             running: 0,
           }}
           sessionStatus={sessionQuery.data?.status || "idle"}
-          onSelectJob={setSelectedActiveJobIndex}
+          onSelectJob={setActiveSelection}
           onClose={() => setLens("table")}
         />
       ) : null}

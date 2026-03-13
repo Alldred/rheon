@@ -4,20 +4,16 @@
  */
 
 import type { ReactNode } from "react";
-import { buildFailureClusters, formatDuration, statusTone, summaryDefaults } from "../lib/regression";
-import type { DensityMode, JobRecord, SessionSnapshot } from "../types";
-import { FailureClusterPanel } from "./FailureClusterPanel";
+import { statusTone, summaryDefaults } from "../lib/regression";
+import type { JobRecord, SessionSnapshot } from "../types";
 import { OperatorTableLens } from "./OperatorTableLens";
 
 interface LiveWorkbenchProps {
   session: SessionSnapshot | undefined;
   jobs: JobRecord[];
   selectedJobIndex: number | null;
-  density: DensityMode;
   parallelismDraft: string;
   onSelectJob: (index: number) => void;
-  onFocusSeed: (seed: number) => void;
-  onDensityChange: (density: DensityMode) => void;
   onChangeParallelismDraft: (value: string) => void;
   onSetParallelism: () => void;
   onPause: () => void;
@@ -41,11 +37,8 @@ export function LiveWorkbench({
   session,
   jobs,
   selectedJobIndex,
-  density,
   parallelismDraft,
   onSelectJob,
-  onFocusSeed,
-  onDensityChange,
   onChangeParallelismDraft,
   onSetParallelism,
   onPause,
@@ -56,8 +49,6 @@ export function LiveWorkbench({
   headerAction,
 }: LiveWorkbenchProps) {
   const summary = summaryDefaults(session?.summary);
-  const clusters = buildFailureClusters(jobs);
-  const runningNow = (session?.running_jobs || []).slice(0, 6);
   const controls = session?.controls;
 
   return (
@@ -145,41 +136,8 @@ export function LiveWorkbench({
       <OperatorTableLens
         jobs={jobs}
         selectedJobIndex={selectedJobIndex}
-        density={density}
         onSelectJob={onSelectJob}
-        onDensityChange={onDensityChange}
       />
-
-      <div className="workbench-summary-grid">
-        <section className="panel workbench-card">
-          <div className="panel__header">
-            <div>
-              <h3>Running jobs</h3>
-            </div>
-          </div>
-          {runningNow.length === 0 ? (
-            <div className="empty-copy">No jobs are currently running.</div>
-          ) : (
-            <div className="running-list">
-              {runningNow.map((job) => (
-                <button
-                  type="button"
-                  key={job.index}
-                  className={`running-card${job.index === selectedJobIndex ? " running-card--selected" : ""}`}
-                  onClick={() => onSelectJob(job.index)}
-                >
-                  <strong>
-                    {job.test_name || `job ${job.index}`} / seed {job.seed}
-                  </strong>
-                  <span>{formatDuration(job.elapsed_seconds)}</span>
-                </button>
-              ))}
-            </div>
-          )}
-        </section>
-
-        <FailureClusterPanel clusters={clusters} onFocusSeed={onFocusSeed} />
-      </div>
     </section>
   );
 }

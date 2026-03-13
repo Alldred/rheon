@@ -46,7 +46,7 @@
           ]
         }
       ],
-      "icon": "../assets/rheon_regr_app.icns"
+      "icon": "../assets/rheon_regr_app.png"
     },
     "files": [
       "main.js",
@@ -54,6 +54,10 @@
       "package.json"
     ],
     "extraResources": [
+      {
+        "from": "../assets/rheon_regr_app.png",
+        "to": "assets/rheon_regr_app.png"
+      },
       {
         "from": "source_root.txt",
         "to": "source_root.txt"
