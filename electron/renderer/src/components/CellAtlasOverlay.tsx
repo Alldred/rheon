@@ -959,6 +959,8 @@ export function CellAtlasOverlay({
   const hoverNodeIdRef = useRef<number | null>(null);
   const closeTimerRef = useRef<number | null>(null);
   const animationRef = useRef<number | null>(null);
+  const forceFrameCounterRef = useRef(0);
+  const cachedForcesRef = useRef<Map<number, { x: number; y: number }>>(new Map());
   const [hover, setHover] = useState<HoverState | null>(null);
   const [showClose, setShowClose] = useState(false);
   const failureGroupKeys = useMemo(
@@ -1104,10 +1106,7 @@ export function CellAtlasOverlay({
         node.y = clamp(node.y, minY, maxY);
       });
 
-      const forces = new Map<number, { x: number; y: number }>();
-      nodes.forEach((node) => {
-        forces.set(node.id, { x: 0, y: 0 });
-      });
+      let forces = new Map<number, { x: number; y: number }>();
       const gravityMass = new Map<string, number>();
       nodes.forEach((node) => {
         let key: string | null = null;
@@ -1122,98 +1121,121 @@ export function CellAtlasOverlay({
         gravityMass.set(key, (gravityMass.get(key) ?? 0) + 1);
       });
 
-      for (let left = 0; left < nodes.length; left += 1) {
-        for (let right = left + 1; right < nodes.length; right += 1) {
-          const a = nodes[left];
-          const b = nodes[right];
-          const aForce = forces.get(a.id);
-          const bForce = forces.get(b.id);
-          if (!aForce || !bForce) {
-            continue;
-          }
+      forceFrameCounterRef.current += 1;
+      const forceInterval =
+        nodes.length >= 320 ? 4 : nodes.length >= 220 ? 3 : nodes.length >= 140 ? 2 : 1;
+      const shouldRecomputeForces =
+        forceFrameCounterRef.current % forceInterval === 0 ||
+        cachedForcesRef.current.size !== nodes.length;
 
-          const dx = b.x - a.x;
-          const dy = b.y - a.y;
-          const distance = Math.hypot(dx, dy) || 1;
-          const nx = dx / distance;
-          const ny = dy / distance;
-          const aGroup = a.toStatus;
-          const bGroup = b.toStatus;
-          const sameGroup = aGroup === bGroup;
-          let magnitude = 0;
+      if (shouldRecomputeForces) {
+        nodes.forEach((node) => {
+          forces.set(node.id, { x: 0, y: 0 });
+        });
 
-          const bothFailed = aGroup === "failed" && bGroup === "failed";
-          const sameFailedCluster =
-            bothFailed &&
-            a.clusterKey !== null &&
-            b.clusterKey !== null &&
-            a.clusterKey === b.clusterKey;
+        for (let left = 0; left < nodes.length; left += 1) {
+          for (let right = left + 1; right < nodes.length; right += 1) {
+            const a = nodes[left];
+            const b = nodes[right];
+            const aForce = forces.get(a.id);
+            const bForce = forces.get(b.id);
+            if (!aForce || !bForce) {
+              continue;
+            }
 
-          if (bothFailed) {
-            if (sameFailedCluster) {
-              const clusterMass = gravityMass.get(`failed:${a.clusterKey}`) ?? 1;
-              const attractionScale = Math.min(2.4, 1 + (clusterMass - 1) * 0.14);
-              const targetDistance = 122;
-              if (distance > targetDistance) {
-                magnitude =
-                  ((distance - targetDistance) / targetDistance) *
-                  0.08 *
-                  attractionScale;
+            const dx = b.x - a.x;
+            const dy = b.y - a.y;
+            const distance = Math.hypot(dx, dy) || 1;
+            const nx = dx / distance;
+            const ny = dy / distance;
+            const aGroup = a.toStatus;
+            const bGroup = b.toStatus;
+            const sameGroup = aGroup === bGroup;
+            let magnitude = 0;
+
+            const bothFailed = aGroup === "failed" && bGroup === "failed";
+            const sameFailedCluster =
+              bothFailed &&
+              a.clusterKey !== null &&
+              b.clusterKey !== null &&
+              a.clusterKey === b.clusterKey;
+
+            if (bothFailed) {
+              if (sameFailedCluster) {
+                const clusterMass = gravityMass.get(`failed:${a.clusterKey}`) ?? 1;
+                const attractionScale = Math.min(2.4, 1 + (clusterMass - 1) * 0.14);
+                const targetDistance = 122;
+                if (distance > targetDistance) {
+                  magnitude =
+                    ((distance - targetDistance) / targetDistance) *
+                    0.08 *
+                    attractionScale;
+                } else {
+                  magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
+                }
               } else {
-                magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
+                const diffClusterSpacing = 168;
+                if (distance < diffClusterSpacing) {
+                  magnitude = -((diffClusterSpacing - distance) / diffClusterSpacing) * 0.32;
+                }
+              }
+            } else if (sameGroup) {
+              if (aGroup === "queued" || aGroup === "running") {
+                const spacing = aGroup === "queued" ? 126 : 118;
+                if (distance < spacing) {
+                  magnitude =
+                    -((spacing - distance) / spacing) * (aGroup === "queued" ? 0.3 : 0.22);
+                }
+              } else {
+                const targetDistance = 140;
+                const groupMass = aGroup === "passed" ? gravityMass.get("passed") ?? 1 : 1;
+                const attractionScale =
+                  aGroup === "passed"
+                    ? Math.min(2.2, 1 + (groupMass - 1) * 0.12)
+                    : 1;
+                if (distance > targetDistance) {
+                  magnitude =
+                    ((distance - targetDistance) / targetDistance) *
+                    0.06 *
+                    attractionScale;
+                } else {
+                  magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
+                }
               }
             } else {
-              const diffClusterSpacing = 168;
-              if (distance < diffClusterSpacing) {
-                magnitude = -((diffClusterSpacing - distance) / diffClusterSpacing) * 0.32;
-              }
-            }
-          } else if (sameGroup) {
-            if (aGroup === "queued" || aGroup === "running") {
-              const spacing = aGroup === "queued" ? 126 : 118;
-              if (distance < spacing) {
-                magnitude = -((spacing - distance) / spacing) * (aGroup === "queued" ? 0.3 : 0.22);
-              }
-            } else {
-              const targetDistance = 140;
-              const groupMass = aGroup === "passed" ? gravityMass.get("passed") ?? 1 : 1;
-              const attractionScale =
-                aGroup === "passed"
-                  ? Math.min(2.2, 1 + (groupMass - 1) * 0.12)
-                  : 1;
-              if (distance > targetDistance) {
+              const queuedInPair = aGroup === "queued" || bGroup === "queued";
+              const failedPassedPair =
+                (aGroup === "failed" && bGroup === "passed") ||
+                (aGroup === "passed" && bGroup === "failed");
+              const repelRange = queuedInPair ? 246 : failedPassedPair ? 272 : 176;
+              if (distance < repelRange) {
                 magnitude =
-                  ((distance - targetDistance) / targetDistance) *
-                  0.06 *
-                  attractionScale;
-              } else {
-                magnitude = -((targetDistance - distance) / targetDistance) * 0.24;
+                  -((repelRange - distance) / repelRange) *
+                  (queuedInPair ? 0.48 : failedPassedPair ? 0.52 : 0.2);
+              }
+              if (failedPassedPair) {
+                const longRange = 520;
+                if (distance < longRange) {
+                  magnitude += -((longRange - distance) / longRange) * 0.085;
+                }
               }
             }
-          } else {
-            const queuedInPair = aGroup === "queued" || bGroup === "queued";
-            const failedPassedPair =
-              (aGroup === "failed" && bGroup === "passed") ||
-              (aGroup === "passed" && bGroup === "failed");
-            const repelRange = queuedInPair ? 246 : failedPassedPair ? 272 : 176;
-            if (distance < repelRange) {
-              magnitude =
-                -((repelRange - distance) / repelRange) *
-                (queuedInPair ? 0.48 : failedPassedPair ? 0.52 : 0.2);
-            }
-            if (failedPassedPair) {
-              const longRange = 520;
-              if (distance < longRange) {
-                magnitude += -((longRange - distance) / longRange) * 0.085;
-              }
-            }
-          }
 
-          aForce.x += nx * magnitude;
-          aForce.y += ny * magnitude;
-          bForce.x -= nx * magnitude;
-          bForce.y -= ny * magnitude;
+            aForce.x += nx * magnitude;
+            aForce.y += ny * magnitude;
+            bForce.x -= nx * magnitude;
+            bForce.y -= ny * magnitude;
+          }
         }
+        cachedForcesRef.current = forces;
+      } else {
+        nodes.forEach((node) => {
+          const cached = cachedForcesRef.current.get(node.id);
+          forces.set(node.id, {
+            x: (cached?.x ?? 0) * 0.85,
+            y: (cached?.y ?? 0) * 0.85,
+          });
+        });
       }
 
       nodes.forEach((node) => {

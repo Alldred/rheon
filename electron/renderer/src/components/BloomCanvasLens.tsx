@@ -6,7 +6,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { buildBloomNodes, bloomPalette } from "../lib/bloom";
 import { normalizeStatus, statusTone } from "../lib/regression";
-import type { JobRecord, Summary } from "../types";
+import type { BloomNode, JobRecord, Summary } from "../types";
 
 interface BloomCanvasLensProps {
   jobs: JobRecord[];
@@ -167,19 +167,17 @@ function drawBloomCanvas(
 }
 
 function hitTest(
-  jobs: JobRecord[],
-  canvas: HTMLCanvasElement,
+  nodes: BloomNode[],
+  jobsByIndex: Map<number, JobRecord>,
   x: number,
   y: number,
-  frameMs: number,
 ) {
-  const nodes = buildBloomNodes(jobs, canvas.clientWidth, canvas.clientHeight, frameMs);
   for (let index = nodes.length - 1; index >= 0; index -= 1) {
     const node = nodes[index];
     const dx = x - node.x;
     const dy = y - node.tipY;
     if (Math.hypot(dx, dy) <= node.blossomRadius + 8) {
-      return jobs.find((job) => job.index === node.id) || null;
+      return jobsByIndex.get(node.id) || null;
     }
   }
   return null;
@@ -195,6 +193,7 @@ export function BloomCanvasLens({
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const sceneRef = useRef<HTMLDivElement | null>(null);
   const animationRef = useRef<number | null>(null);
+  const latestNodesRef = useRef<BloomNode[]>([]);
   const [hover, setHover] = useState<HoverState | null>(null);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const jobsByIndex = useMemo(
@@ -229,7 +228,7 @@ export function BloomCanvasLens({
     }
 
     const render = (frameMs: number) => {
-      drawBloomCanvas(canvas, jobs, selectedJobIndex, frameMs);
+      latestNodesRef.current = drawBloomCanvas(canvas, jobs, selectedJobIndex, frameMs);
       animationRef.current = window.requestAnimationFrame(render);
     };
     animationRef.current = window.requestAnimationFrame(render);
@@ -267,7 +266,7 @@ export function BloomCanvasLens({
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const hit = hitTest(jobs, canvas, x, y, performance.now());
+    const hit = hitTest(latestNodesRef.current, jobsByIndex, x, y);
     if (!hit) {
       setHover(null);
       return;
@@ -283,7 +282,7 @@ export function BloomCanvasLens({
     const rect = canvas.getBoundingClientRect();
     const x = event.clientX - rect.left;
     const y = event.clientY - rect.top;
-    const hit = hitTest(jobs, canvas, x, y, performance.now());
+    const hit = hitTest(latestNodesRef.current, jobsByIndex, x, y);
     if (hit) {
       onSelectJob(hit.index);
     }

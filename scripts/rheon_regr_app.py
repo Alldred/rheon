@@ -51,6 +51,7 @@ class AppSession:
     config: RegressionConfig | None = None
     controller: RegressionRunController | None = None
     thread: threading.Thread | None = None
+    planned_jobs_cache: list[dict[str, Any]] | None = None
     last_error: str | None = None
     started_at: float = 0.0
 
@@ -618,6 +619,13 @@ def _session_state() -> dict[str, Any]:
         "is_cancelled": is_cancelled,
     }
 
+    planned_jobs = session.planned_jobs_cache
+    if planned_jobs is None:
+        planned_jobs = _planned_jobs_payload(planned_jobs_config)
+        with session_lock:
+            if current_session is session:
+                session.planned_jobs_cache = planned_jobs
+
     return {
         "mode": session.mode,
         "revision": snapshot.get("revision", 0),
@@ -631,7 +639,7 @@ def _session_state() -> dict[str, Any]:
         "running_jobs": snapshot["running_jobs"],
         "summary": snapshot["summary"],
         "config": cfg_payload,
-        "planned_jobs": _planned_jobs_payload(planned_jobs_config),
+        "planned_jobs": planned_jobs,
         "controls": controls,
         "last_error": session.last_error,
     }

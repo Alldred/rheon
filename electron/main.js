@@ -308,6 +308,7 @@ async function startServer(sourceRoot) {
   const logPath = path.join(app.getPath('userData'), 'rheon-electron-server.log');
   fs.mkdirSync(path.dirname(logPath), { recursive: true });
   const logStream = fs.createWriteStream(logPath, { flags: 'a' });
+  let logClosed = false;
 
   const serverCommand = resolveServerCommand(sourceRoot);
   const child = spawn(
@@ -321,13 +322,28 @@ async function startServer(sourceRoot) {
   );
 
   const appendLog = (prefix, chunk) => {
+    if (logClosed) {
+      return;
+    }
     logStream.write(`[${new Date().toISOString()}] ${prefix} ${chunk}`);
+  };
+  const closeLog = () => {
+    if (logClosed) {
+      return;
+    }
+    logClosed = true;
+    logStream.end();
   };
 
   child.stdout.on('data', (chunk) => appendLog('stdout', chunk));
   child.stderr.on('data', (chunk) => appendLog('stderr', chunk));
+  child.on('error', (error) => {
+    appendLog('error', `${error instanceof Error ? error.message : String(error)}\n`);
+    closeLog();
+  });
   child.on('exit', (code, signal) => {
     appendLog('exit', `code=${code} signal=${signal}\n`);
+    closeLog();
     if (!isQuitting && serverInfo && serverInfo.ready === false) {
       showStartupError(
         'The Rheon server exited during startup.',
@@ -345,9 +361,17 @@ async function startServer(sourceRoot) {
     sourceRoot,
   };
 
-  await waitForServer(`http://${host}:${port}/api/state`, STARTUP_TIMEOUT_MS);
-  serverInfo.ready = true;
-  return serverInfo;
+  try {
+    await waitForServer(`http://${host}:${port}/api/state`, STARTUP_TIMEOUT_MS);
+    serverInfo.ready = true;
+    return serverInfo;
+  } catch (error) {
+    if (!child.killed) {
+      child.kill('SIGTERM');
+    }
+    closeLog();
+    throw error;
+  }
 }
 
 async function attachRegressionDirectory() {
