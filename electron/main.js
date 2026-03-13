@@ -24,6 +24,9 @@ let isQuitting = false;
 
 function resolveDockIconPath() {
   const candidates = [
+    path.resolve(__dirname, '..', 'assets', 'rheon_regr_app.icns'),
+    path.join(process.resourcesPath, 'assets', 'rheon_regr_app.icns'),
+    path.join(process.resourcesPath, 'rheon_regr_app.icns'),
     path.resolve(__dirname, '..', 'assets', 'rheon_regr_app.png'),
     path.join(process.resourcesPath, 'assets', 'rheon_regr_app.png'),
     path.join(process.resourcesPath, 'rheon_regr_app.png'),
