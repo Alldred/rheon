@@ -1,0 +1,25 @@
+# SPDX-License-Identifier: MIT
+# Copyright (c) 2026 Stuart Alldred.
+
+site_name: Rheon
+site_description: Rheon documentation
+repo_url: https://github.com/Alldred/rheon
+theme:
+  name: material
+  features:
+    - navigation.sections
+    - navigation.expand
+    - navigation.footer
+    - content.code.copy
+markdown_extensions:
+  - admonition
+  - toc:
+      permalink: true
+nav:
+  - Getting Started: index.md
+  - Introduction: introduction.md
+  - Getting Started (Full Walkthrough): getting_started.md
+  - Testing: testing.md
+  - Electron App: electron_app.md
+  - Known Limitations: known_limitations.md
+  - GitHub Pages: github_pages.md

@@ -1,29 +1,32 @@
 #!/usr/bin/env bash
-# Build helper for the local regression app.
+# Build helper for the local regression Electron app.
 
 set -euo pipefail
 
-ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 OUTPUT_DIR="$ROOT_DIR/build/rheon_regr_app"
 LEGACY_OUTPUT_DIR="$ROOT_DIR/.build/rheon_regr_app"
 APP_BUNDLE=""
 INSTALL_REQUESTED=0
 INSTALL_DIR="/Applications"
+SKIP_NPM_CI=0
 
 usage() {
     cat <<'EOF'
-Usage: ./build.sh [options]
+Usage: build_electron.sh [options]
 
 Options:
   --clean              remove previous build artifacts
   --install [path]     copy the app bundle into the target directory (default: /Applications)
+  --skip-npm-ci        skip automatic npm ci in electron/
   --help, -h           show this help
 
 Examples:
-  ./build.sh
-  ./build.sh --clean
-  ./build.sh --install
-  ./build.sh --install "/tmp/My Apps"
+  ./bin/build_electron.sh
+  ./bin/build_electron.sh --clean
+  ./bin/build_electron.sh --skip-npm-ci
+  ./bin/build_electron.sh --install
+  ./bin/build_electron.sh --install "/tmp/My Apps"
 EOF
 }
 
@@ -44,6 +47,10 @@ while [[ $# -gt 0 ]]; do
               shift
             fi
             ;;
+        --skip-npm-ci)
+            SKIP_NPM_CI=1
+            shift
+            ;;
         --help|-h)
             usage
             exit 0
@@ -56,6 +63,37 @@ while [[ $# -gt 0 ]]; do
             ;;
     esac
 done
+
+ensure_electron_dependencies() {
+    local electron_dir="$ROOT_DIR/electron"
+    local lock_file="$electron_dir/package-lock.json"
+    local node_modules_dir="$electron_dir/node_modules"
+    local node_modules_lock="$node_modules_dir/.package-lock.json"
+
+    if [[ "$SKIP_NPM_CI" -eq 1 ]]; then
+        echo "Skipping npm ci in electron/ (--skip-npm-ci)"
+        return
+    fi
+
+    if ! command -v npm >/dev/null 2>&1; then
+        echo "npm is required to install Electron dependencies." >&2
+        exit 1
+    fi
+
+    if [[ ! -f "$lock_file" ]]; then
+        echo "Missing lock file: $lock_file" >&2
+        exit 1
+    fi
+
+    if [[ ! -d "$node_modules_dir" || ! -f "$node_modules_lock" || "$lock_file" -nt "$node_modules_lock" ]]; then
+        echo "Installing Electron dependencies (npm ci)..."
+        (cd "$electron_dir" && npm ci)
+    else
+        echo "Electron dependencies are up to date (npm ci not needed)."
+    fi
+}
+
+ensure_electron_dependencies
 
 mkdir -p "$OUTPUT_DIR"
 
