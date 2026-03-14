@@ -31,6 +31,10 @@ dev = [
     "pytest>=8.0.1",
     "pytest-cov>=4.1.0",
 ]
+docs = [
+    "mkdocs>=1.6.0",
+    "mkdocs-material>=9.6.0",
+]
 
 [project.scripts]
 rheon = "rheon.__main__:cli"

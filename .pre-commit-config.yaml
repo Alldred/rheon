@@ -56,3 +56,11 @@ repos:
           - --license-filepath=license_header.txt
           - "--comment-style=<!--|  ~|  -->"
           - --use-current-year
+  - repo: local
+    hooks:
+      - id: tidy-docs-links
+        name: Tidy Docs Prev/Next Links
+        entry: python scripts/tidy_docs_links.py
+        language: python
+        pass_filenames: false
+        files: ^docs/.*\.md$

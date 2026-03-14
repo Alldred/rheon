@@ -6,7 +6,7 @@
 #   ./scripts/rheon_clean
 #
 # Deletes runs/ (all generated run dirs), sim_build/ (Verilator/cocotb build),
-# and build outputs created by ./build.sh.
+# and build outputs created by the Electron build helper.
 
 set -euo pipefail
 RHEON_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

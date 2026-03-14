@@ -7,6 +7,22 @@
 
 Vibe-coded RISC-V core and cocotb testbench.
 
+## Documentation
+
+Project docs live under [`docs/`](docs/index.md).
+
+For a brand-new machine, start with:
+
+1. [`docs/getting_started.md`](docs/getting_started.md)
+2. [`initial_setup.sh`](initial_setup.sh)
+
+Quick path after setup:
+
+```bash
+./bin/shell --dev
+rheon_run --test simple --seed 1
+```
+
 ## Testbench
 
 The testbench lives in `tb/` (Forastero + dict memory, I/D drivers, pipeline monitor, Lome scoreboard). Test cases are in `testcases/`. See **tb/README.md** for layout and data flow.
@@ -15,40 +31,40 @@ The testbench lives in `tb/` (Forastero + dict memory, I/D drivers, pipeline mon
 
 ```bash
 make
-# Or: SIM=verilator make
 ```
 
 **Load an ELF via command line:**
 
 ```bash
 make run ELF=path/to/program.elf
-# Or: TEST_ELF=path/to/program.elf make run
 ```
 
-**Tibbar tests** (tibbar is a project dependency; RISC-V toolchain must be on PATH for building ELF from assembly). Commands use `--test` and `--seed`. If you use the project shell (`./bin/shell`), `bin/` is on PATH so you can run `rheon_gen`, `rheon_sim`, `rheon_run`, and `rheon_regr` directly:
+Without an ELF, the test runs with empty memory for a short time.
+
+**Tibbar tests** (tibbar is a project dependency; RISC-V toolchain must be on PATH for building ELF from assembly). Commands use `--test` and `--seed`. From the project shell (`./bin/shell`), `bin/` is on PATH so you can run `rheon_gen`, `rheon_sim`, `rheon_run`, and `rheon_regr` directly:
 
 1. **Generate a Tibbar test only** — produces `runs/<testname>_seed<N>_<timestamp>/` with `test.S`, `test.elf`, and `instructions_modelled.yaml`:
    ```bash
-   ./bin/rheon_gen --test <testname> --seed <seed>   # e.g. ./bin/rheon_gen --test simple --seed 42
+   rheon_gen --test <testname> --seed <seed>   # e.g. rheon_gen --test simple --seed 42
    ```
 
 2. **Run simulation only** — run the testbench with an existing ELF (optional `--seed` for reproducibility, `--waves` for waveform dump):
    ```bash
-   ./bin/rheon_sim --test <elf_path> [--seed <seed>] [--waves]  # e.g. ./bin/rheon_sim --test runs/simple_seed42_*/test.elf --seed 42 --waves
+   rheon_sim --test <elf_path> [--seed <seed>] [--waves]  # e.g. rheon_sim --test runs/simple_seed42_*/test.elf --seed 42 --waves
    ```
 
 3. **Generate then run** — generate with Tibbar and run the testbench with the same seed (optional `--waves`):
    ```bash
-   ./bin/rheon_run --test <testname> --seed <seed> [--waves]   # e.g. ./bin/rheon_run --test simple --seed 42 --waves
+   rheon_run --test <testname> --seed <seed> [--waves]   # e.g. rheon_run --test simple --seed 42 --waves
    ```
 
 4. **Run regressions in parallel** — run many generated tests with live status (`PENDING`, `RUNNING`, `PASSED`, `FAILED`, elapsed timer):
    ```bash
-   ./bin/rheon_regr --test simple,100 --seed 1
-   ./bin/rheon_regr --file examples/regression.example.yaml
-   ./bin/rheon_regr --resume latest
-   ./bin/rheon_regr --test simple,200 --timeout-sec 120 --max-failures 10
-   ./bin/rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json
+   rheon_regr --test simple,100 --seed 1
+   rheon_regr --file examples/regression.example.yaml
+   rheon_regr --resume latest
+   rheon_regr --test simple,200 --timeout-sec 120 --max-failures 10
+   rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json
    ```
    - Status refresh interval defaults to `2s`; override with `--update <seconds>`.
 - Parallel worker count defaults to CPU cores minus one; override with `--jobs <N>`.
@@ -78,8 +94,8 @@ monitoring with:
 Start the app:
 
 ```bash
-./scripts/rheon_regr_app --host 127.0.0.1 --port 8765
-./scripts/rheon_regr_app --attach runs/regressions/20260306_120000
+rheon_regr_app --host 127.0.0.1 --port 8765
+rheon_regr_app --attach runs/regressions/20260306_120000
 ```
 
 Then open the URL printed by the app in your browser.
@@ -88,7 +104,7 @@ For fast UI iteration without rebuilding Electron each time, run the backend and
 renderer dev server together:
 
 ```bash
-./scripts/rheon_regr_app --host 127.0.0.1 --port 8765
+rheon_regr_app --host 127.0.0.1 --port 8765
 cd electron
 npm run ui:dev
 ```
@@ -100,13 +116,13 @@ Then open `http://127.0.0.1:5173`. The Vite dev server proxies `/api/*` calls to
 Build a standalone artifact bundle (for packaging or distribution):
 
 ```bash
-./build.sh
-./build.sh --clean  # wipe staged build artifacts first
+./bin/build_electron.sh
+./bin/build_electron.sh --clean  # wipe staged build artifacts first
 ```
 
 ### macOS One-Click App
 
-`./build.sh` also creates a macOS app bundle at
+`./bin/build_electron.sh` also creates a macOS app bundle at
 `build/rheon_regr_app/Rheon Regr.app` (on Darwin systems):
 
 ```bash
@@ -117,14 +133,14 @@ The app starts the server automatically and opens the UI. You can also start wit
 existing output directory:
 
 ```bash
-./bin/rheon_regr_app_mac --attach runs/regressions/20260306_120000
+rheon_regr_app_mac --attach runs/regressions/20260306_120000
 ```
 
 The app exposes a simple shutdown path so quitting the app (or closing its process) also
 stops the local server it started:
 
 ```bash
-./bin/rheon_regr_app_mac --stop
+rheon_regr_app_mac --stop
 ```
 
 To install, copy the built app into Applications:
@@ -136,21 +152,11 @@ cp -R build/rheon_regr_app/Rheon\ Regr.app /Applications/
 Or use the build helper directly:
 
 ```bash
-./build.sh --install
-./build.sh --install /path/to/your/apps
+./bin/build_electron.sh --install
+./bin/build_electron.sh --install /path/to/your/apps
 ```
 
 The installed app is a launcher for the current Rheon checkout and its `.venv`, so build it after
 running `uv sync`. If the repo moves, rebuild the app from the new checkout location. Provide your
 logo at `assets/rheon_regr_app.icns` (preferred) or `assets/rheon_regr_app.png` before running
-`./build.sh`.
-
-## Legacy
-
-**Legacy:** `./scripts/run_test.sh` (no args or `--seed N`) generates with default generator and runs; `./scripts/run_test.sh path/to/program.elf` runs with that ELF only.
-
-Compatibility note: `./scripts/rheon_gen`, `./scripts/rheon_sim`, `./scripts/rheon_run`, and `./scripts/rheon_regr` remain as forwarding wrappers to the `bin/` commands.
-
-If `uv lock` fails due to tibbar’s internal dependencies, install tibbar separately and set `TIBBAR_CMD=tibbar` when using the run script.
-
-Without an ELF, the test runs with empty memory for a short time.
+`./bin/build_electron.sh`.
