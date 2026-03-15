@@ -32,6 +32,11 @@ def build_parser() -> argparse.ArgumentParser:
         help="Enable simulator waveform dumping",
     )
     parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Enable Bucket functional coverage archive export",
+    )
+    parser.add_argument(
         "--run-dir",
         type=Path,
         default=None,
@@ -56,6 +61,8 @@ def main(argv: list[str] | None = None) -> int:
             sim_desc += f" --verbosity {args.verbosity}"
         if args.waves:
             sim_desc += " --waves"
+        if args.coverage:
+            sim_desc += " --coverage"
         print(f"Running simulation: {sim_desc}", file=sys.stderr)
 
         rerun = f"{Path(__file__).resolve()} --test {args.test} --seed {args.seed}"
@@ -63,6 +70,8 @@ def main(argv: list[str] | None = None) -> int:
             rerun += f" --verbosity {args.verbosity}"
         if args.waves:
             rerun += " --waves"
+        if args.coverage:
+            rerun += " --coverage"
         if args.run_dir:
             rerun += f" --run-dir {args.run_dir}"
         print(f"Rerun: {rerun}", file=sys.stderr)
@@ -72,6 +81,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             verbosity=args.verbosity,
             waves=bool(args.waves),
+            coverage=bool(args.coverage),
         )
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)

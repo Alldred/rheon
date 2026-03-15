@@ -126,6 +126,7 @@ def _config(tmp_path: Path, **overrides: object) -> COMMON.RegressionConfig:
         "output_dir": tmp_path,
         "verbosity": None,
         "waves": False,
+        "coverage": False,
         "resume": None,
         "timeout_sec": None,
         "fail_fast": False,
@@ -304,6 +305,7 @@ def test_regression_file_payload_round_trip() -> None:
         output_dir=Path("/tmp/test_output"),
         verbosity="debug",
         waves=True,
+        coverage=True,
         resume=None,
         timeout_sec=90,
         fail_fast=True,
@@ -318,6 +320,7 @@ def test_regression_file_payload_round_trip() -> None:
     assert payload["regression"]["jobs"] == 4
     assert payload["regression"]["tests"] == [{"name": "simple", "count": 1}]
     assert payload["regression"]["output_dir"] == "/tmp/test_output"
+    assert payload["regression"]["coverage"] is True
 
     yaml_text = COMMON.regression_yaml_text(
         config, tests=[COMMON.TestSpec("simple", 1)]
@@ -325,6 +328,7 @@ def test_regression_file_payload_round_trip() -> None:
     loaded = COMMON._load_yaml_text(yaml_text)
     assert loaded.regression.seed == 7
     assert loaded.regression.jobs == 4
+    assert loaded.regression.coverage is True
     assert loaded.version == 1
     assert [item.name for item in loaded.regression.tests] == ["simple"]
 
@@ -430,6 +434,7 @@ def test_build_job_rerun_command_excludes_run_dir() -> None:
         output_dir=None,
         verbosity="info",
         waves=True,
+        coverage=True,
         resume=None,
         timeout_sec=None,
         fail_fast=False,
@@ -442,6 +447,7 @@ def test_build_job_rerun_command_excludes_run_dir() -> None:
     assert "--run-dir" not in rerun
     assert "--test simple" in rerun
     assert "--seed 42" in rerun
+    assert "--coverage" in rerun
 
 
 def test_run_job_default_uses_current_python_for_python_entrypoints(
@@ -531,7 +537,50 @@ def test_run_simulation_raises_clear_error_when_cocotb_config_missing(
             seed="42",
             verbosity=None,
             waves=False,
+            coverage=False,
         )
+
+
+def test_run_simulation_sets_coverage_env_and_archive_target(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    elf_path = tmp_path / "test.elf"
+    elf_path.write_text("stub", encoding="utf-8")
+
+    captured: dict[str, object] = {}
+
+    class _Result:
+        returncode = 0
+
+    def _fake_run(command, *, cwd, env, check):
+        captured["command"] = list(command)
+        captured["cwd"] = cwd
+        captured["env"] = dict(env)
+        captured["check"] = check
+        return _Result()
+
+    monkeypatch.setattr(
+        COMMON.shutil, "which", lambda _name, path=None: "/usr/bin/cocotb-config"
+    )
+    monkeypatch.setattr(COMMON.subprocess, "run", _fake_run)
+
+    rc = COMMON.run_simulation(
+        elf_path=elf_path,
+        seed="1",
+        verbosity=None,
+        waves=False,
+        coverage=True,
+    )
+
+    assert rc == 0
+    assert captured["env"]["RHEON_BUCKET_COVERAGE"] == "1"
+    assert captured["env"]["RHEON_BUCKET_ARCHIVE"] == str(tmp_path / "coverage.bktgz")
+    assert captured["command"] == [
+        "make",
+        "run",
+        f"ELF={elf_path.resolve()}",
+        "RANDOM_SEED=1",
+    ]
 
 
 def test_running_job_entries_sorted_by_longest_elapsed() -> None:

@@ -79,6 +79,7 @@ class RegressionFileConfigModel(BaseModel):
     output_dir: str | None = None
     verbosity: str | None = None
     waves: bool | None = None
+    coverage: bool | None = None
     timeout_sec: int | None = None
     fail_fast: bool | None = None
     max_failures: int | None = None
@@ -159,6 +160,7 @@ class RegressionConfig:
     output_dir: Path | None
     verbosity: str | None
     waves: bool
+    coverage: bool
     resume: Path | None
     timeout_sec: int | None
     fail_fast: bool
@@ -422,6 +424,7 @@ def regression_file_payload(
             "output_dir": str(config.output_dir) if config.output_dir else None,
             "verbosity": config.verbosity,
             "waves": config.waves,
+            "coverage": config.coverage,
             "timeout_sec": config.timeout_sec,
             "fail_fast": config.fail_fast,
             "max_failures": config.max_failures,
@@ -566,6 +569,14 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
     waves_arg = getattr(args, "waves", None)
     if waves_arg is not None:
         waves = bool(waves_arg)
+    coverage = (
+        bool(regression_model.coverage)
+        if regression_model.coverage is not None
+        else False
+    )
+    coverage_arg = getattr(args, "coverage", None)
+    if coverage_arg is not None:
+        coverage = bool(coverage_arg)
 
     timeout_sec = regression_model.timeout_sec
     timeout_arg = getattr(args, "timeout_sec", None)
@@ -620,6 +631,7 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
         output_dir=output_dir,
         verbosity=verbosity,
         waves=waves,
+        coverage=coverage,
         resume=resume_dir,
         timeout_sec=timeout_sec,
         fail_fast=fail_fast,
@@ -779,6 +791,7 @@ def _job_fingerprint(job: RegressionJob, config: RegressionConfig) -> dict[str, 
         "stages": list(config.stages),
         "verbosity": config.verbosity,
         "waves": config.waves,
+        "coverage": config.coverage,
         "timeout_sec": config.timeout_sec,
     }
 
@@ -789,6 +802,8 @@ def build_job_rerun_command(job: RegressionJob, config: RegressionConfig) -> str
         rerun_parts.extend(["--verbosity", config.verbosity])
     if config.waves:
         rerun_parts.append("--waves")
+    if config.coverage:
+        rerun_parts.append("--coverage")
     return " ".join(shlex.quote(part) for part in rerun_parts)
 
 
@@ -1043,6 +1058,8 @@ def _run_job_default(
                 cmd.extend(["--verbosity", config.verbosity])
             if config.waves:
                 cmd.append("--waves")
+            if config.coverage:
+                cmd.append("--coverage")
             rc, timed_out, elapsed = _spawn_and_wait(
                 cmd,
                 cwd=repo_root(),
@@ -1118,6 +1135,8 @@ def _run_job_default(
             sim_cmd.extend(["--verbosity", config.verbosity])
         if config.waves:
             sim_cmd.append("--waves")
+        if config.coverage:
+            sim_cmd.append("--coverage")
 
         rc, timed_out, elapsed = _spawn_and_wait(
             sim_cmd,
@@ -1328,6 +1347,7 @@ def _write_report(
             "stages": list(config.stages),
             "verbosity": config.verbosity,
             "waves": config.waves,
+            "coverage": config.coverage,
             "timeout_sec": config.timeout_sec,
             "fail_fast": config.fail_fast,
             "max_failures": config.max_failures,
@@ -1555,6 +1575,7 @@ def run_regression(
                 "stages": list(config.stages),
                 "verbosity": config.verbosity,
                 "waves": config.waves,
+                "coverage": config.coverage,
                 "timeout_sec": config.timeout_sec,
                 "fail_fast": config.fail_fast,
                 "max_failures": config.max_failures,
@@ -1922,6 +1943,7 @@ def run_simulation(
     seed: str | None,
     verbosity: str | None,
     waves: bool,
+    coverage: bool,
 ) -> int:
     root = repo_root()
     elf = elf_path.resolve()
@@ -1933,11 +1955,15 @@ def run_simulation(
     run_dir = elf.parent
     cocotb_results = run_dir / "results.xml"
     waves_file = run_dir / "dump.vcd"
+    coverage_archive = run_dir / "coverage.bktgz"
 
     env = _augment_runtime_env()
     env["COCOTB_RESULTS_FILE"] = str(cocotb_results)
     if validated_verbosity:
         env["RHEON_VERBOSITY"] = validated_verbosity
+    if coverage:
+        env["RHEON_BUCKET_COVERAGE"] = "1"
+        env["RHEON_BUCKET_ARCHIVE"] = str(coverage_archive)
 
     make_args = ["make", "run", f"ELF={elf}"]
     if seed is not None:
@@ -1954,12 +1980,16 @@ def run_simulation(
         rerun += f" --verbosity {validated_verbosity}"
     if waves:
         rerun += " --waves"
+    if coverage:
+        rerun += " --coverage"
 
     print(f"Rerun: {rerun}", file=sys.stderr)
     if validated_verbosity:
         print(f"Verbosity: {validated_verbosity}", file=sys.stderr)
     if waves:
         print(f"Waves: enabled (WAVES=1), target: {waves_file}", file=sys.stderr)
+    if coverage:
+        print(f"Coverage: enabled, archive target: {coverage_archive}", file=sys.stderr)
 
     if shutil.which("cocotb-config", path=env.get("PATH")) is None:
         raise ConfigError(
@@ -1975,6 +2005,14 @@ def run_simulation(
         else:
             print(
                 f"Waves requested but file not found yet: {waves_file}", file=sys.stderr
+            )
+    if coverage:
+        if coverage_archive.exists():
+            print(f"Coverage archive: {coverage_archive}", file=sys.stderr)
+        else:
+            print(
+                f"Coverage requested but archive not found yet: {coverage_archive}",
+                file=sys.stderr,
             )
 
     return result.returncode

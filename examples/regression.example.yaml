@@ -14,6 +14,7 @@ regression:
   # resume: latest
   verbosity: info
   waves: false
+  coverage: false
   # timeout_sec: 120
   # fail_fast: true
   # max_failures: 10

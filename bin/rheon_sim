@@ -31,6 +31,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Enable simulator waveform dumping (passes WAVES=1 to make)",
     )
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        help="Enable Bucket functional coverage archive export",
+    )
     return parser
 
 
@@ -44,6 +49,7 @@ def main(argv: list[str] | None = None) -> int:
             seed=args.seed,
             verbosity=args.verbosity,
             waves=bool(args.waves),
+            coverage=bool(args.coverage),
         )
     except ConfigError as exc:
         print(str(exc), file=sys.stderr)

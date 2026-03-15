@@ -151,6 +151,7 @@ def build_config_from_payload(
     stages = parse_stages(stages_raw)
     verbosity = validate_verbosity(payload.get("verbosity"))
     waves = bool(payload.get("waves"))
+    coverage = bool(payload.get("coverage"))
     timeout_sec = _coerce_optional_int(
         payload.get("timeout_sec"), field="timeout_sec", min_value=1
     )
@@ -180,6 +181,7 @@ def build_config_from_payload(
         output_dir=output_dir,
         verbosity=verbosity,
         waves=waves,
+        coverage=coverage,
         resume=resume,
         timeout_sec=timeout_sec,
         fail_fast=bool(fail_fast),
@@ -209,6 +211,9 @@ def build_config_from_yaml(raw_yaml: str) -> RegressionConfig:
         output_dir=Path(regression.output_dir) if regression.output_dir else None,
         verbosity=regression.verbosity,
         waves=bool(regression.waves) if regression.waves is not None else False,
+        coverage=bool(regression.coverage)
+        if regression.coverage is not None
+        else False,
         resume=_resolve_resume_path(regression.resume) if regression.resume else None,
         timeout_sec=regression.timeout_sec,
         fail_fast=bool(regression.fail_fast)

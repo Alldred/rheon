@@ -48,14 +48,14 @@ Without an ELF, the test runs with empty memory for a short time.
    rheon_gen --test <testname> --seed <seed>   # e.g. rheon_gen --test simple --seed 42
    ```
 
-2. **Run simulation only** — run the testbench with an existing ELF (optional `--seed` for reproducibility, `--waves` for waveform dump):
+2. **Run simulation only** — run the testbench with an existing ELF (optional `--seed` for reproducibility, `--waves` for waveform dump, `--coverage` for Bucket archive export):
    ```bash
-   rheon_sim --test <elf_path> [--seed <seed>] [--waves]  # e.g. rheon_sim --test runs/simple_seed42_*/test.elf --seed 42 --waves
+   rheon_sim --test <elf_path> [--seed <seed>] [--waves] [--coverage]  # e.g. rheon_sim --test runs/simple_seed42_*/test.elf --seed 42 --waves --coverage
    ```
 
-3. **Generate then run** — generate with Tibbar and run the testbench with the same seed (optional `--waves`):
+3. **Generate then run** — generate with Tibbar and run the testbench with the same seed (optional `--waves`, `--coverage`):
    ```bash
-   rheon_run --test <testname> --seed <seed> [--waves]   # e.g. rheon_run --test simple --seed 42 --waves
+   rheon_run --test <testname> --seed <seed> [--waves] [--coverage]   # e.g. rheon_run --test simple --seed 42 --waves --coverage
    ```
 
 4. **Run regressions in parallel** — run many generated tests with live status (`PENDING`, `RUNNING`, `PASSED`, `FAILED`, elapsed timer):
@@ -63,7 +63,7 @@ Without an ELF, the test runs with empty memory for a short time.
    rheon_regr --test simple,100 --seed 1
    rheon_regr --file examples/regression.example.yaml
    rheon_regr --resume latest
-   rheon_regr --test simple,200 --timeout-sec 120 --max-failures 10
+   rheon_regr --test simple,200 --timeout-sec 120 --max-failures 10 --coverage
    rheon_regr --test simple,50 --fail-fast --report-json runs/regressions/report.json
    ```
    - Status refresh interval defaults to `2s`; override with `--update <seconds>`.

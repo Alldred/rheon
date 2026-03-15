@@ -46,12 +46,14 @@ Run simulation only with an explicit ELF:
 
 ```bash
 rheon_sim --test path/to/program.elf --seed 1 --waves
+rheon_sim --test path/to/program.elf --seed 1 --coverage
 ```
 
 ## Useful Flags
 
 - `--seed`: reproducible generation/simulation.
 - `--waves`: dump waveforms.
+- `--coverage`: export Bucket functional coverage archive (`coverage.bktgz`) in the run directory.
 
 ---
 

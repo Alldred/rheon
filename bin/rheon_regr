@@ -215,6 +215,12 @@ def build_parser() -> argparse.ArgumentParser:
         default=None,
         help="Enable simulator waveform dumping for each job",
     )
+    parser.add_argument(
+        "--coverage",
+        action="store_true",
+        default=None,
+        help="Enable Bucket functional coverage archive export for each job",
+    )
     return parser
 
 
