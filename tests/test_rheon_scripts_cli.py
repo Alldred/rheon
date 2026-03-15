@@ -42,6 +42,7 @@ def _args(**overrides: object) -> argparse.Namespace:
         "output_dir": None,
         "verbosity": None,
         "waves": None,
+        "coverage": None,
         "resume": None,
         "timeout_sec": None,
         "fail_fast": None,
@@ -90,6 +91,7 @@ regression:
   jobs: 3
   update: 5
   stages: [run]
+  coverage: false
   timeout_sec: 60
   max_failures: 4
   tests:
@@ -105,6 +107,7 @@ regression:
             seed=99,
             update=2,
             stages="gen,sim",
+            coverage=True,
             timeout_sec=30,
             fail_fast=True,
             max_failures=2,
@@ -115,6 +118,7 @@ regression:
     assert config.jobs == 3
     assert config.update == 2
     assert config.stages == ("gen", "sim")
+    assert config.coverage is True
     assert config.timeout_sec == 30
     assert config.fail_fast is True
     assert config.max_failures == 2
@@ -136,6 +140,7 @@ def test_build_regression_config_defaults_update_to_2() -> None:
     )
     assert config.seed == 1
     assert config.update == 2
+    assert config.coverage is False
 
 
 def test_build_regression_config_validates_update(tmp_path: Path) -> None:
@@ -251,6 +256,7 @@ def test_help_includes_new_flags_and_latest() -> None:
     assert "--max-failures" in help_text
     assert "--report-json" in help_text
     assert "--app-url" in help_text
+    assert "--coverage" in help_text
     assert "--resume latest" in help_text
 
 
