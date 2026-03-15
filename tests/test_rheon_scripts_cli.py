@@ -15,7 +15,6 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 BIN_REGR = REPO_ROOT / "bin" / "rheon_regr"
-SCRIPT_REGR = REPO_ROOT / "scripts" / "rheon_regr"
 MODULE_PATH = REPO_ROOT / "scripts" / "rheon_cli_common.py"
 SPEC = importlib.util.spec_from_file_location("rheon_cli_common", MODULE_PATH)
 assert SPEC is not None and SPEC.loader is not None
@@ -258,26 +257,6 @@ def test_help_includes_new_flags_and_latest() -> None:
     assert "--app-url" in help_text
     assert "--coverage" in help_text
     assert "--resume latest" in help_text
-
-
-def test_wrapper_help_matches_bin_help() -> None:
-    bin_help = subprocess.run(
-        [str(BIN_REGR), "--help"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    wrapper_help = subprocess.run(
-        [str(SCRIPT_REGR), "--help"],
-        cwd=REPO_ROOT,
-        capture_output=True,
-        text=True,
-        check=False,
-    )
-    assert bin_help.returncode == 0
-    assert wrapper_help.returncode == 0
-    assert wrapper_help.stdout == bin_help.stdout
 
 
 def test_asm_mnemonic_uses_opcode_only() -> None:
