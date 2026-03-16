@@ -256,7 +256,8 @@ module rheon_core #(
 
   // Stall pipeline until load/store completes (D-mem response accepted)
   wire dmem_rsp_accepted = dmem_rsp_valid && dmem_rsp_ready;
-  assign stall = (dmem_req_valid && !dmem_req_ready) || (dmem_rsp_ready && !dmem_rsp_accepted);
+  wire dmem_mem_active = dmem_req_valid || dmem_rsp_ready;
+  assign stall = dmem_mem_active && !dmem_rsp_accepted;
 
   // ----- E->C pipeline reg -----
   logic [INSTR_WIDTH-1:0] c_instr;
@@ -266,13 +267,15 @@ module rheon_core #(
   logic [4:0]  c_rd, c_rs1, c_rs2;
   logic        c_wb_src_alu, c_wb_src_pc4, c_wb_src_load;
   logic        c_is_branch, c_is_jal, c_is_jalr, c_is_load;
-  logic        c_valid;
+  logic        c_valid, c_committed;
 
   always_ff @(posedge clk) begin
     if (!rst_n) begin
       c_valid <= 1'b0;
+      c_committed <= 1'b0;
     end else if (flush) begin
       c_valid <= 1'b0;
+      c_committed <= 1'b0;
     end else begin
       // Capture load data as soon as response handshakes, independent of stall
       if (dmem_rsp_accepted)
@@ -299,6 +302,9 @@ module rheon_core #(
         c_is_jal       <= e_is_jal_r;
         c_is_jalr      <= e_is_jalr_r;
         c_valid        <= e_valid;
+        c_committed    <= 1'b0;
+      end else if (c_valid && !c_committed) begin
+        c_committed <= 1'b1;
       end
     end
   end
@@ -344,7 +350,7 @@ module rheon_core #(
     .is_branch    (c_is_branch),
     .is_jal       (c_is_jal),
     .is_jalr      (c_is_jalr),
-    .instr_valid  (c_valid),
+    .instr_valid  (c_valid && !c_committed),
     .gpr_rd       (gpr_rd),
     .gpr_wdata    (gpr_wdata),
     .gpr_we       (gpr_we),
