@@ -559,7 +559,7 @@ export function FaultWeaveOverlay({ jobs, selectedJobIndex, onSelectJob, onClose
       glRef.current = null;
       setGlError(error instanceof Error ? error.message : "WebGL renderer unavailable");
       // eslint-disable-next-line no-console
-      console.error("Fracture Bloom WebGL init failed", error);
+      console.error("Mallow Field WebGL init failed", error);
     }
 
     return () => {
@@ -1009,7 +1009,7 @@ export function FaultWeaveOverlay({ jobs, selectedJobIndex, onSelectJob, onClose
         ×
       </button>
 
-      <div className="atlas-overlay__mode">Fracture Bloom</div>
+      <div className="atlas-overlay__mode">Mallow Field</div>
 
       <div className="atlas-overlay__canvas-shell">
         <canvas
@@ -1025,7 +1025,7 @@ export function FaultWeaveOverlay({ jobs, selectedJobIndex, onSelectJob, onClose
         />
         {glError ? (
           <div className="atlas-overlay__tooltip" style={{ left: 24, top: 24 }}>
-            <strong>Fracture Bloom fallback required</strong>
+            <strong>Mallow Field fallback required</strong>
             <span>{glError}</span>
           </div>
         ) : null}

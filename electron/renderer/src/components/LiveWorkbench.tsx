@@ -68,7 +68,7 @@ export function LiveWorkbench({
               Open Night Drift
             </button>
             <button type="button" className="btn btn--secondary" onClick={onOpenFaultWeave}>
-              Open Fracture Bloom
+              Open Mallow Field
             </button>
             <span className={`status-dot status-dot--${statusTone(session?.status)}`}>
               {session?.status || "idle"}
