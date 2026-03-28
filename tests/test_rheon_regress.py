@@ -131,6 +131,7 @@ def _config(tmp_path: Path, **overrides: object) -> COMMON.RegressionConfig:
         "timeout_sec": None,
         "fail_fast": False,
         "max_failures": None,
+        "inject_fail_every": None,
         "report_json": None,
     }
     base.update(overrides)
@@ -310,6 +311,7 @@ def test_regression_file_payload_round_trip() -> None:
         timeout_sec=90,
         fail_fast=True,
         max_failures=2,
+        inject_fail_every=3,
         report_json=Path("/tmp/report.json"),
     )
     payload = COMMON.regression_file_payload(
@@ -321,6 +323,7 @@ def test_regression_file_payload_round_trip() -> None:
     assert payload["regression"]["tests"] == [{"name": "simple", "count": 1}]
     assert payload["regression"]["output_dir"] == "/tmp/test_output"
     assert payload["regression"]["coverage"] is True
+    assert payload["regression"]["inject_fail_every"] == 3
 
     yaml_text = COMMON.regression_yaml_text(
         config, tests=[COMMON.TestSpec("simple", 1)]
@@ -329,8 +332,31 @@ def test_regression_file_payload_round_trip() -> None:
     assert loaded.regression.seed == 7
     assert loaded.regression.jobs == 4
     assert loaded.regression.coverage is True
+    assert loaded.regression.inject_fail_every == 3
     assert loaded.version == 1
     assert [item.name for item in loaded.regression.tests] == ["simple"]
+
+
+def test_inject_fail_every_forces_deterministic_failures(tmp_path: Path) -> None:
+    config = _config(
+        tmp_path,
+        tests=[COMMON.TestSpec("simple", 6)],
+        jobs=2,
+        inject_fail_every=3,
+    )
+    outcome = COMMON.run_regression(
+        config,
+        console=_make_console(),
+        runner=_make_runner(),
+    )
+
+    assert outcome.total == 6
+    assert outcome.failed == 2
+    assert outcome.passed == 4
+    assert sorted(result.job.index for result in outcome.failed_results) == [3, 6]
+    assert all(
+        result.status_reason == "injected_failure" for result in outcome.failed_results
+    )
 
 
 def test_run_regression_writes_state_metadata(tmp_path: Path) -> None:
@@ -439,6 +465,7 @@ def test_build_job_rerun_command_excludes_run_dir() -> None:
         timeout_sec=None,
         fail_fast=False,
         max_failures=None,
+        inject_fail_every=None,
         report_json=None,
     )
     job = COMMON.RegressionJob(index=1, test_name="simple", seed=42)

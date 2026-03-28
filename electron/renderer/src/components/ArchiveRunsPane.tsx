@@ -3,7 +3,13 @@
  * Copyright (c) 2026 Stuart Alldred.
  */
 
-import { formatDateTime, statusTone, summaryDefaults } from "../lib/regression";
+import {
+  formatDateTime,
+  normalizeStatus,
+  pathTail,
+  statusTone,
+  summaryDefaults,
+} from "../lib/regression";
 import type { RunRecord } from "../types";
 
 interface ArchiveRunsPaneProps {
@@ -12,6 +18,7 @@ interface ArchiveRunsPaneProps {
   loading: boolean;
   error: string | null;
   onSelectRun: (outputDir: string) => void;
+  onAttachRun: (outputDir: string) => void;
 }
 
 function normalizeRunsError(error: string): string {
@@ -34,8 +41,24 @@ export function ArchiveRunsPane({
   loading,
   error,
   onSelectRun,
+  onAttachRun,
 }: ArchiveRunsPaneProps) {
   const errorCopy = error ? normalizeRunsError(error) : null;
+
+  const describeRunStatus = (run: RunRecord, failedCount: number): { label: string; tone: string } => {
+    const normalized = normalizeStatus(run.status);
+    const baseTone = statusTone(run.status);
+    if ((normalized === "complete" || normalized === "passed") && failedCount > 0) {
+      return {
+        label: `complete • ${failedCount} failed`,
+        tone: "bad",
+      };
+    }
+    return {
+      label: normalized.replace(/_/g, " "),
+      tone: baseTone,
+    };
+  };
 
   return (
     <section className="panel archive-panel archive-panel--runs">
@@ -61,6 +84,7 @@ export function ArchiveRunsPane({
         {runs.map((run) => {
           const selected = run.output_dir === selectedArchiveDir;
           const summary = summaryDefaults(run.summary);
+          const status = describeRunStatus(run, summary.failed);
           return (
             <article
               key={run.output_dir}
@@ -76,17 +100,30 @@ export function ArchiveRunsPane({
                   <strong title={run.name}>{run.name}</strong>
                 </div>
                 <div className="archive-run-card__meta-row">
-                  <span className={`status-inline status-inline--${statusTone(run.status)}`}>
-                    {run.status}
-                  </span>
-                  <span>{formatDateTime(run.updated_at || run.created_at)}</span>
+                  <span title={run.output_dir}>{pathTail(run.output_dir)}</span>
+                  <span>Updated {formatDateTime(run.updated_at || run.created_at)}</span>
                 </div>
                 <div className="archive-run-card__meta-row">
+                  <span>{summary.total} total</span>
                   <span>{summary.passed} passed</span>
                   <span>{summary.failed} failed</span>
                   <span>{summary.running} running</span>
+                  <span>{summary.timed_out} timed out</span>
+                  <span>{summary.not_run} not run</span>
                 </div>
               </button>
+              <div className="archive-run-card__side">
+                <span className={`status-inline status-inline--${status.tone} archive-run-card__status`}>
+                  {status.label}
+                </span>
+                <button
+                  type="button"
+                  className="chip-button"
+                  onClick={() => onAttachRun(run.output_dir)}
+                >
+                  Attach
+                </button>
+              </div>
             </article>
           );
         })}

@@ -83,6 +83,7 @@ class RegressionFileConfigModel(BaseModel):
     timeout_sec: int | None = None
     fail_fast: bool | None = None
     max_failures: int | None = None
+    inject_fail_every: int | None = None
     resume: str | None = None
     report_json: str | None = None
     tests: list[RegressionFileTestModel] = Field(default_factory=list)
@@ -111,6 +112,13 @@ class RegressionFileConfigModel(BaseModel):
     @field_validator("max_failures")
     @classmethod
     def validate_max_failures(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("must be >= 1")
+        return value
+
+    @field_validator("inject_fail_every")
+    @classmethod
+    def validate_inject_fail_every(cls, value: int | None) -> int | None:
         if value is not None and value < 1:
             raise ValueError("must be >= 1")
         return value
@@ -165,6 +173,7 @@ class RegressionConfig:
     timeout_sec: int | None
     fail_fast: bool
     max_failures: int | None
+    inject_fail_every: int | None
     report_json: Path | None
 
 
@@ -428,6 +437,7 @@ def regression_file_payload(
             "timeout_sec": config.timeout_sec,
             "fail_fast": config.fail_fast,
             "max_failures": config.max_failures,
+            "inject_fail_every": config.inject_fail_every,
             "resume": str(config.resume) if config.resume else None,
             "report_json": str(config.report_json) if config.report_json else None,
             "tests": [
@@ -599,6 +609,13 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
             max_failures_arg, field="--max-failures", min_value=1
         )
 
+    inject_fail_every = regression_model.inject_fail_every
+    inject_fail_every_arg = getattr(args, "inject_fail_every", None)
+    if inject_fail_every_arg is not None:
+        inject_fail_every = _coerce_int(
+            inject_fail_every_arg, field="--inject-fail-every", min_value=1
+        )
+
     resume_dir = (
         _resolve_resume_path(regression_model.resume)
         if regression_model.resume
@@ -636,6 +653,7 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
         timeout_sec=timeout_sec,
         fail_fast=fail_fast,
         max_failures=max_failures,
+        inject_fail_every=inject_fail_every,
         report_json=report_json,
     )
 
@@ -793,7 +811,54 @@ def _job_fingerprint(job: RegressionJob, config: RegressionConfig) -> dict[str, 
         "waves": config.waves,
         "coverage": config.coverage,
         "timeout_sec": config.timeout_sec,
+        "inject_fail_every": config.inject_fail_every,
     }
+
+
+def _apply_fault_injection(result: JobResult, config: RegressionConfig) -> JobResult:
+    inject_every = config.inject_fail_every
+    if inject_every is None or inject_every < 1:
+        return result
+    if result.returncode != 0:
+        return result
+    if result.job.index % inject_every != 0:
+        return result
+
+    group_labels = (
+        "pc_mismatch",
+        "next_pc_mismatch",
+        "register_mismatch",
+        "memory_mismatch",
+    )
+    group_mnemonics = (
+        "beq x1, x2, 0x10",
+        "jal x0, 0x20",
+        "add x5, x6, x7",
+        "lw x3, 0(x4)",
+    )
+    group_index = ((result.job.index // inject_every) - 1) % len(group_labels)
+    group_label = group_labels[group_index]
+    group_asm = group_mnemonics[group_index]
+
+    try:
+        with result.log_path.open("a", encoding="utf-8") as handle:
+            handle.write(
+                "INJECTED FAILURE: "
+                f"index={result.job.index} inject_fail_every={inject_every} "
+                f"group={group_label}\n"
+            )
+    except OSError:
+        pass
+
+    return replace(
+        result,
+        returncode=1,
+        status_reason="injected_failure",
+        timed_out=False,
+        triage_summary=f"injected fail group={group_label}",
+        triage_instr_asm=group_asm,
+        triage_mismatched_fields=[group_label],
+    )
 
 
 def build_job_rerun_command(job: RegressionJob, config: RegressionConfig) -> str:
@@ -1351,6 +1416,7 @@ def _write_report(
             "timeout_sec": config.timeout_sec,
             "fail_fast": config.fail_fast,
             "max_failures": config.max_failures,
+            "inject_fail_every": config.inject_fail_every,
             "resume": str(config.resume) if config.resume else None,
         },
         "summary": {
@@ -1579,6 +1645,7 @@ def run_regression(
                 "timeout_sec": config.timeout_sec,
                 "fail_fast": config.fail_fast,
                 "max_failures": config.max_failures,
+                "inject_fail_every": config.inject_fail_every,
                 "interrupt_requested": effective_control.is_cancelled,
                 "paused_requested": effective_control.is_paused,
                 "parallelism": effective_control.parallelism,
@@ -1647,6 +1714,7 @@ def run_regression(
                     timed_out=False,
                     duration_seconds=0.0,
                 )
+            result = _apply_fault_injection(result, config)
             if result.returncode == 0:
                 passed += 1
             else:

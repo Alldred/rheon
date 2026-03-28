@@ -14,7 +14,7 @@ Rheon is an experimental project with three parts:
 
 - `rheon_core/`: SystemVerilog RTL for the core.
 - `tb/` + `testcases/`: cocotb/Forastero/Lome testbench.
-- regression tooling: CLI + browser app + Electron app.
+- regression tooling: CLI + Electron app.
 
 ## Project Status
 

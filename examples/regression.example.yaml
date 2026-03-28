@@ -18,6 +18,7 @@ regression:
   # timeout_sec: 120
   # fail_fast: true
   # max_failures: 10
+  # inject_fail_every: 3
   # report_json: runs/regressions/nightly_report.json
   tests:
     - name: simple

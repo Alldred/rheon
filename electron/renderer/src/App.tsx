@@ -31,6 +31,7 @@ import {
 import { ArchiveDeck } from "./components/ArchiveDeck";
 import { BottomDrawer } from "./components/BottomDrawer";
 import { CellAtlasOverlay } from "./components/CellAtlasOverlay";
+import { FaultWeaveOverlay } from "./components/FaultWeaveOverlay";
 import { JobInspector } from "./components/JobInspector";
 import { LiveWorkbench } from "./components/LiveWorkbench";
 import { QuickRunBar } from "./components/QuickRunBar";
@@ -93,7 +94,10 @@ function readInitialDraft(): RunDraft {
 
 function readInitialLens(): MonitorLens {
   const stored = readStorage(LENS_STORAGE_KEY, "table");
-  return stored === "bloom" ? "bloom" : "table";
+  if (stored === "bloom" || stored === "fault-weave") {
+    return stored;
+  }
+  return "table";
 }
 
 function readInitialDrawerTab(): DrawerTab {
@@ -543,6 +547,32 @@ export default function App() {
     setBanner({ tone: "info", message: "Template applied to the draft." });
   };
 
+  const handleLoadTestingPreset = () => {
+    setDraft((current) => ({
+      ...current,
+      templateSource: "",
+      seed: "42",
+      jobs: "4",
+      update: "2",
+      stages: "run",
+      tests: [
+        { name: "simple", count: 8 },
+        { name: "branch", count: 8 },
+        { name: "ldst", count: 8 },
+      ],
+      timeout_sec: "45",
+      max_failures: "12",
+      inject_fail_every: "3",
+      waves: true,
+      fail_fast: false,
+    }));
+    setDrawerTab("advanced");
+    setBanner({
+      tone: "info",
+      message: "Testing preset loaded (deterministic mixed pass/fail with grouped injected failures).",
+    });
+  };
+
   const activateTab = (tab: AppTab) => {
     setActiveTab(tab);
     if (tab !== "monitor") {
@@ -715,6 +745,7 @@ export default function App() {
           onApplyTemplate={handleApplyTemplate}
           onStartRun={() => startMutation.mutate()}
           onAttachLatest={handleQuickAttachLatest}
+          onLoadTestingPreset={handleLoadTestingPreset}
           attachLatestState={quickAttachLatestState}
         />
       ) : null}
@@ -828,6 +859,7 @@ export default function App() {
                     onCancel={() => cancelMutation.mutate()}
                     onRerunFailed={() => rerunFailedMutation.mutate()}
                     onOpenAtlas={() => setLens("bloom")}
+                    onOpenFaultWeave={() => setLens("fault-weave")}
                     headerAction={
                       <PaneToggleButton
                         expanded={effectiveMonitorMaximizedPane === "main"}
@@ -960,6 +992,15 @@ export default function App() {
             running: 0,
           }}
           sessionStatus={sessionQuery.data?.status || "idle"}
+          onSelectJob={setActiveSelection}
+          onClose={() => setLens("table")}
+        />
+      ) : null}
+
+      {lens === "fault-weave" && activeTab === "monitor" ? (
+        <FaultWeaveOverlay
+          jobs={activeJobs}
+          selectedJobIndex={selectedActiveJobIndex}
           onSelectJob={setActiveSelection}
           onClose={() => setLens("table")}
         />

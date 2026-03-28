@@ -19,6 +19,7 @@ interface QuickRunBarProps {
   onApplyTemplate: (outputDir: string) => void;
   onStartRun: () => void;
   onAttachLatest: () => void;
+  onLoadTestingPreset: () => void;
 }
 
 function testsSummary(draft: RunDraft): string {
@@ -42,6 +43,7 @@ export function QuickRunBar({
   onApplyTemplate,
   onStartRun,
   onAttachLatest,
+  onLoadTestingPreset,
 }: QuickRunBarProps) {
   const isRunTab = activeTab === "run";
   const isPassiveTab = activeTab === "monitor" || activeTab === "archive";
@@ -131,6 +133,14 @@ export function QuickRunBar({
             disabled={busy}
           >
             Start Run
+          </button>
+          <button
+            type="button"
+            className="btn btn--secondary"
+            onClick={onLoadTestingPreset}
+            disabled={busy}
+          >
+            Load Testing Preset
           </button>
           <button
             type="button"

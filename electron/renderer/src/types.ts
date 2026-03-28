@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Stuart Alldred.
  */
 
-export type MonitorLens = "table" | "bloom";
+export type MonitorLens = "table" | "bloom" | "fault-weave";
 export type DrawerTab = "advanced" | "archive" | "yaml";
 export type DensityMode = "dense" | "balanced";
 export type InspectorSource = "active" | "archive";
@@ -36,6 +36,7 @@ export interface RegressionConfigPayload {
   timeout_sec?: number | null;
   fail_fast?: boolean;
   max_failures?: number | null;
+  inject_fail_every?: number | null;
   resume?: string | null;
 }
 
@@ -164,6 +165,7 @@ export interface RunDraft {
   verbosity: string;
   timeout_sec: string;
   max_failures: string;
+  inject_fail_every: string;
   waves: boolean;
   fail_fast: boolean;
 }

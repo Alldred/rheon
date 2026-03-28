@@ -196,6 +196,7 @@ export function ArchiveDeck({
                 selectedArchiveDir={selectedArchiveDir}
                 loading={runsLoading}
                 error={runsError}
+                onAttachRun={onAttachRun}
                 onSelectRun={(outputDir) => {
                   onSelectRun(outputDir);
                   setDepth("jobs");
@@ -260,6 +261,7 @@ export function ArchiveDeck({
                 selectedArchiveDir={selectedArchiveDir}
                 loading={runsLoading}
                 error={runsError}
+                onAttachRun={onAttachRun}
                 onSelectRun={(outputDir) => {
                   onSelectRun(outputDir);
                   setDepth("jobs");

@@ -159,6 +159,9 @@ def build_config_from_payload(
     max_failures = _coerce_optional_int(
         payload.get("max_failures"), field="max_failures", min_value=1
     )
+    inject_fail_every = _coerce_optional_int(
+        payload.get("inject_fail_every"), field="inject_fail_every", min_value=1
+    )
     resume_raw = payload.get("resume")
     output_dir = _coerce_optional_path(payload.get("output_dir"), field="output_dir")
     report_json = _coerce_optional_path(payload.get("report_json"), field="report_json")
@@ -186,6 +189,7 @@ def build_config_from_payload(
         timeout_sec=timeout_sec,
         fail_fast=bool(fail_fast),
         max_failures=max_failures,
+        inject_fail_every=inject_fail_every,
         report_json=report_json,
     )
     return config, regression_file_payload(config)
@@ -220,6 +224,7 @@ def build_config_from_yaml(raw_yaml: str) -> RegressionConfig:
         if regression.fail_fast is not None
         else False,
         max_failures=regression.max_failures,
+        inject_fail_every=regression.inject_fail_every,
         report_json=Path(regression.report_json) if regression.report_json else None,
     )
 
@@ -284,6 +289,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
     jobs = _try_int(meta.get("jobs_requested"))
     timeout_sec = _try_int(meta.get("timeout_sec"))
     max_failures = _try_int(meta.get("max_failures"))
+    inject_fail_every = _try_int(meta.get("inject_fail_every"))
     verbosity = _coerce_optional_str(meta.get("verbosity"))
     stages = meta.get("stages")
     if isinstance(stages, str):
@@ -304,6 +310,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
             timeout_sec is not None,
             "fail_fast" in meta,
             max_failures is not None,
+            inject_fail_every is not None,
         ]
     )
     if not has_explicit_config:
@@ -320,6 +327,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
         "timeout_sec": timeout_sec,
         "fail_fast": bool(meta.get("fail_fast", False)),
         "max_failures": max_failures,
+        "inject_fail_every": inject_fail_every,
     }
     compact = {
         key: value for key, value in payload.items() if value not in (None, [], "")

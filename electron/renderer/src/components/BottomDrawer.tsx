@@ -264,6 +264,14 @@ export function BottomDrawer({
                     onChange={(value) => onChangeField("max_failures", value)}
                   />
                 </label>
+                <label className="field">
+                  <span>Inject fail every N</span>
+                  <NumberStepperInput
+                    ariaLabel="Inject fail every N"
+                    value={draft.inject_fail_every}
+                    onChange={(value) => onChangeField("inject_fail_every", value)}
+                  />
+                </label>
                 <label className="toggle-field">
                   <input
                     type="checkbox"
