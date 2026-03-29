@@ -31,7 +31,6 @@ import {
 import { ArchiveDeck } from "./components/ArchiveDeck";
 import { BottomDrawer } from "./components/BottomDrawer";
 import { CellAtlasOverlay } from "./components/CellAtlasOverlay";
-import { FaultWeaveOverlay } from "./components/FaultWeaveOverlay";
 import { JobInspector } from "./components/JobInspector";
 import { LiveWorkbench } from "./components/LiveWorkbench";
 import { QuickRunBar } from "./components/QuickRunBar";
@@ -94,7 +93,7 @@ function readInitialDraft(): RunDraft {
 
 function readInitialLens(): MonitorLens {
   const stored = readStorage(LENS_STORAGE_KEY, "table");
-  if (stored === "bloom" || stored === "fault-weave") {
+  if (stored === "bloom") {
     return stored;
   }
   return "table";
@@ -859,7 +858,6 @@ export default function App() {
                     onCancel={() => cancelMutation.mutate()}
                     onRerunFailed={() => rerunFailedMutation.mutate()}
                     onOpenAtlas={() => setLens("bloom")}
-                    onOpenFaultWeave={() => setLens("fault-weave")}
                     headerAction={
                       <PaneToggleButton
                         expanded={effectiveMonitorMaximizedPane === "main"}
@@ -997,14 +995,6 @@ export default function App() {
         />
       ) : null}
 
-      {lens === "fault-weave" && activeTab === "monitor" ? (
-        <FaultWeaveOverlay
-          jobs={activeJobs}
-          selectedJobIndex={selectedActiveJobIndex}
-          onSelectJob={setActiveSelection}
-          onClose={() => setLens("table")}
-        />
-      ) : null}
     </div>
   );
 }

@@ -21,7 +21,6 @@ interface LiveWorkbenchProps {
   onCancel: () => void;
   onRerunFailed: () => void;
   onOpenAtlas: () => void;
-  onOpenFaultWeave: () => void;
   headerAction?: ReactNode;
 }
 
@@ -47,7 +46,6 @@ export function LiveWorkbench({
   onCancel,
   onRerunFailed,
   onOpenAtlas,
-  onOpenFaultWeave,
   headerAction,
 }: LiveWorkbenchProps) {
   const summary = summaryDefaults(session?.summary);
@@ -66,9 +64,6 @@ export function LiveWorkbench({
           <div className="toolbar toolbar--tight">
             <button type="button" className="btn btn--secondary" onClick={onOpenAtlas}>
               Open Night Drift
-            </button>
-            <button type="button" className="btn btn--secondary" onClick={onOpenFaultWeave}>
-              Open Mallow Field
             </button>
             <span className={`status-dot status-dot--${statusTone(session?.status)}`}>
               {session?.status || "idle"}

@@ -3,7 +3,7 @@
  * Copyright (c) 2026 Stuart Alldred.
  */
 
-export type MonitorLens = "table" | "bloom" | "fault-weave";
+export type MonitorLens = "table" | "bloom";
 export type DrawerTab = "advanced" | "archive" | "yaml";
 export type DensityMode = "dense" | "balanced";
 export type InspectorSource = "active" | "archive";
