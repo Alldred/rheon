@@ -46,6 +46,8 @@ def _args(**overrides: object) -> argparse.Namespace:
         "timeout_sec": None,
         "fail_fast": None,
         "max_failures": None,
+        "inject_fail_every": None,
+        "inject_fail_message_groups": None,
         "report_json": None,
     }
     base.update(overrides)
@@ -93,6 +95,8 @@ regression:
   coverage: false
   timeout_sec: 60
   max_failures: 4
+  inject_fail_every: 5
+  inject_fail_message_groups: 6
   tests:
     - name: from_file
       count: 2
@@ -110,6 +114,8 @@ regression:
             timeout_sec=30,
             fail_fast=True,
             max_failures=2,
+            inject_fail_every=3,
+            inject_fail_message_groups=4,
             report_json=tmp_path / "report.json",
         )
     )
@@ -121,6 +127,8 @@ regression:
     assert config.timeout_sec == 30
     assert config.fail_fast is True
     assert config.max_failures == 2
+    assert config.inject_fail_every == 3
+    assert config.inject_fail_message_groups == 4
     assert config.report_json == (tmp_path / "report.json")
     assert [item.name for item in config.tests] == ["from_file", "from_cli"]
 
@@ -253,8 +261,9 @@ def test_help_includes_new_flags_and_latest() -> None:
     assert "--timeout-sec" in help_text
     assert "--fail-fast" in help_text
     assert "--max-failures" in help_text
+    assert "--inject-fail-every" in help_text
+    assert "--inject-fail-message-groups" in help_text
     assert "--report-json" in help_text
-    assert "--app-url" in help_text
     assert "--coverage" in help_text
     assert "--resume latest" in help_text
 
@@ -265,19 +274,13 @@ def test_asm_mnemonic_uses_opcode_only() -> None:
     assert REGR_CLI._asm_mnemonic(None) == "unknown"  # noqa: SLF001
 
 
-def test_app_status_url_encodes_output_dir() -> None:
+def test_build_app_hint_returns_open_and_build_commands() -> None:
     output = Path("/tmp/run with spaces")
-    assert (
-        REGR_CLI._app_status_url("http://127.0.0.1:8765", output)
-        == "http://127.0.0.1:8765/?attach=%2Ftmp%2Frun%20with%20spaces"
-    )
-
-
-def test_build_app_hint_returns_status_and_launch() -> None:
-    output = Path("/tmp/run with spaces")
-    status_url, launch_cmd = REGR_CLI._build_app_hint("http://0.0.0.0:9000", output)
-    assert status_url == "http://0.0.0.0:9000/?attach=%2Ftmp%2Frun%20with%20spaces"
-    assert "rheon_regr_app --host 0.0.0.0 --port 9000" in launch_cmd
+    open_cmd, build_cmd = REGR_CLI._build_app_hint(output)
+    assert "open '" in open_cmd
+    assert "Rheon Regr.app" in open_cmd
+    assert "--args --attach '/tmp/run with spaces'" in open_cmd
+    assert build_cmd.endswith("bin/build_electron.sh")
 
 
 def test_build_failure_triage_rows_counts_and_fastest() -> None:

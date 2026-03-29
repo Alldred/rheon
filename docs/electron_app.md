@@ -10,7 +10,8 @@
 
 # Electron App
 
-Rheon is documented for the Electron app workflow.
+Electron is an optional UI for regression monitoring. CLI status with `rheon_regr`
+is also fully supported.
 
 ## Build
 
@@ -23,6 +24,25 @@ Rheon is documented for the Electron app workflow.
 
 On macOS this creates:
 `build/rheon_regr_app/Rheon Regr.app`.
+
+## Run
+
+```bash
+open build/rheon_regr_app/Rheon\ Regr.app
+```
+
+Open a specific regression output directly:
+
+```bash
+open build/rheon_regr_app/Rheon\ Regr.app --args --attach runs/regressions/20260306_120000
+```
+
+## Install
+
+```bash
+./bin/build_electron.sh --install
+./bin/build_electron.sh --install /path/to/your/apps
+```
 
 ---
 

@@ -93,7 +93,10 @@ function readInitialDraft(): RunDraft {
 
 function readInitialLens(): MonitorLens {
   const stored = readStorage(LENS_STORAGE_KEY, "table");
-  return stored === "bloom" ? "bloom" : "table";
+  if (stored === "bloom") {
+    return stored;
+  }
+  return "table";
 }
 
 function readInitialDrawerTab(): DrawerTab {
@@ -543,6 +546,33 @@ export default function App() {
     setBanner({ tone: "info", message: "Template applied to the draft." });
   };
 
+  const handleLoadTestingPreset = () => {
+    setDraft((current) => ({
+      ...current,
+      templateSource: "",
+      seed: "42",
+      jobs: "4",
+      update: "2",
+      stages: "run",
+      tests: [
+        { name: "simple", count: 8 },
+        { name: "branch", count: 8 },
+        { name: "ldst", count: 8 },
+      ],
+      timeout_sec: "45",
+      max_failures: "12",
+      inject_fail_every: "3",
+      inject_fail_message_groups: "4",
+      waves: true,
+      fail_fast: false,
+    }));
+    setDrawerTab("advanced");
+    setBanner({
+      tone: "info",
+      message: "Testing preset loaded (deterministic mixed pass/fail with grouped injected failures).",
+    });
+  };
+
   const activateTab = (tab: AppTab) => {
     setActiveTab(tab);
     if (tab !== "monitor") {
@@ -715,6 +745,7 @@ export default function App() {
           onApplyTemplate={handleApplyTemplate}
           onStartRun={() => startMutation.mutate()}
           onAttachLatest={handleQuickAttachLatest}
+          onLoadTestingPreset={handleLoadTestingPreset}
           attachLatestState={quickAttachLatestState}
         />
       ) : null}
@@ -964,6 +995,7 @@ export default function App() {
           onClose={() => setLens("table")}
         />
       ) : null}
+
     </div>
   );
 }

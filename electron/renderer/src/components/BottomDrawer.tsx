@@ -226,60 +226,90 @@ export function BottomDrawer({
                   <h3>Advanced options</h3>
                 </div>
               </div>
-              <div className="form-grid">
-                <label className="field">
-                  <span>Output directory</span>
-                  <input
-                    value={draft.output_dir}
-                    onChange={(event) => onChangeField("output_dir", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Resume</span>
-                  <input
-                    value={draft.resume}
-                    onChange={(event) => onChangeField("resume", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Verbosity</span>
-                  <input
-                    value={draft.verbosity}
-                    onChange={(event) => onChangeField("verbosity", event.target.value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Timeout (s)</span>
-                  <NumberStepperInput
-                    ariaLabel="Timeout (s)"
-                    value={draft.timeout_sec}
-                    onChange={(value) => onChangeField("timeout_sec", value)}
-                  />
-                </label>
-                <label className="field">
-                  <span>Max failures</span>
-                  <NumberStepperInput
-                    ariaLabel="Max failures"
-                    value={draft.max_failures}
-                    onChange={(value) => onChangeField("max_failures", value)}
-                  />
-                </label>
-                <label className="toggle-field">
-                  <input
-                    type="checkbox"
-                    checked={draft.waves}
-                    onChange={(event) => onChangeField("waves", event.target.checked)}
-                  />
-                  <span>Enable waves</span>
-                </label>
-                <label className="toggle-field">
-                  <input
-                    type="checkbox"
-                    checked={draft.fail_fast}
-                    onChange={(event) => onChangeField("fail_fast", event.target.checked)}
-                  />
-                  <span>Fail fast</span>
-                </label>
+              <div className="panel__subsection">
+                <span className="eyebrow">Normal options</span>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Output directory</span>
+                    <input
+                      value={draft.output_dir}
+                      onChange={(event) => onChangeField("output_dir", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Resume</span>
+                    <input
+                      value={draft.resume}
+                      onChange={(event) => onChangeField("resume", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Verbosity</span>
+                    <input
+                      value={draft.verbosity}
+                      onChange={(event) => onChangeField("verbosity", event.target.value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Timeout (s)</span>
+                    <NumberStepperInput
+                      ariaLabel="Timeout (s)"
+                      value={draft.timeout_sec}
+                      onChange={(value) => onChangeField("timeout_sec", value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Max failures</span>
+                    <NumberStepperInput
+                      ariaLabel="Max failures"
+                      value={draft.max_failures}
+                      onChange={(value) => onChangeField("max_failures", value)}
+                    />
+                  </label>
+                  <label className="toggle-field">
+                    <input
+                      type="checkbox"
+                      checked={draft.waves}
+                      onChange={(event) => onChangeField("waves", event.target.checked)}
+                    />
+                    <span>Enable waves</span>
+                  </label>
+                  <label className="toggle-field">
+                    <input
+                      type="checkbox"
+                      checked={draft.fail_fast}
+                      onChange={(event) => onChangeField("fail_fast", event.target.checked)}
+                    />
+                    <span>Fail fast</span>
+                  </label>
+                </div>
+              </div>
+              <div className="panel__subsection">
+                <span className="eyebrow">Testing-only fail injection</span>
+                <div className="form-grid">
+                  <label className="field">
+                    <span>Inject fail every N</span>
+                    <NumberStepperInput
+                      ariaLabel="Inject fail every N"
+                      value={draft.inject_fail_every}
+                      onChange={(value) => onChangeField("inject_fail_every", value)}
+                    />
+                  </label>
+                  <label className="field">
+                    <span>Distinct fail messages</span>
+                    <NumberStepperInput
+                      ariaLabel="Distinct fail messages"
+                      value={draft.inject_fail_message_groups}
+                      onChange={(value) =>
+                        onChangeField("inject_fail_message_groups", value)
+                      }
+                    />
+                  </label>
+                </div>
+                <div className="drawer-note">
+                  These controls are for synthetic failures during testing and should not be used
+                  in normal regressions.
+                </div>
               </div>
               {renderNotificationBlock(notificationPermission, onRequestNotifications)}
             </section>

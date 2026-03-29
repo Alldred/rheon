@@ -5,19 +5,15 @@
 from __future__ import annotations
 
 import argparse
-import os
 import sys
 from collections import defaultdict
 from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
-from urllib.parse import quote, urlparse
 
 ROOT_DIR = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT_DIR / "scripts"))
-DEFAULT_APP_URL = "http://127.0.0.1:8765"
-DEFAULT_APP_LAUNCH_HOST = "127.0.0.1"
-DEFAULT_APP_LAUNCH_PORT = 8765
+DEFAULT_ELECTRON_APP_PATH = ROOT_DIR / "build" / "rheon_regr_app" / "Rheon Regr.app"
 
 from rheon_cli_common import (  # noqa: E402
     ConfigError,
@@ -47,21 +43,10 @@ def _asm_mnemonic(asm: str | None) -> str:
     return text.split()[0].lower()
 
 
-def _app_status_url(base_url: str, output_dir: Path) -> str:
-    return f"{base_url.rstrip('/')}/?attach={quote(str(output_dir), safe='')}"
-
-
-def _build_app_launch_command(base_url: str) -> str:
-    parsed = urlparse(base_url)
-    host = parsed.hostname or DEFAULT_APP_LAUNCH_HOST
-    port = parsed.port or DEFAULT_APP_LAUNCH_PORT
-    return f"{ROOT_DIR / 'scripts' / 'rheon_regr_app'} --host {host} --port {port}"
-
-
-def _build_app_hint(base_url: str, output_dir: Path) -> tuple[str, str]:
-    status_url = _app_status_url(base_url, output_dir)
-    launch_cmd = _build_app_launch_command(base_url)
-    return status_url, launch_cmd
+def _build_app_hint(output_dir: Path) -> tuple[str, str]:
+    attach_cmd = f"open '{DEFAULT_ELECTRON_APP_PATH}' --args --attach '{output_dir}'"
+    build_cmd = f"{ROOT_DIR / 'bin' / 'build_electron.sh'}"
+    return attach_cmd, build_cmd
 
 
 def _mismatch_keys(result: JobResult) -> list[str]:
@@ -187,21 +172,26 @@ def build_parser() -> argparse.ArgumentParser:
         help="Stop scheduling new jobs once this many failures are seen",
     )
     parser.add_argument(
+        "--inject-fail-every",
+        type=int,
+        default=None,
+        help=(
+            "Deterministically fail each Nth passed job (for monitor/testing workflows)"
+        ),
+    )
+    parser.add_argument(
+        "--inject-fail-message-groups",
+        type=int,
+        default=None,
+        help=(
+            "Number of distinct synthetic fail-message groups to cycle across injected failures"
+        ),
+    )
+    parser.add_argument(
         "--report-json",
         type=Path,
         default=None,
         help="Optional path for JSON regression report output",
-    )
-    parser.add_argument(
-        "--app-url",
-        default=os.getenv(
-            "RHEON_REGR_APP_URL",
-            DEFAULT_APP_URL,
-        ),
-        help=(
-            "Base URL for rheon_regr web app status links "
-            f"(default: RHEON_REGR_APP_URL or {DEFAULT_APP_URL})"
-        ),
     )
     parser.add_argument(
         "-v",
@@ -248,9 +238,9 @@ def main(argv: list[str] | None = None) -> int:
     outcome = run_regression(config, console=console)
 
     console.print(f"Regression output: {outcome.output_dir}")
-    status_url, launch_cmd = _build_app_hint(args.app_url, outcome.output_dir)
-    console.print(f"Open in app: {status_url}")
-    console.print(f"Start app: {launch_cmd}")
+    open_cmd, build_cmd = _build_app_hint(outcome.output_dir)
+    console.print(f"Open in Electron: {open_cmd}")
+    console.print(f"Build Electron app: {build_cmd}")
     console.print(
         "Summary: "
         f"total={outcome.total} passed={outcome.passed} failed={outcome.failed} "

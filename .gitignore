@@ -212,3 +212,4 @@ __marimo__/
 # Project
 sim_build/
 runs/
+scripts/rheon_regr_app_assets/assets/index-*.js

@@ -22,6 +22,26 @@ let serverInfo = null;
 let pendingAttachPath = parseCliArgs(process.argv).attachPath;
 let isQuitting = false;
 
+function presentMainWindow(window) {
+  if (!window || window.isDestroyed()) {
+    return;
+  }
+  if (window.isMinimized()) {
+    window.restore();
+  }
+  if (!window.isVisible()) {
+    window.show();
+  }
+  window.setVisibleOnAllWorkspaces(false, { visibleOnFullScreen: true });
+  window.focus();
+  if (typeof window.moveTop === 'function') {
+    window.moveTop();
+  }
+  if (typeof app.focus === 'function') {
+    app.focus({ steal: true });
+  }
+}
+
 function resolveDockIconPath() {
   const candidates = [
     path.resolve(__dirname, '..', 'assets', 'rheon_regr_app.icns'),
@@ -257,6 +277,42 @@ function createErrorHtml(message, details = '') {
 </html>`;
 }
 
+function createLoadingHtml() {
+  return `<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Rheon Regr</title>
+  <style>
+    body {
+      margin: 0;
+      background: radial-gradient(circle at 20% 20%, #12345a, #090f1d 60%);
+      color: #e7f1ff;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      display: grid;
+      place-items: center;
+      height: 100vh;
+    }
+    .card {
+      padding: 20px 24px;
+      border-radius: 14px;
+      border: 1px solid rgba(199, 225, 255, 0.2);
+      background: rgba(5, 16, 32, 0.66);
+      box-shadow: 0 18px 48px rgba(0, 0, 0, 0.32);
+    }
+    strong { display: block; font-size: 18px; margin-bottom: 6px; }
+    span { color: #bfd4ef; font-size: 13px; letter-spacing: 0.03em; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <strong>Starting Rheon Regr...</strong>
+    <span>Launching local regression service</span>
+  </div>
+</body>
+</html>`;
+}
+
 function ensureMainWindow() {
   if (mainWindow && !mainWindow.isDestroyed()) {
     return mainWindow;
@@ -267,6 +323,7 @@ function ensureMainWindow() {
     height: 960,
     minWidth: 960,
     minHeight: 720,
+    show: true,
     backgroundColor: '#0f1117',
     title: 'Rheon Regr',
     webPreferences: {
@@ -284,6 +341,9 @@ function ensureMainWindow() {
 
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+  mainWindow.once('did-finish-load', () => {
+    presentMainWindow(mainWindow);
   });
 
   return mainWindow;
@@ -460,6 +520,10 @@ function buildMenu() {
 
 async function loadAppWindow() {
   const sourceRoot = resolveSourceRoot();
+  const window = ensureMainWindow();
+  presentMainWindow(window);
+  await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createLoadingHtml())}`);
+
   if (!sourceRoot) {
     await showStartupError(
       'Could not locate the Rheon checkout to launch.',
@@ -470,7 +534,6 @@ async function loadAppWindow() {
 
   try {
     const info = await startServer(sourceRoot);
-    const window = ensureMainWindow();
     await window.loadURL(buildServerUrl(info.host, info.port, pendingAttachPath));
   } catch (error) {
     const details = error instanceof Error ? error.message : String(error);
@@ -494,10 +557,7 @@ if (!app.requestSingleInstanceLock()) {
     }
 
     if (mainWindow) {
-      if (mainWindow.isMinimized()) {
-        mainWindow.restore();
-      }
-      mainWindow.focus();
+      presentMainWindow(mainWindow);
     }
   });
 }
@@ -512,6 +572,10 @@ app.on('window-all-closed', () => {
 });
 
 app.on('activate', () => {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    presentMainWindow(mainWindow);
+    return;
+  }
   if (BrowserWindow.getAllWindows().length === 0) {
     void loadAppWindow();
   }
@@ -530,5 +594,10 @@ app.on('open-file', (event, filePath) => {
 app.whenReady().then(async () => {
   buildMenu();
   applyDockIcon();
+  const window = ensureMainWindow();
+  presentMainWindow(window);
+  setTimeout(() => {
+    presentMainWindow(window);
+  }, 150);
   await loadAppWindow();
 });

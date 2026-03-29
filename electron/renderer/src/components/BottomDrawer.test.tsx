@@ -19,6 +19,8 @@ const draft: RunDraft = {
   verbosity: "",
   timeout_sec: "",
   max_failures: "",
+  inject_fail_every: "",
+  inject_fail_message_groups: "",
   waves: false,
   fail_fast: false,
 };

@@ -40,6 +40,7 @@ def test_build_config_from_payload_defaults_and_paths() -> None:
     assert config.stages == ("gen", "sim")
     assert config.waves is True
     assert config.max_failures is None
+    assert config.inject_fail_message_groups is None
     assert config.update == 2
     assert config.jobs == APP.default_parallel_jobs()
     assert config.output_dir == Path("./tmp-output").expanduser().resolve()

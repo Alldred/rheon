@@ -36,6 +36,8 @@ export interface RegressionConfigPayload {
   timeout_sec?: number | null;
   fail_fast?: boolean;
   max_failures?: number | null;
+  inject_fail_every?: number | null;
+  inject_fail_message_groups?: number | null;
   resume?: string | null;
 }
 
@@ -164,6 +166,8 @@ export interface RunDraft {
   verbosity: string;
   timeout_sec: string;
   max_failures: string;
+  inject_fail_every: string;
+  inject_fail_message_groups: string;
   waves: boolean;
   fail_fast: boolean;
 }
