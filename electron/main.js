@@ -21,25 +21,76 @@ let serverProcess = null;
 let serverInfo = null;
 let pendingAttachPath = parseCliArgs(process.argv).attachPath;
 let isQuitting = false;
+let windowLoadPromise = null;
+
+function errorMessage(error) {
+  return error instanceof Error ? error.message : String(error);
+}
+
+function logMainError(context, error) {
+  const detail = errorMessage(error);
+  console.error(`[rheon-electron] ${context}: ${detail}`);
+}
 
 function presentMainWindow(window) {
-  if (!window || window.isDestroyed()) {
+  if (isQuitting || !window || window.isDestroyed()) {
     return;
+  }
+  if (process.platform === 'darwin' && typeof app.isHidden === 'function' && app.isHidden()) {
+    app.show();
+  }
+  if (process.platform === 'darwin' && app.dock && typeof app.dock.show === 'function') {
+    app.dock.show();
   }
   if (window.isMinimized()) {
     window.restore();
   }
-  if (!window.isVisible()) {
-    window.show();
+
+  // macOS Spaces can retain stale window placement; briefly exposing the
+  // window on all workspaces mirrors Dock "reopen" behavior and pulls it
+  // into the current active desktop.
+  if (process.platform === 'darwin') {
+    window.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
   }
-  window.setVisibleOnAllWorkspaces(false, { visibleOnFullScreen: true });
-  window.focus();
+
+  window.show();
+  if (!window.isFocused()) {
+    window.focus();
+  }
   if (typeof window.moveTop === 'function') {
     window.moveTop();
   }
   if (typeof app.focus === 'function') {
-    app.focus({ steal: true });
+    app.focus();
   }
+
+  if (process.platform === 'darwin') {
+    setTimeout(() => {
+      if (!isQuitting && !window.isDestroyed()) {
+        window.setVisibleOnAllWorkspaces(false, { visibleOnFullScreen: true });
+      }
+    }, 120);
+  }
+}
+
+function resolveExistingMainWindow() {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    return mainWindow;
+  }
+  const existingWindow = BrowserWindow.getAllWindows().find((window) => !window.isDestroyed()) || null;
+  if (existingWindow) {
+    mainWindow = existingWindow;
+  }
+  return existingWindow;
+}
+
+function ensureMainWindowPresented() {
+  const window = resolveExistingMainWindow();
+  if (!window) {
+    return false;
+  }
+  presentMainWindow(window);
+  return true;
 }
 
 function resolveDockIconPath() {
@@ -314,6 +365,9 @@ function createLoadingHtml() {
 }
 
 function ensureMainWindow() {
+  if (isQuitting) {
+    return null;
+  }
   if (mainWindow && !mainWindow.isDestroyed()) {
     return mainWindow;
   }
@@ -323,7 +377,7 @@ function ensureMainWindow() {
     height: 960,
     minWidth: 960,
     minHeight: 720,
-    show: true,
+    show: false,
     backgroundColor: '#0f1117',
     title: 'Rheon Regr',
     webPreferences: {
@@ -342,6 +396,9 @@ function ensureMainWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+  mainWindow.once('ready-to-show', () => {
+    presentMainWindow(mainWindow);
+  });
   mainWindow.once('did-finish-load', () => {
     presentMainWindow(mainWindow);
   });
@@ -350,7 +407,13 @@ function ensureMainWindow() {
 }
 
 async function showStartupError(message, details = '') {
+  if (isQuitting) {
+    return;
+  }
   const window = ensureMainWindow();
+  if (!window) {
+    return;
+  }
   await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createErrorHtml(message, details))}`);
 }
 
@@ -435,11 +498,14 @@ async function startServer(sourceRoot) {
 }
 
 async function attachRegressionDirectory() {
-  if (!serverInfo) {
+  if (!serverInfo || isQuitting) {
     return;
   }
 
   const window = ensureMainWindow();
+  if (!window) {
+    return;
+  }
   const result = await dialog.showOpenDialog(window, {
     properties: ['openDirectory'],
     title: 'Attach Regression Output Directory',
@@ -519,32 +585,62 @@ function buildMenu() {
 }
 
 async function loadAppWindow() {
-  const sourceRoot = resolveSourceRoot();
-  const window = ensureMainWindow();
-  presentMainWindow(window);
-  await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createLoadingHtml())}`);
-
-  if (!sourceRoot) {
-    await showStartupError(
-      'Could not locate the Rheon checkout to launch.',
-      'Set RHEON_ROOT or rebuild the packaged app from the desired repo path.',
-    );
+  if (isQuitting) {
+    return;
+  }
+  if (windowLoadPromise) {
+    await windowLoadPromise;
     return;
   }
 
+  windowLoadPromise = (async () => {
+    const sourceRoot = resolveSourceRoot();
+    const window = ensureMainWindow();
+    if (!window) {
+      return;
+    }
+    presentMainWindow(window);
+    await window.loadURL(`data:text/html;charset=utf-8,${encodeURIComponent(createLoadingHtml())}`);
+    if (isQuitting) {
+      return;
+    }
+
+    if (!sourceRoot) {
+      await showStartupError(
+        'Could not locate the Rheon checkout to launch.',
+        'Set RHEON_ROOT or rebuild the packaged app from the desired repo path.',
+      );
+      return;
+    }
+
+    try {
+      const info = await startServer(sourceRoot);
+      if (isQuitting) {
+        return;
+      }
+      await window.loadURL(buildServerUrl(info.host, info.port, pendingAttachPath));
+      presentMainWindow(window);
+    } catch (error) {
+      if (isQuitting) {
+        return;
+      }
+      const details = error instanceof Error ? error.message : String(error);
+      await showStartupError(
+        'The desktop shell could not start the Rheon regression server.',
+        `${details}\n\nExpected repo root: ${sourceRoot}\nLog: ${serverInfo ? serverInfo.logPath : 'not created'}`,
+      );
+    }
+  })();
+
   try {
-    const info = await startServer(sourceRoot);
-    await window.loadURL(buildServerUrl(info.host, info.port, pendingAttachPath));
-  } catch (error) {
-    const details = error instanceof Error ? error.message : String(error);
-    await showStartupError(
-      'The desktop shell could not start the Rheon regression server.',
-      `${details}\n\nExpected repo root: ${sourceRoot}\nLog: ${serverInfo ? serverInfo.logPath : 'not created'}`,
-    );
+    await windowLoadPromise;
+  } finally {
+    windowLoadPromise = null;
   }
 }
 
 if (!app.requestSingleInstanceLock()) {
+  isQuitting = true;
   app.quit();
 } else {
   app.on('second-instance', (_event, argv) => {
@@ -556,8 +652,11 @@ if (!app.requestSingleInstanceLock()) {
       }
     }
 
-    if (mainWindow) {
-      presentMainWindow(mainWindow);
+    if (ensureMainWindowPresented()) {
+      return;
+    }
+    if (app.isReady() && !isQuitting) {
+      void loadAppWindow();
     }
   });
 }
@@ -565,20 +664,24 @@ if (!app.requestSingleInstanceLock()) {
 app.on('before-quit', () => {
   isQuitting = true;
   stopServer();
+  for (const window of BrowserWindow.getAllWindows()) {
+    if (!window.isDestroyed()) {
+      window.destroy();
+    }
+  }
 });
 
 app.on('window-all-closed', () => {
+  isQuitting = true;
+  stopServer();
   app.quit();
 });
 
 app.on('activate', () => {
-  if (mainWindow && !mainWindow.isDestroyed()) {
-    presentMainWindow(mainWindow);
+  if (ensureMainWindowPresented()) {
     return;
   }
-  if (BrowserWindow.getAllWindows().length === 0) {
-    void loadAppWindow();
-  }
+  void loadAppWindow();
 });
 
 app.on('open-file', (event, filePath) => {
@@ -592,12 +695,47 @@ app.on('open-file', (event, filePath) => {
 });
 
 app.whenReady().then(async () => {
-  buildMenu();
-  applyDockIcon();
-  const window = ensureMainWindow();
-  presentMainWindow(window);
-  setTimeout(() => {
-    presentMainWindow(window);
-  }, 150);
-  await loadAppWindow();
+  if (isQuitting) {
+    return;
+  }
+
+  try {
+    await loadAppWindow();
+  } catch (error) {
+    logMainError('initial loadAppWindow failed', error);
+    const details = errorMessage(error);
+    await showStartupError(
+      'The desktop shell hit an unexpected startup failure.',
+      details,
+    );
+  }
+
+  try {
+    buildMenu();
+  } catch (error) {
+    logMainError('buildMenu failed', error);
+  }
+
+  try {
+    applyDockIcon();
+  } catch (error) {
+    logMainError('applyDockIcon failed', error);
+  }
+
+  if (!ensureMainWindowPresented()) {
+    void loadAppWindow();
+  }
+
+  // Startup watchdog: if app becomes active without a visible window, run the
+  // same create/show flow used by Dock activation.
+  [250, 900].forEach((delayMs) => {
+    setTimeout(() => {
+      if (isQuitting) {
+        return;
+      }
+      if (!ensureMainWindowPresented()) {
+        void loadAppWindow();
+      }
+    }, delayMs);
+  });
 });
