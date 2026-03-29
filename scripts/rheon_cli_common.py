@@ -84,6 +84,7 @@ class RegressionFileConfigModel(BaseModel):
     fail_fast: bool | None = None
     max_failures: int | None = None
     inject_fail_every: int | None = None
+    inject_fail_message_groups: int | None = None
     resume: str | None = None
     report_json: str | None = None
     tests: list[RegressionFileTestModel] = Field(default_factory=list)
@@ -119,6 +120,13 @@ class RegressionFileConfigModel(BaseModel):
     @field_validator("inject_fail_every")
     @classmethod
     def validate_inject_fail_every(cls, value: int | None) -> int | None:
+        if value is not None and value < 1:
+            raise ValueError("must be >= 1")
+        return value
+
+    @field_validator("inject_fail_message_groups")
+    @classmethod
+    def validate_inject_fail_message_groups(cls, value: int | None) -> int | None:
         if value is not None and value < 1:
             raise ValueError("must be >= 1")
         return value
@@ -174,6 +182,7 @@ class RegressionConfig:
     fail_fast: bool
     max_failures: int | None
     inject_fail_every: int | None
+    inject_fail_message_groups: int | None
     report_json: Path | None
 
 
@@ -438,6 +447,7 @@ def regression_file_payload(
             "fail_fast": config.fail_fast,
             "max_failures": config.max_failures,
             "inject_fail_every": config.inject_fail_every,
+            "inject_fail_message_groups": config.inject_fail_message_groups,
             "resume": str(config.resume) if config.resume else None,
             "report_json": str(config.report_json) if config.report_json else None,
             "tests": [
@@ -616,6 +626,15 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
             inject_fail_every_arg, field="--inject-fail-every", min_value=1
         )
 
+    inject_fail_message_groups = regression_model.inject_fail_message_groups
+    inject_fail_message_groups_arg = getattr(args, "inject_fail_message_groups", None)
+    if inject_fail_message_groups_arg is not None:
+        inject_fail_message_groups = _coerce_int(
+            inject_fail_message_groups_arg,
+            field="--inject-fail-message-groups",
+            min_value=1,
+        )
+
     resume_dir = (
         _resolve_resume_path(regression_model.resume)
         if regression_model.resume
@@ -654,6 +673,7 @@ def build_regression_config(args: argparse.Namespace) -> RegressionConfig:
         fail_fast=fail_fast,
         max_failures=max_failures,
         inject_fail_every=inject_fail_every,
+        inject_fail_message_groups=inject_fail_message_groups,
         report_json=report_json,
     )
 
@@ -812,6 +832,7 @@ def _job_fingerprint(job: RegressionJob, config: RegressionConfig) -> dict[str, 
         "coverage": config.coverage,
         "timeout_sec": config.timeout_sec,
         "inject_fail_every": config.inject_fail_every,
+        "inject_fail_message_groups": config.inject_fail_message_groups,
     }
 
 
@@ -824,21 +845,34 @@ def _apply_fault_injection(result: JobResult, config: RegressionConfig) -> JobRe
     if result.job.index % inject_every != 0:
         return result
 
-    group_labels = (
+    base_labels = (
         "pc_mismatch",
         "next_pc_mismatch",
         "register_mismatch",
         "memory_mismatch",
+        "csr_mismatch",
+        "bus_error",
+        "decode_fault",
+        "hazard_violation",
     )
-    group_mnemonics = (
+    base_mnemonics = (
         "beq x1, x2, 0x10",
         "jal x0, 0x20",
         "add x5, x6, x7",
         "lw x3, 0(x4)",
+        "csrrw x0, mstatus, x1",
+        "sw x6, 0(x7)",
+        "xor x8, x8, x8",
+        "bne x4, x5, 0x08",
     )
-    group_index = ((result.job.index // inject_every) - 1) % len(group_labels)
-    group_label = group_labels[group_index]
-    group_asm = group_mnemonics[group_index]
+    group_count = max(1, int(config.inject_fail_message_groups or 4))
+    group_index = ((result.job.index // inject_every) - 1) % group_count
+    group_label = (
+        base_labels[group_index]
+        if group_index < len(base_labels)
+        else f"injected_group_{group_index + 1}"
+    )
+    group_asm = base_mnemonics[group_index % len(base_mnemonics)]
 
     try:
         with result.log_path.open("a", encoding="utf-8") as handle:
@@ -1050,6 +1084,16 @@ def _enrich_failed_result(result: JobResult) -> JobResult:
     summary, pc_val, instr_hex, instr_asm, mismatched_fields = _extract_triage_from_log(
         result.log_path
     )
+    if summary is None:
+        summary = result.triage_summary
+    if pc_val is None:
+        pc_val = result.triage_pc
+    if instr_hex is None:
+        instr_hex = result.triage_instr_hex
+    if instr_asm is None:
+        instr_asm = result.triage_instr_asm
+    if not mismatched_fields:
+        mismatched_fields = result.triage_mismatched_fields
     if summary and result.status_reason == "failed":
         reason = "mismatch"
     else:

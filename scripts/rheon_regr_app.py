@@ -162,6 +162,11 @@ def build_config_from_payload(
     inject_fail_every = _coerce_optional_int(
         payload.get("inject_fail_every"), field="inject_fail_every", min_value=1
     )
+    inject_fail_message_groups = _coerce_optional_int(
+        payload.get("inject_fail_message_groups"),
+        field="inject_fail_message_groups",
+        min_value=1,
+    )
     resume_raw = payload.get("resume")
     output_dir = _coerce_optional_path(payload.get("output_dir"), field="output_dir")
     report_json = _coerce_optional_path(payload.get("report_json"), field="report_json")
@@ -190,6 +195,7 @@ def build_config_from_payload(
         fail_fast=bool(fail_fast),
         max_failures=max_failures,
         inject_fail_every=inject_fail_every,
+        inject_fail_message_groups=inject_fail_message_groups,
         report_json=report_json,
     )
     return config, regression_file_payload(config)
@@ -225,6 +231,7 @@ def build_config_from_yaml(raw_yaml: str) -> RegressionConfig:
         else False,
         max_failures=regression.max_failures,
         inject_fail_every=regression.inject_fail_every,
+        inject_fail_message_groups=regression.inject_fail_message_groups,
         report_json=Path(regression.report_json) if regression.report_json else None,
     )
 
@@ -290,6 +297,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
     timeout_sec = _try_int(meta.get("timeout_sec"))
     max_failures = _try_int(meta.get("max_failures"))
     inject_fail_every = _try_int(meta.get("inject_fail_every"))
+    inject_fail_message_groups = _try_int(meta.get("inject_fail_message_groups"))
     verbosity = _coerce_optional_str(meta.get("verbosity"))
     stages = meta.get("stages")
     if isinstance(stages, str):
@@ -311,6 +319,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
             "fail_fast" in meta,
             max_failures is not None,
             inject_fail_every is not None,
+            inject_fail_message_groups is not None,
         ]
     )
     if not has_explicit_config:
@@ -328,6 +337,7 @@ def _config_from_meta(meta: dict[str, Any], output_dir: Path) -> dict[str, Any] 
         "fail_fast": bool(meta.get("fail_fast", False)),
         "max_failures": max_failures,
         "inject_fail_every": inject_fail_every,
+        "inject_fail_message_groups": inject_fail_message_groups,
     }
     compact = {
         key: value for key, value in payload.items() if value not in (None, [], "")

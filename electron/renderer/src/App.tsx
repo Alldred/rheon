@@ -562,6 +562,7 @@ export default function App() {
       timeout_sec: "45",
       max_failures: "12",
       inject_fail_every: "3",
+      inject_fail_message_groups: "4",
       waves: true,
       fail_fast: false,
     }));

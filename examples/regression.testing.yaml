@@ -9,6 +9,7 @@
 #
 # Notes:
 # - This uses deterministic failure injection (inject_fail_every) so pass/fail mix is stable.
+# - inject_fail_message_groups controls how many distinct synthetic fail triage groups appear.
 # - timeout_sec keeps runs in the ~30-60s/job range on typical dev machines.
 # - Keep fail_fast disabled so both passed and failed jobs accumulate.
 # - If jobs are too fast on your machine, lower timeout_sec slightly.
@@ -25,6 +26,7 @@ regression:
   fail_fast: false
   max_failures: 12
   inject_fail_every: 3
+  inject_fail_message_groups: 4
   tests:
     - name: simple
       count: 8

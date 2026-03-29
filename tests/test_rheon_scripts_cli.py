@@ -47,6 +47,7 @@ def _args(**overrides: object) -> argparse.Namespace:
         "fail_fast": None,
         "max_failures": None,
         "inject_fail_every": None,
+        "inject_fail_message_groups": None,
         "report_json": None,
     }
     base.update(overrides)
@@ -95,6 +96,7 @@ regression:
   timeout_sec: 60
   max_failures: 4
   inject_fail_every: 5
+  inject_fail_message_groups: 6
   tests:
     - name: from_file
       count: 2
@@ -113,6 +115,7 @@ regression:
             fail_fast=True,
             max_failures=2,
             inject_fail_every=3,
+            inject_fail_message_groups=4,
             report_json=tmp_path / "report.json",
         )
     )
@@ -125,6 +128,7 @@ regression:
     assert config.fail_fast is True
     assert config.max_failures == 2
     assert config.inject_fail_every == 3
+    assert config.inject_fail_message_groups == 4
     assert config.report_json == (tmp_path / "report.json")
     assert [item.name for item in config.tests] == ["from_file", "from_cli"]
 
@@ -258,6 +262,7 @@ def test_help_includes_new_flags_and_latest() -> None:
     assert "--fail-fast" in help_text
     assert "--max-failures" in help_text
     assert "--inject-fail-every" in help_text
+    assert "--inject-fail-message-groups" in help_text
     assert "--report-json" in help_text
     assert "--coverage" in help_text
     assert "--resume latest" in help_text

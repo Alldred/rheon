@@ -180,6 +180,14 @@ def build_parser() -> argparse.ArgumentParser:
         ),
     )
     parser.add_argument(
+        "--inject-fail-message-groups",
+        type=int,
+        default=None,
+        help=(
+            "Number of distinct synthetic fail-message groups to cycle across injected failures"
+        ),
+    )
+    parser.add_argument(
         "--report-json",
         type=Path,
         default=None,

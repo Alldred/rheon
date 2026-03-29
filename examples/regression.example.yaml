@@ -19,6 +19,7 @@ regression:
   # fail_fast: true
   # max_failures: 10
   # inject_fail_every: 3
+  # inject_fail_message_groups: 4
   # report_json: runs/regressions/nightly_report.json
   tests:
     - name: simple
