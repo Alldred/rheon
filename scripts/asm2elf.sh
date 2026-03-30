@@ -9,7 +9,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 RHEON_ROOT="$(cd "$SCRIPT_DIR/.." && pwd)"
 RISCV_PREFIX="${RISCV_PREFIX:-riscv64-unknown-elf-}"
 LD_SCRIPT="${RISCV_LD_SCRIPT:-$SCRIPT_DIR/riscv_bare.ld}"
-RISCV_MARCH="${RISCV_MARCH:-rv64i_zicsr}"
+RISCV_MARCH="${RISCV_MARCH:-rv64i_zicsr_zicond}"
 RISCV_MABI="${RISCV_MABI:-lp64}"
 
 LINK=false

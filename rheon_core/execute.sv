@@ -17,7 +17,7 @@ module execute #(
   input  logic [XLEN-1:0] rdata2,
   input  logic [XLEN-1:0] imm,
   input  logic [ADDR_W-1:0] pc,
-  input  logic [3:0]  alu_op,
+  input  logic [4:0]  alu_op,
   input  logic        is_branch,
   input  logic [2:0]  branch_funct3,
   input  logic        is_jal,

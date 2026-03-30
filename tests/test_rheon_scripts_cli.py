@@ -271,6 +271,7 @@ def test_help_includes_new_flags_and_latest() -> None:
 def test_asm_mnemonic_uses_opcode_only() -> None:
     assert REGR_CLI._asm_mnemonic("slli x0, x1, 0x3") == "slli"  # noqa: SLF001
     assert REGR_CLI._asm_mnemonic("  JAL x0, 88 ") == "jal"  # noqa: SLF001
+    assert REGR_CLI._asm_mnemonic("czero.eqz x1, x2, x3") == "czero.eqz"  # noqa: SLF001
     assert REGR_CLI._asm_mnemonic(None) == "unknown"  # noqa: SLF001
 
 

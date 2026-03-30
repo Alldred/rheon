@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Stuart Alldred.
-// DECODE: RV64I instruction decode, produces control bundle + rs1/rs2/imm.
+// DECODE: RV64I + Zicond instruction decode, produces control bundle + rs1/rs2/imm.
 // GPR read and forwarding are done in the top; this module is combinatorial decode only.
 
 import rheon_pkg::*;
@@ -13,7 +13,7 @@ module decode (
   output logic [4:0]  rs1,
   output logic [4:0]  rs2,
   output logic [XLEN-1:0] imm,
-  output logic [3:0]  alu_op,
+  output logic [4:0]  alu_op,
   output logic        is_branch,
   output logic [2:0]  branch_funct3,
   output logic        is_jal,
@@ -68,22 +68,24 @@ module decode (
   end
 
   // ALU op encoding (match alu.sv)
-  localparam [3:0]
-    ALU_ADD   = 4'd0,
-    ALU_SUB   = 4'd1,
-    ALU_SLL   = 4'd2,
-    ALU_SLT   = 4'd3,
-    ALU_SLTU  = 4'd4,
-    ALU_XOR   = 4'd5,
-    ALU_SRL   = 4'd6,
-    ALU_SRA   = 4'd7,
-    ALU_OR    = 4'd8,
-    ALU_AND   = 4'd9,
-    ALU_ADDW  = 4'd10,
-    ALU_SUBW  = 4'd11,
-    ALU_SLLW  = 4'd12,
-    ALU_SRLW  = 4'd13,
-    ALU_SRAW  = 4'd14;
+  localparam [4:0]
+    ALU_ADD   = 5'd0,
+    ALU_SUB   = 5'd1,
+    ALU_SLL   = 5'd2,
+    ALU_SLT   = 5'd3,
+    ALU_SLTU  = 5'd4,
+    ALU_XOR   = 5'd5,
+    ALU_SRL   = 5'd6,
+    ALU_SRA   = 5'd7,
+    ALU_OR    = 5'd8,
+    ALU_AND   = 5'd9,
+    ALU_ADDW  = 5'd10,
+    ALU_SUBW  = 5'd11,
+    ALU_SLLW  = 5'd12,
+    ALU_SRLW  = 5'd13,
+    ALU_SRAW  = 5'd14,
+    ALU_CZERO_EQZ = 5'd15,
+    ALU_CZERO_NEZ = 5'd16;
 
   always_comb begin
     alu_op = ALU_ADD;
@@ -170,17 +172,25 @@ module decode (
       end
       7'b0110011: begin // reg arith
         wb_src_alu = 1'b1;
-        case (funct3)
-          3'b000: alu_op = (funct7[5] ? ALU_SUB : ALU_ADD);
-          3'b001: alu_op = ALU_SLL;
-          3'b010: alu_op = ALU_SLT;
-          3'b011: alu_op = ALU_SLTU;
-          3'b100: alu_op = ALU_XOR;
-          3'b101: alu_op = (funct7[5] ? ALU_SRA : ALU_SRL);
-          3'b110: alu_op = ALU_OR;
-          3'b111: alu_op = ALU_AND;
-          default: alu_op = ALU_ADD;
-        endcase
+        if (funct7 == 7'b0000111) begin
+          case (funct3)
+            3'b101: alu_op = ALU_CZERO_EQZ;
+            3'b111: alu_op = ALU_CZERO_NEZ;
+            default: alu_op = ALU_ADD;
+          endcase
+        end else begin
+          case (funct3)
+            3'b000: alu_op = (funct7[5] ? ALU_SUB : ALU_ADD);
+            3'b001: alu_op = ALU_SLL;
+            3'b010: alu_op = ALU_SLT;
+            3'b011: alu_op = ALU_SLTU;
+            3'b100: alu_op = ALU_XOR;
+            3'b101: alu_op = (funct7[5] ? ALU_SRA : ALU_SRL);
+            3'b110: alu_op = ALU_OR;
+            3'b111: alu_op = ALU_AND;
+            default: alu_op = ALU_ADD;
+          endcase
+        end
       end
       7'b0111011: begin // reg W
         wb_src_alu = 1'b1;

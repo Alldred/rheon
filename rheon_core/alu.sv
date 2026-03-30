@@ -1,32 +1,34 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 Stuart Alldred.
-// RV64I ALU: arithmetic, shifts, compare, logic. No M extension.
+// RV64I + Zicond ALU: arithmetic, shifts, compare, logic, conditional-zero. No M extension.
 
 import rheon_pkg::*;
 
 module alu (
   input  logic [XLEN-1:0] op_a,
   input  logic [XLEN-1:0] op_b,
-  input  logic [3:0]     op,      // alu_op encoding
+  input  logic [4:0]      op,      // alu_op encoding
   output logic [XLEN-1:0] result
 );
 
-  localparam [3:0]
-    ALU_ADD   = 4'd0,
-    ALU_SUB   = 4'd1,
-    ALU_SLL   = 4'd2,
-    ALU_SLT   = 4'd3,
-    ALU_SLTU  = 4'd4,
-    ALU_XOR   = 4'd5,
-    ALU_SRL   = 4'd6,
-    ALU_SRA   = 4'd7,
-    ALU_OR    = 4'd8,
-    ALU_AND   = 4'd9,
-    ALU_ADDW  = 4'd10,
-    ALU_SUBW  = 4'd11,
-    ALU_SLLW  = 4'd12,
-    ALU_SRLW  = 4'd13,
-    ALU_SRAW  = 4'd14;
+  localparam [4:0]
+    ALU_ADD   = 5'd0,
+    ALU_SUB   = 5'd1,
+    ALU_SLL   = 5'd2,
+    ALU_SLT   = 5'd3,
+    ALU_SLTU  = 5'd4,
+    ALU_XOR   = 5'd5,
+    ALU_SRL   = 5'd6,
+    ALU_SRA   = 5'd7,
+    ALU_OR    = 5'd8,
+    ALU_AND   = 5'd9,
+    ALU_ADDW  = 5'd10,
+    ALU_SUBW  = 5'd11,
+    ALU_SLLW  = 5'd12,
+    ALU_SRLW  = 5'd13,
+    ALU_SRAW  = 5'd14,
+    ALU_CZERO_EQZ = 5'd15,
+    ALU_CZERO_NEZ = 5'd16;
 
   logic [XLEN-1:0] add_sub_result, shift_result, w_result;
   logic [31:0]      op_a_lo, op_b_lo, addw_subw_lo, shiftw_lo;
@@ -84,6 +86,8 @@ module alu (
       ALU_OR:             result = op_a | op_b;
       ALU_AND:            result = op_a & op_b;
       ALU_ADDW, ALU_SUBW, ALU_SLLW, ALU_SRLW, ALU_SRAW: result = w_result;
+      ALU_CZERO_EQZ:      result = (op_b == '0) ? '0 : op_a;
+      ALU_CZERO_NEZ:      result = (op_b != '0) ? '0 : op_a;
       default:            result = add_sub_result;
     endcase
   end
