@@ -77,7 +77,7 @@ module rheon_core #(
   // ----- DECODE (combinatorial) -----
   logic [4:0]  dec_rd, dec_rs1, dec_rs2;
   logic [XLEN-1:0] dec_imm;
-  logic [3:0]  dec_alu_op;
+  logic [4:0]  dec_alu_op;
   logic        dec_is_branch;
   logic [2:0]  dec_branch_funct3;
   logic        dec_is_jal, dec_is_jalr;
@@ -148,7 +148,7 @@ module rheon_core #(
   logic [INSTR_WIDTH-1:0] e_instr_r;
   logic [XLEN-1:0] e_rdata1, e_rdata2, e_imm_r;
   logic [ADDR_W-1:0] e_pc_r;
-  logic [3:0]  e_alu_op_r;
+  logic [4:0]  e_alu_op_r;
   logic        e_is_branch_r, e_is_jal_r, e_is_jalr_r, e_is_load_r, e_is_store_r;
   logic [2:0]  e_branch_funct3_r, e_load_store_funct3_r;
   logic        e_wb_src_alu_r, e_wb_src_pc4_r, e_wb_src_load_r;

@@ -1,0 +1,11 @@
+<!--
+  ~ SPDX-License-Identifier: MIT
+  ~ Copyright (c) 2026 Stuart Alldred.
+  -->
+
+<testsuites name="results">
+  <testsuite name="all" package="all">
+    <property name="random_seed" value="1774906638" />
+    <testcase name="test_elf_loaded" classname="tb" file="/Users/stuartalldred/Code/rheon/.venv/lib/python3.13/site-packages/forastero/bench.py" lineno="630" time="1.0836148262023926" sim_time_ns="1467.0" ratio_time="1353.8020748029157" />
+  </testsuite>
+</testsuites>

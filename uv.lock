@@ -255,7 +255,7 @@ sdist = { url = "https://files.pythonhosted.org/packages/a2/55/8f8cab2afd404cf57
 [[package]]
 name = "eumos"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/Alldred/eumos.git#fb3f7772a9e75102e1070d1c8acfdc856232068a" }
+source = { git = "ssh://git@github.com/Alldred/eumos.git#862fb5c7d9810d42937f2750f1c9cd1a78d581c1" }
 dependencies = [
     { name = "pre-commit" },
     { name = "pykwalify" },
@@ -426,7 +426,7 @@ wheels = [
 [[package]]
 name = "lome"
 version = "0.1.0"
-source = { git = "ssh://git@github.com/Alldred/lome.git#bf419910ec6e1f5f66896f953c5e9c86672149c8" }
+source = { git = "ssh://git@github.com/Alldred/lome.git#0a254df8dc9346a6ea858e426153599439e94733" }
 dependencies = [
     { name = "eumos" },
 ]
@@ -1147,7 +1147,7 @@ wheels = [
 [[package]]
 name = "tibbar"
 version = "0.1.0"
-source = { git = "https://github.com/Alldred/tibbar.git#ec4ed677fd4ec97cf59080a0ea1b9482377fcaff" }
+source = { git = "https://github.com/Alldred/tibbar.git#7faec40b004168887b60539fe411829dee925d68" }
 dependencies = [
     { name = "eumos" },
     { name = "jsonschema" },

@@ -5,7 +5,7 @@
 
 # rheon_core
 
-Minimal RV64I 4-stage RISC-V core (FETCH, DECODE, EXECUTE, COMMIT) in SystemVerilog.
+Minimal RV64I + Zicond (`czero.eqz` / `czero.nez`) 4-stage RISC-V core (FETCH, DECODE, EXECUTE, COMMIT) in SystemVerilog.
 
 ## Layout
 
