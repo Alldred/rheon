@@ -42,5 +42,11 @@ packages = ["tb", "testcases"]
 [tool.hatch.metadata]
 allow-direct-references = true
 
+[tool.uv]
+# python-constraint 1.4.0 on PyPI is only a .tar.bz2 sdist; uv 0.12+ rejects it.
+override-dependencies = [
+    "python-constraint @ git+https://github.com/python-constraint/python-constraint.git@1.4.0",
+]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]
