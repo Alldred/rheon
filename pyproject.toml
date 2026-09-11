@@ -14,15 +14,14 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
     "cocotb>=2.0",
-    "bucket @ git+https://github.com/VyperCore/bucket.git",
+    "noodle-bucket>=2,<3",
     "forastero @ git+https://github.com/Intuity/forastero.git",
-    "gitpython==3.1.41",
     "packtype",
     "pydantic>=2.8.2",
     "pyelftools>=0.31",
     "PyYAML>=6.0.2",
     "rich>=13.9.4",
-    "lome @ git+ssh://git@github.com/Alldred/lome.git",
+    "lome @ git+https://github.com/Alldred/lome.git",
     "tibbar @ git+https://github.com/Alldred/tibbar.git",
 ]
 
@@ -37,11 +36,11 @@ docs = [
     "mkdocs-material>=9.6.0",
 ]
 
-[project.scripts]
-rheon = "rheon.__main__:cli"
-
 [tool.hatch.build.targets.wheel]
-packages = ["rheon"]
+packages = ["tb", "testcases"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

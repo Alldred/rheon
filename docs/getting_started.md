@@ -103,11 +103,7 @@ Inside the Rheon shell:
 Run Python CLI/regression tests first:
 
 ```bash
-pytest \
-  tests/test_rheon_scripts_cli.py \
-  tests/test_rheon_regr_app.py \
-  tests/test_rheon_regr_app_launcher.py \
-  tests/test_rheon_regress.py -q
+pytest -q
 ```
 
 Run first Tibbar-based end-to-end test (`simple`):

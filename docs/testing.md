@@ -21,11 +21,7 @@ Start in the project shell:
 Then run:
 
 ```bash
-pytest \
-  tests/test_rheon_scripts_cli.py \
-  tests/test_rheon_regr_app.py \
-  tests/test_rheon_regr_app_launcher.py \
-  tests/test_rheon_regress.py -q
+pytest -q
 ```
 
 First end-to-end test:

@@ -114,11 +114,7 @@ run_smoke_tests() {
   fi
 
   log "Running CLI/regression smoke tests"
-  uv run pytest \
-    tests/test_rheon_scripts_cli.py \
-    tests/test_rheon_regr_app.py \
-    tests/test_rheon_regr_app_launcher.py \
-    tests/test_rheon_regress.py -q
+  uv run pytest -q
 
   log "Running first end-to-end test: simple"
   uv run bin/rheon_run --test simple --seed 1
