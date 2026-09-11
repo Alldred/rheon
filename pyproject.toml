@@ -23,7 +23,6 @@ dependencies = [
     "rich>=13.9.4",
     "lome @ git+https://github.com/Alldred/lome.git",
     "tibbar @ git+https://github.com/Alldred/tibbar.git",
-    "python-constraint2>=2.7",
 ]
 
 [project.optional-dependencies]
@@ -42,13 +41,6 @@ packages = ["tb", "testcases"]
 
 [tool.hatch.metadata]
 allow-direct-references = true
-
-[tool.uv]
-# Tibbar still asks for python-constraint 1.4.0 (legacy .tar.bz2). Drop that
-# requirement and use the maintained python-constraint2 wheels instead.
-override-dependencies = [
-    "python-constraint ; python_version < '0'",
-]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

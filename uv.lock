@@ -2,9 +2,6 @@ version = 1
 revision = 3
 requires-python = ">=3.13"
 
-[manifest]
-overrides = [{ name = "python-constraint", marker = "python_full_version < '0'" }]
-
 [[package]]
 name = "annotated-types"
 version = "0.7.0"
@@ -965,7 +962,6 @@ dependencies = [
     { name = "packtype" },
     { name = "pydantic" },
     { name = "pyelftools" },
-    { name = "python-constraint2" },
     { name = "pyyaml" },
     { name = "rich" },
     { name = "tibbar" },
@@ -996,7 +992,6 @@ requires-dist = [
     { name = "pyelftools", specifier = ">=0.31" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.1" },
     { name = "pytest-cov", marker = "extra == 'dev'", specifier = ">=4.1.0" },
-    { name = "python-constraint2", specifier = ">=2.7" },
     { name = "pyyaml", specifier = ">=6.0.2" },
     { name = "rich", specifier = ">=13.9.4" },
     { name = "tibbar", git = "https://github.com/Alldred/tibbar.git" },
@@ -1142,13 +1137,14 @@ wheels = [
 [[package]]
 name = "tibbar"
 version = "0.1.0"
-source = { git = "https://github.com/Alldred/tibbar.git#724d8e69a5266f8b1973ec75a3e8a0c6ad91bc58" }
+source = { git = "https://github.com/Alldred/tibbar.git#82a259789df7b0e4ae9a7da62175563f3977927b" }
 dependencies = [
     { name = "eumos" },
     { name = "jsonschema" },
     { name = "lome" },
     { name = "pre-commit" },
     { name = "pykwalify" },
+    { name = "python-constraint2" },
     { name = "pyyaml" },
 ]
 
