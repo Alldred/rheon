@@ -44,6 +44,6 @@ def test_sample_commit_ignores_non_i_instructions() -> None:
     mnemonic_cp = collector.coverage.i_extension_mnemonic
     operand_cp = collector.coverage.i_extension_operand_class
 
-    assert mnemonic_cp._cvg_hits[("addi",)] == 1
-    assert sum(mnemonic_cp._cvg_hits.values()) == 1
-    assert sum(operand_cp._cvg_hits.values()) == 1
+    assert mnemonic_cp._hit_count("addi") == 1
+    assert sum(mnemonic_cp._hits) == 1
+    assert sum(operand_cp._hits) == 1

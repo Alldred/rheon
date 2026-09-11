@@ -212,4 +212,6 @@ __marimo__/
 # Project
 sim_build/
 runs/
+sim.log
+results.xml
 scripts/rheon_regr_app_assets/assets/index-*.js
